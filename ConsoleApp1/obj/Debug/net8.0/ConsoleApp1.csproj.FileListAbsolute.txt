@@ -20,3 +20,7 @@
 /home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ConsoleApp1.pdb
 /home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ConsoleApp1.genruntimeconfig.cache
 /home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ref/ConsoleApp1.dll
+/home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ConsoleApp1.sourcelink.json
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/ConcurrentCollections.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.Interactivity.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.SlashCommands.dll

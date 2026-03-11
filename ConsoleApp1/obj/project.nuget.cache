@@ -1,11 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "pzOABm2uYtDxNcJaYEUtijdKBbCAxCjtBIbUJ1gGAdzEuEnsl8W7VR+PwPA3ZnEd3EPKd6gySDzg2iVnM+YXng==",
+  "dgSpecHash": "J50qvoku4lpQ8t15cA/Dc98M/pAoQMDH4bN8P5GRE+hNIKRSo2RL3/iCx4j4nj/fcQ5Cws5eVQz5ig7jJEYC2Q==",
   "success": true,
   "projectFilePath": "/home/rafael/cornwallbot/ConsoleApp1/ConsoleApp1.csproj",
   "expectedPackageFiles": [
+    "/home/rafael/.nuget/packages/concurrenthashset/1.3.0/concurrenthashset.1.3.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/dsharpplus/4.5.1/dsharpplus.4.5.1.nupkg.sha512",
     "/home/rafael/.nuget/packages/dsharpplus.commandsnext/4.5.1/dsharpplus.commandsnext.4.5.1.nupkg.sha512",
+    "/home/rafael/.nuget/packages/dsharpplus.interactivity/4.5.1/dsharpplus.interactivity.4.5.1.nupkg.sha512",
+    "/home/rafael/.nuget/packages/dsharpplus.slashcommands/4.5.1/dsharpplus.slashcommands.4.5.1.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.dependencyinjection/5.0.1/microsoft.extensions.dependencyinjection.5.0.1.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/5.0.0/microsoft.extensions.dependencyinjection.abstractions.5.0.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.logging.abstractions/5.0.0/microsoft.extensions.logging.abstractions.5.0.0.nupkg.sha512",

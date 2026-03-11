@@ -1,7 +1,10 @@
-﻿using CornwallUtilities.commands;
+﻿using CornwallSlashCommandsUtility;
+using CornwallUtilities.commands;
 using CornwallUtilities.config;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
+using DSharpPlus.SlashCommands;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,8 +15,8 @@ namespace CornwallUtilities
 {
     internal class Program
     {
-        private static DiscordClient Client { get; set; }
-        private static CommandsNextExtension Commands { get; set; }
+        private static DiscordClient? Client { get; set; }
+        private static CommandsNextExtension? Commands { get; set; }
 
         static async Task Main(string[] args)
         {
@@ -34,15 +37,25 @@ namespace CornwallUtilities
 
             var commandsConfig = new CommandsNextConfiguration()
             {
-              StringPrefixes = new string[] { jsonReader.prefix},
+              StringPrefixes = new string[] { jsonReader.prefix ?? "-"},
               EnableMentionPrefix = true,
               EnableDms = true,
               EnableDefaultHelp = false,  
             };
 
+            var slashCommandsConfig = new DSharpPlus.SlashCommands.SlashCommandsConfiguration()
+            {
+               Services = null,
+            };
+
             Commands = Client.UseCommandsNext(commandsConfig);
 
             Commands.RegisterCommands<UtilityCommands>();
+
+            var slashCommands = Client.UseSlashCommands(slashCommandsConfig);
+            slashCommands.RegisterCommands<UtilitySlashCommands>();
+            slashCommands.RegisterCommands<CheckSpreadsheetInfo>();
+            slashCommands.RegisterCommands<DmRolesCertainRoles>();
 
             await Client.ConnectAsync();
             await Task.Delay(-1);
