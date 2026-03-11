@@ -168,22 +168,34 @@ namespace CornwallUtilities.commands
             // Envia log para canal específico
             if (config.enlistLogChannelId.HasValue)
             {
-                if (ctx.Guild.Channels.TryGetValue(config.enlistLogChannelId.Value, out var logChannel))
+                try
                 {
-                    var logEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("32nd Regiment - Recruit Log")
-                        .WithDescription("Registro de alistamento realizado com sucesso.")
-                        .WithColor(DiscordColor.Blurple)
-                        .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
-                        .WithFooter("Recruit log gerado por CornwallBot", ctx.Client.CurrentUser.AvatarUrl)
-                        .WithTimestamp(DateTimeOffset.UtcNow)
-                        .AddField("Executor", ctx.User.Mention, true)
-                        .AddField("Alistado", user.Mention, true)
-                        .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false)
-                        .AddField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true)
-                        .AddField("Verificação de alt", "Não", true);
+                    var logChannel = ctx.Guild.GetChannel(config.enlistLogChannelId.Value);
+                    if (logChannel != null)
+                    {
+                        var logEmbed = new DiscordEmbedBuilder()
+                            .WithTitle("32nd Regiment - Recruit Log")
+                            .WithDescription("Registro de alistamento realizado com sucesso.")
+                            .WithColor(DiscordColor.Blurple)
+                            .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
+                            .WithFooter("Recruit log gerado por CornwallBot", ctx.Client.CurrentUser.AvatarUrl)
+                            .WithTimestamp(DateTimeOffset.UtcNow)
+                            .AddField("Executor", ctx.User.Mention, true)
+                            .AddField("Alistado", user.Mention, true)
+                            .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false)
+                            .AddField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true)
+                            .AddField("Verificação de alt", "Não", true);
 
-                    await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
+                        await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
+                    }
+                    else
+                    {
+                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de logs configurado. Verifique o `enlistLogChannelId` no config.");
+                    }
+                }
+                catch
+                {
+                    await ctx.Channel.SendMessageAsync("Ocorreu um erro ao tentar enviar a mensagem no canal de logs. Verifique se o ID está correto e se o bot tem permissão para enviar mensagens lá.");
                 }
             }
 

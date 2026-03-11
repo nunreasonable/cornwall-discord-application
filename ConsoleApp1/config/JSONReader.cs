@@ -21,7 +21,7 @@ namespace CornwallUtilities.config
 
         public async Task ReadJSON()
         {
-            using var sr = new StreamReader("config.json");
+            using var sr = new StreamReader("config/config.json");
             var json = await sr.ReadToEndAsync();
             var data = JsonConvert.DeserializeObject<JSONStructure>(json);
 
