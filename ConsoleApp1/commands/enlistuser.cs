@@ -88,24 +88,43 @@ namespace CornwallUtilities.commands
             var promptMessage = await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(confirmEmbed).AddComponents(buttons));
 
             var interactivity = ctx.Client.GetInteractivity();
-            var result = await interactivity.WaitForButtonAsync(
-                promptMessage,
-                x => x.User.Id == ctx.User.Id &&
-                     (x.Id == "enlist_not_alt" || x.Id == "enlist_is_alt"),
-                TimeSpan.FromMinutes(3));
+            var timeout = TimeSpan.FromMinutes(3);
+            var endTime = DateTimeOffset.UtcNow + timeout;
 
-            if (result.TimedOut)
+            while (true)
             {
-                var timeoutEmbed = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Nenhuma confirmação foi recebida. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
+                var remaining = endTime - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    var timeoutEmbed = new DiscordEmbedBuilder()
+                        .WithTitle("Tempo esgotado")
+                        .WithDescription("Nenhuma confirmação foi recebida. Execute o comando novamente quando estiver pronto.")
+                        .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutEmbed));
-                return;
-            }
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutEmbed));
+                    return;
+                }
 
-            await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.UpdateMessage, new DiscordInteractionResponseBuilder()
+                var result = await interactivity.WaitForButtonAsync(
+                    promptMessage,
+                    TimeSpan.FromSeconds(Math.Min(30, remaining.TotalSeconds)));
+
+                if (result.TimedOut)
+                    continue;
+
+                // Se não foi o usuário que executou o comando, avisa de forma ephemeral e continua esperando
+                if (result.Result.User.Id != ctx.User.Id)
+                {
+                    await result.Result.Interaction.CreateResponseAsync(
+                        InteractionResponseType.ChannelMessageWithSource,
+                        new DiscordInteractionResponseBuilder()
+                            .WithContent("Apenas quem executou o comando pode usar esses botões.")
+                            .AsEphemeral(true));
+                    continue;
+                }
+
+                // Só sai do loop quando for o autor do comando
+                await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.UpdateMessage, new DiscordInteractionResponseBuilder()
                 .AddEmbed(new DiscordEmbedBuilder()
                     .WithTitle("Confirmação recebida")
                     .WithDescription(result.Result.Id == "enlist_is_alt"
@@ -113,15 +132,18 @@ namespace CornwallUtilities.commands
                         : "Confirmado que não é alt. O alistamento seguirá.")
                     .WithColor(result.Result.Id == "enlist_is_alt" ? DiscordColor.IndianRed : DiscordColor.Green)));
 
-            if (result.Result.Id == "enlist_is_alt")
-            {
-                var altEmbed = new DiscordEmbedBuilder()
-                    .WithTitle("Alistamento bloqueado")
-                    .WithDescription("O usuário não pôde ser alistado pois foi marcado como conta alternativa (alt).")
-                    .WithColor(DiscordColor.IndianRed);
+                if (result.Result.Id == "enlist_is_alt")
+                {
+                    var altEmbed = new DiscordEmbedBuilder()
+                        .WithTitle("Alistamento bloqueado")
+                        .WithDescription("O usuário não pôde ser alistado pois foi marcado como conta alternativa (alt).")
+                        .WithColor(DiscordColor.IndianRed);
 
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(altEmbed));
-                return;
+                    await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(altEmbed));
+                    return;
+                }
+
+                break;
             }
 
             // Adiciona cargos ao membro (ignorando cargos que ele já possui)
@@ -165,13 +187,13 @@ namespace CornwallUtilities.commands
                 }
             }
 
-            // Envia log para canal específico
+            // Envia log para canal específico (busca o canal na API do Discord para não depender do cache)
             if (config.enlistLogChannelId.HasValue)
             {
                 try
                 {
-                    var logChannel = ctx.Guild.GetChannel(config.enlistLogChannelId.Value);
-                    if (logChannel != null)
+                    var logChannel = await ctx.Client.GetChannelAsync(config.enlistLogChannelId.Value);
+                    if (logChannel != null && logChannel.GuildId == ctx.Guild.Id)
                     {
                         var logEmbed = new DiscordEmbedBuilder()
                             .WithTitle("32nd Regiment - Recruit Log")
@@ -188,14 +210,20 @@ namespace CornwallUtilities.commands
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
                     }
+                    else if (logChannel == null)
+                    {
+                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de logs (ID inválido ou canal de outro servidor?). Verifique o `enlistLogChannelId` no config.json.");
+                    }
                     else
                     {
-                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de logs configurado. Verifique o `enlistLogChannelId` no config.");
+                        await ctx.Channel.SendMessageAsync("O canal de logs configurado pertence a outro servidor. Verifique o `enlistLogChannelId` no config.json.");
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    await ctx.Channel.SendMessageAsync("Ocorreu um erro ao tentar enviar a mensagem no canal de logs. Verifique se o ID está correto e se o bot tem permissão para enviar mensagens lá.");
+                    var err = ex.Message ?? "";
+                    if (err.Length > 150) err = err[..147] + "...";
+                    await ctx.Channel.SendMessageAsync($"Erro ao enviar log no canal de logs: **{err}**. Verifique se o ID do canal está correto e se o bot tem permissão **Ver canal** e **Enviar mensagens** nesse canal.");
                 }
             }
 

@@ -14,6 +14,15 @@ namespace CornwallUtilities.commands
     {
         private const string FallbackGameLink = "https://example.com";
 
+        /// <summary>Mensagem curta em PT-BR para falha de DM (ex.: 403 = usuário não aceita DMs).</summary>
+        private static string DmFailureReason(Exception ex)
+        {
+            var msg = ex.Message ?? "";
+            if (msg.Contains("403") || msg.Contains("50007") || msg.Contains("Cannot send messages", StringComparison.OrdinalIgnoreCase))
+                return "DMs desativadas ou bot bloqueado";
+            return msg.Length > 80 ? msg[..77] + "..." : msg;
+        }
+
         [SlashCommand("dmrole", "Envia uma DM para um usuário ou para todos os membros de um cargo.")]
         public async Task DmRoleCommand(
             InteractionContext ctx,
@@ -42,6 +51,30 @@ namespace CornwallUtilities.commands
                 return;
             }
 
+            if (!config.enlistPermissionRoleId.HasValue)
+            {
+                var missingConfig = new DiscordEmbedBuilder()
+                    .WithTitle("Configuração inválida")
+                    .WithDescription("O ID do cargo com permissão para usar este comando não está configurado. Verifique o arquivo config.json (enlistPermissionRoleId).")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(missingConfig));
+                return;
+            }
+
+            var requiredRoleId = config.enlistPermissionRoleId.Value;
+            var hasPermission = ctx.Member?.Roles.Any(r => r.Id == requiredRoleId) ?? false;
+            if (!hasPermission)
+            {
+                var permEmbed = new DiscordEmbedBuilder()
+                    .WithTitle("Permissão negada")
+                    .WithDescription("Você não possui o cargo necessário para usar este comando.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(permEmbed));
+                return;
+            }
+
             if (role == null && user == null)
             {
                 var missingEmbed = new DiscordEmbedBuilder()
@@ -57,28 +90,7 @@ namespace CornwallUtilities.commands
 
             if (user != null)
             {
-                // Prefer fetching guild member if the user is in this guild; otherwise fall back to DMing the user object.
-                try
-                {
-                    var guildUser = await ctx.Guild.GetMemberAsync(user.Id);
-                    membersToDm = new List<DiscordMember> { guildUser };
-                }
-                catch
-                {
-                    membersToDm = new List<DiscordMember>();
-                }
-            }
-            else
-            {
-                membersToDm = ctx.Guild.Members.Values
-                    .Where(m => role != null && m.Roles.Contains(role) && !m.IsBot)
-                    .ToList();
-            }
-
-            if (user != null)
-            {
-                // Ensure the user is a member of this guild (only members can be DMed via DiscordMember).
-                DiscordMember? guildMember = null;
+                DiscordMember guildMember;
                 try
                 {
                     guildMember = await ctx.Guild.GetMemberAsync(user.Id);
@@ -95,6 +107,14 @@ namespace CornwallUtilities.commands
                 }
 
                 membersToDm = new List<DiscordMember> { guildMember };
+            }
+            else
+            {
+                // GetAllMembersAsync busca todos os membros na API do Discord; o cache (Members) só tem uma parte.
+                var allMembers = await ctx.Guild.GetAllMembersAsync();
+                membersToDm = allMembers
+                    .Where(m => role != null && m.Roles.Contains(role) && !m.IsBot)
+                    .ToList();
             }
 
             if (membersToDm.Count == 0)
@@ -124,11 +144,12 @@ namespace CornwallUtilities.commands
                 ? $"{membersToDm[0].Username}#{membersToDm[0].Discriminator}"
                 : (role?.Name ?? "destinatário");
 
+            // Link só no content para o Discord mostrar o preview; não duplicar no embed.
+            var content = string.IsNullOrWhiteSpace(gameLink) ? null : gameLink;
             var dmEmbed = new DiscordEmbedBuilder()
                 .WithTitle($"Mensagem para {targetName}")
                 .WithColor(DiscordColor.Blurple)
                 .AddField("Código", string.IsNullOrWhiteSpace(code) ? "(nenhum)" : code, true)
-                .AddField("Link do jogo", gameLink, false)
                 .AddField("Mensagem", string.IsNullOrWhiteSpace(messageBody) ? "(nenhuma mensagem extra)" : messageBody, false)
                 .WithTimestamp(DateTimeOffset.UtcNow);
 
@@ -136,18 +157,23 @@ namespace CornwallUtilities.commands
             var failed = 0;
             var failedUsers = new List<string>();
 
+            var builtEmbed = dmEmbed.Build();
+
             foreach (var member in membersToDm)
             {
                 try
                 {
                     var dmChannel = await member.CreateDmChannelAsync();
-                    await dmChannel.SendMessageAsync(embed: dmEmbed);
+                    var messageBuilder = new DiscordMessageBuilder().AddEmbed(builtEmbed);
+                    if (!string.IsNullOrEmpty(content))
+                        messageBuilder.WithContent(content);
+                    await dmChannel.SendMessageAsync(messageBuilder);
                     sent++;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     failed++;
-                    failedUsers.Add($"{member.Username}#{member.Discriminator}");
+                    failedUsers.Add($"{member.Username}#{member.Discriminator} ({DmFailureReason(ex)})");
                 }
 
                 // Small delay to reduce the chance of hitting global rate limits
@@ -166,7 +192,10 @@ namespace CornwallUtilities.commands
             if (failed > 0)
             {
                 var failedList = string.Join(", ", failedUsers.Take(10));
-                summary.WithDescription($"Falha ao enviar para {failed} usuário(s). Exemplo: {failedList}{(failed > 10 ? "..." : "")}");
+                var hint = failed == membersToDm.Count
+                    ? " Ninguém recebeu: verifique se os destinatários permitem DMs de membros do servidor (Configurações do usuário > Privacidade)."
+                    : "";
+                summary.WithDescription($"Falha ao enviar para {failed} usuário(s). Exemplo: {failedList}{(failed > 10 ? "..." : "")}.{hint}");
             }
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(summary));

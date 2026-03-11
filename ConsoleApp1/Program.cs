@@ -1,4 +1,4 @@
-﻿using CornwallSlashCommandsUtility;
+using CornwallSlashCommandsUtility;
 using CornwallUtilities.commands;
 using CornwallUtilities.config;
 using DSharpPlus;
@@ -27,7 +27,7 @@ namespace CornwallUtilities
 
             var discordConfig = new DiscordConfiguration()
             {
-                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMessages | DiscordIntents.MessageContents,
+                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages | DiscordIntents.MessageContents,
                 Token = jsonReader.token,
                 TokenType = TokenType.Bot,
                 AutoReconnect = true
