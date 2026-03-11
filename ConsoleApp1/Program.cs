@@ -3,6 +3,8 @@ using CornwallUtilities.commands;
 using CornwallUtilities.config;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
+using DSharpPlus.Interactivity;
+using DSharpPlus.Interactivity.Extensions;
 using DSharpPlus.SlashCommands;
 using Microsoft.VisualBasic;
 using System;
@@ -33,6 +35,12 @@ namespace CornwallUtilities
 
             Client = new DiscordClient(discordConfig);
 
+            // Habilita a extensão de interatividade para aguardar cliques em botões
+            Client.UseInteractivity(new InteractivityConfiguration
+            {
+                Timeout = TimeSpan.FromMinutes(3)
+            });
+
             Client.Ready += Client_Ready;
 
             var commandsConfig = new CommandsNextConfiguration()
@@ -56,6 +64,8 @@ namespace CornwallUtilities
             slashCommands.RegisterCommands<UtilitySlashCommands>();
             slashCommands.RegisterCommands<CheckSpreadsheetInfo>();
             slashCommands.RegisterCommands<DmRolesCertainRoles>();
+            slashCommands.RegisterCommands<DmAnyMessage>();
+            slashCommands.RegisterCommands<EnlistUser>();
 
             await Client.ConnectAsync();
             await Task.Delay(-1);

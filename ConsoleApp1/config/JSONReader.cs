@@ -13,6 +13,12 @@ namespace CornwallUtilities.config
         public string? spreadsheetRosterCsvUrl { get; private set; }
         public string? defaultGameLink { get; private set; }
 
+        // Config used by the /enlistuser slash command
+        public ulong? enlistPermissionRoleId { get; private set; }
+        public ulong? enlistLogChannelId { get; private set; }
+        public string? enlistAltCheckUrl { get; private set; }
+        public ulong[]? enlistTargetRoleIds { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config.json");
@@ -24,6 +30,11 @@ namespace CornwallUtilities.config
             spreadsheetCsvUrl = data?.spreadsheetCsvUrl;
             spreadsheetRosterCsvUrl = data?.spreadsheetRosterCsvUrl;
             defaultGameLink = data?.defaultGameLink;
+
+            enlistPermissionRoleId = data?.enlistPermissionRoleId;
+            enlistLogChannelId = data?.enlistLogChannelId;
+            enlistAltCheckUrl = data?.enlistAltCheckUrl;
+            enlistTargetRoleIds = data?.enlistTargetRoleIds;
         }
     }
 
@@ -34,5 +45,11 @@ namespace CornwallUtilities.config
         public string? spreadsheetCsvUrl { get; set; }
         public string? spreadsheetRosterCsvUrl { get; set; }
         public string? defaultGameLink { get; set; }
+
+        // Config for /enlistuser
+        public ulong? enlistPermissionRoleId { get; set; }
+        public ulong? enlistLogChannelId { get; set; }
+        public string? enlistAltCheckUrl { get; set; }
+        public ulong[]? enlistTargetRoleIds { get; set; }
     }
 }
