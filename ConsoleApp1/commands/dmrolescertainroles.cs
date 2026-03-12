@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CornwallUtilities;
 using CornwallUtilities.config;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -161,6 +162,8 @@ namespace CornwallUtilities.commands
 
             foreach (var member in membersToDm)
             {
+                await DmRateLimiter.WaitForSlotAsync();
+
                 try
                 {
                     var dmChannel = await member.CreateDmChannelAsync();
@@ -176,7 +179,7 @@ namespace CornwallUtilities.commands
                     failedUsers.Add($"{member.Username}#{member.Discriminator} ({DmFailureReason(ex)})");
                 }
 
-                // Small delay to reduce the chance of hitting global rate limits
+                // Space out sends so we don't burst when under the 10/3min limit
                 await Task.Delay(1200);
             }
 
