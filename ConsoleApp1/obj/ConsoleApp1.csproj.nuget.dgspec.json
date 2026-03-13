@@ -45,7 +45,7 @@
           "dependencies": {
             "DisCatSharp": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Analyzer": {
               "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
@@ -55,7 +55,7 @@
             },
             "DisCatSharp.ApplicationCommands": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Attributes": {
               "target": "Package",
@@ -63,51 +63,27 @@
             },
             "DisCatSharp.CommandsNext": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Common": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Configuration": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Experimental": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
-            },
-            "DisCatSharp.Extensions.OAuth2Web": {
-              "target": "Package",
-              "version": "[3.2.0-nightly-005, )"
-            },
-            "DisCatSharp.Extensions.TwoFactorCommands": {
-              "target": "Package",
-              "version": "[3.2.0-nightly-005, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Hosting": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
-            },
-            "DisCatSharp.Hosting.DependencyInjection": {
-              "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "DisCatSharp.Interactivity": {
               "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
-            },
-            "DisCatSharp.Lavalink": {
-              "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
-            },
-            "DisCatSharp.Voice": {
-              "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
-            },
-            "DisCatSharp.Voice.Natives": {
-              "target": "Package",
-              "version": "[10.7.0-nightly-072, )"
+              "version": "[10.6.7, )"
             },
             "Newtonsoft.Json": {
               "target": "Package",

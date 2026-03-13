@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 
 namespace CornwallSlashCommandsUtility
 {
@@ -14,7 +16,7 @@ namespace CornwallSlashCommandsUtility
         public async Task PingCommand(InteractionContext ctx)
         {
             var latency = ctx.Client.Ping;
-            await ctx.CreateResponseAsync(DisCatSharp.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
+            await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
                 .WithContent($"Pong! Latência: {latency}ms"));
         }
     }

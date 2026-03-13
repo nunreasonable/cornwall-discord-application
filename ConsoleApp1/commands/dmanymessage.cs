@@ -8,6 +8,8 @@ using DisCatSharp;
 using DisCatSharp.Entities;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 
 namespace CornwallUtilities.commands
 {
@@ -90,7 +92,7 @@ namespace CornwallUtilities.commands
                 {
                     var guildMember = await ctx.Guild.GetMemberAsync(user.Id);
                     membersToDm = new List<DiscordMember> { guildMember };
-                    targetName = $"{guildMember.Username}#{guildMember.Discriminator}";
+                    targetName = guildMember.DisplayName ?? guildMember.Username;
                 }
                 catch
                 {
@@ -167,7 +169,7 @@ namespace CornwallUtilities.commands
                 catch (Exception ex)
                 {
                     failed++;
-                    failedUsers.Add($"{member.Username}#{member.Discriminator} ({DmFailureReason(ex)})");
+                    failedUsers.Add($"{member.DisplayName ?? member.Username} ({DmFailureReason(ex)})");
                 }
 
                 // Space out sends so we don't burst when under the 10/3min limit
@@ -177,10 +179,10 @@ namespace CornwallUtilities.commands
             var summary = new DiscordEmbedBuilder()
                 .WithTitle("Envio finalizado")
                 .WithColor(DiscordColor.Green)
-                .AddField("Alvo", targetName, true)
-                .AddField("Total de destinatários", membersToDm.Count.ToString(), true)
-                .AddField("Mensagens enviadas", sent.ToString(), true)
-                .AddField("Falhas", failed.ToString(), true)
+                .AddField(new DiscordEmbedField("Alvo", targetName, true))
+                .AddField(new DiscordEmbedField("Total de destinatários", membersToDm.Count.ToString(), true))
+                .AddField(new DiscordEmbedField("Mensagens enviadas", sent.ToString(), true))
+                .AddField(new DiscordEmbedField("Falhas", failed.ToString(), true))
                 .WithTimestamp(DateTimeOffset.UtcNow);
 
             if (failed > 0)

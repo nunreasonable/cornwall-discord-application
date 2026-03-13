@@ -2,11 +2,14 @@ using CornwallSlashCommandsUtility;
 using CornwallUtilities.commands;
 using CornwallUtilities.config;
 using DisCatSharp;
+using DisCatSharp.Enums;
+using DisCatSharp.Entities;
 using DisCatSharp.CommandsNext;
 using DisCatSharp.Interactivity;
 using DisCatSharp.Interactivity.Extensions;
 using DisCatSharp.ApplicationCommands;
-using Microsoft.VisualBasic;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,28 +48,22 @@ namespace CornwallUtilities
 
             var commandsConfig = new CommandsNextConfiguration()
             {
-              StringPrefixes = new string[] { jsonReader.prefix ?? "-"},
-              EnableMentionPrefix = true,
-              EnableDms = true,
-              EnableDefaultHelp = false,  
+                StringPrefixes = new List<string> { jsonReader.prefix ?? "-" },
+                EnableMentionPrefix = true,
+                EnableDms = true,
+                EnableDefaultHelp = false  
             };
 
-            var slashCommandsConfig = new ApplicationCommandsConfiguration()
-            {
-               Services = null,
-            };
+            var slashCommandsConfig = new ApplicationCommandsConfiguration();
 
             Commands = Client.UseCommandsNext(commandsConfig);
 
-            Commands.RegisterCommands<UtilityCommands>();
-
             var slashCommands = Client.UseApplicationCommands(slashCommandsConfig);
-            slashCommands.RegisterCommands<UtilitySlashCommands>();
-            slashCommands.RegisterCommands<CheckSpreadsheetInfo>();
-            slashCommands.RegisterCommands<DmRolesCertainRoles>();
-            slashCommands.RegisterCommands<DmAnyMessage>();
-            slashCommands.RegisterCommands<EnlistUser>();
-            slashCommands.RegisterCommands<RobloxEnlist>();
+            slashCommands.RegisterGlobalCommands<CheckSpreadsheetInfo>();
+            slashCommands.RegisterGlobalCommands<DmRolesCertainRoles>();
+            slashCommands.RegisterGlobalCommands<DmAnyMessage>();
+            slashCommands.RegisterGlobalCommands<EnlistUser>();
+            slashCommands.RegisterGlobalCommands<RobloxEnlist>();
 
             await Client.ConnectAsync();
             await Task.Delay(-1);

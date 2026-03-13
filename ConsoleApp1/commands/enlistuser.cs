@@ -8,6 +8,8 @@ using DisCatSharp.Entities;
 using DisCatSharp.Interactivity.Extensions;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 
 namespace CornwallUtilities.commands
 {
@@ -120,7 +122,7 @@ namespace CornwallUtilities.commands
                         InteractionResponseType.ChannelMessageWithSource,
                         new DiscordInteractionResponseBuilder()
                             .WithContent("Apenas quem executou o comando pode usar esses botões.")
-                            .AsEphemeral(true));
+                            .AsEphemeral());
                     continue;
                 }
 
@@ -200,14 +202,14 @@ namespace CornwallUtilities.commands
                             .WithTitle("32nd Regiment - Recruit Log")
                             .WithDescription("Registro de alistamento realizado com sucesso.")
                             .WithColor(DiscordColor.Blurple)
-                            .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
+                            .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                             .WithFooter("Recruit log gerado por CornwallBot", ctx.Client.CurrentUser.AvatarUrl)
                             .WithTimestamp(DateTimeOffset.UtcNow)
-                            .AddField("Executor", ctx.User.Mention, true)
-                            .AddField("Alistado", user.Mention, true)
-                            .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false)
-                            .AddField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true)
-                            .AddField("Verificação de alt", "Não", true);
+                            .AddField(new DiscordEmbedField("Executor", ctx.User.Mention, true))
+                            .AddField(new DiscordEmbedField("Alistado", user.Mention, true))
+                            .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
+                            .AddField(new DiscordEmbedField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true))
+                            .AddField(new DiscordEmbedField("Verificação de alt", "Não", true));
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
                     }
@@ -232,11 +234,11 @@ namespace CornwallUtilities.commands
                 .WithTitle("32nd Regiment - Alistamento bem-sucedido")
                 .WithDescription($"O usuário **{user.Username}** foi alistado com sucesso.")
                 .WithColor(DiscordColor.Green)
-                .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
+                .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                 .WithFooter("Confirmação de alistamento", ctx.Client.CurrentUser.AvatarUrl)
                 .WithTimestamp(DateTimeOffset.UtcNow)
-                .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true)
-                .AddField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true);
+                .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true))
+                .AddField(new DiscordEmbedField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true));
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }

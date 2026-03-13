@@ -10,13 +10,15 @@ using DisCatSharp.Entities;
 using DisCatSharp.Interactivity.Extensions;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 using Newtonsoft.Json.Linq;
 
 namespace CornwallUtilities.commands
 {
     internal class RobloxEnlist : ApplicationCommandsModule
     {
-        [SlashCommand("robloxenlist", "Aliste-se usando verificação automática de conta ROBLOX + formulário.")]
+        [SlashCommand("alistar-se", "Aliste-se usando verificação automática de conta ROBLOX + formulário.")]
         public async Task RobloxEnlistCommand(InteractionContext ctx)
         {
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
@@ -320,9 +322,9 @@ namespace CornwallUtilities.commands
                     .WithTitle("Alistamento negado - Conta provavelmente ALT")
                     .WithDescription("A conta ROBLOX fornecida não atende aos critérios mínimos de confiabilidade.")
                     .WithColor(DiscordColor.IndianRed)
-                    .AddField("Idade da conta", $"{accountAge.Days} dias", true)
-                    .AddField("Amigos", friendsCount.ToString(), true)
-                    .AddField("Badges (bônus)", badgeCount.ToString(), true);
+                    .AddField(new DiscordEmbedField("Idade da conta", $"{accountAge.Days} dias", true))
+                    .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
+                    .AddField(new DiscordEmbedField("Badges (bônus)", badgeCount.ToString(), true));
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(deniedEmbed));
                 return;
@@ -378,20 +380,20 @@ namespace CornwallUtilities.commands
                             .WithTitle("32nd Regiment - Recruit Log (ROBLOX)")
                             .WithDescription("Registro de alistamento realizado com verificação automática de conta ROBLOX.")
                             .WithColor(DiscordColor.Blurple)
-                            .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
+                            .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                             .WithFooter("Recruit log gerado por CornwallBot", ctx.Client.CurrentUser.AvatarUrl)
                             .WithTimestamp(DateTimeOffset.UtcNow)
-                            .AddField("Executor / Alistado", ctx.User.Mention, true)
-                            .AddField("Nome no ROBLOX", robloxName, true)
-                            .AddField("ROBLOX ID", robloxUserId.ToString(), true)
-                            .AddField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true)
-                            .AddField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true)
-                            .AddField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true)
-                            .AddField("Idade da conta (dias)", accountAge.Days.ToString(), true)
-                            .AddField("Amigos", friendsCount.ToString(), true)
-                            .AddField("Badges", badgeCount.ToString(), true)
-                            .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false)
-                            .AddField("Verificação de alt", "Automática (aprovado)", true);
+                            .AddField(new DiscordEmbedField("Executor / Alistado", ctx.User.Mention, true))
+                            .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
+                            .AddField(new DiscordEmbedField("ROBLOX ID", robloxUserId.ToString(), true))
+                            .AddField(new DiscordEmbedField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true))
+                            .AddField(new DiscordEmbedField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true))
+                            .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true))
+                            .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
+                            .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
+                            .AddField(new DiscordEmbedField("Badges", badgeCount.ToString(), true))
+                            .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
+                            .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
                     }
@@ -405,14 +407,14 @@ namespace CornwallUtilities.commands
                 .WithTitle("32nd Regiment - Alistamento bem-sucedido (ROBLOX)")
                 .WithDescription($"Você foi alistado com sucesso após passar na verificação automática da sua conta ROBLOX.")
                 .WithColor(DiscordColor.Green)
-                .WithThumbnail(targetMember.GetAvatarUrl(ImageFormat.Auto))
+                .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                 .WithFooter("Confirmação de alistamento ROBLOX", ctx.Client.CurrentUser.AvatarUrl)
                 .WithTimestamp(DateTimeOffset.UtcNow)
-                .AddField("Nome no ROBLOX", robloxName, true)
-                .AddField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true)
-                .AddField("ROBLOX - idade da conta (dias)", accountAge.Days.ToString(), true)
-                .AddField("ROBLOX - amigos", friendsCount.ToString(), true)
-                .AddField("ROBLOX - badges", badgeCount.ToString(), true);
+                .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
+                .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true))
+                .AddField(new DiscordEmbedField("ROBLOX - idade da conta (dias)", accountAge.Days.ToString(), true))
+                .AddField(new DiscordEmbedField("ROBLOX - amigos", friendsCount.ToString(), true))
+                .AddField(new DiscordEmbedField("ROBLOX - badges", badgeCount.ToString(), true));
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }

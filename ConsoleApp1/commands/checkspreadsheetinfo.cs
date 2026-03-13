@@ -16,10 +16,10 @@ namespace CornwallUtilities.commands
     internal class CheckSpreadsheetInfo : ApplicationCommandsModule
     {
         [SlashCommand("checkspreadsheetinfo", "Verifica as informações da planilha Regimental")]
-        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option'("username", "Seu nome de usuário na planilha (coluna de identificação)." )] string username)
+        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option("username", "Seu nome de usuário na planilha (coluna de identificação).")] string username)
         {
             // Defer response while we fetch the spreadsheet and prepare the embed
-            await ctx.CreateResponseAsync(DisCatSharp.InteractionResponseType.DeferredChannelMessageWithSource);
+            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
             var config = new JSONReader();
             await config.ReadJSON();
@@ -78,9 +78,9 @@ namespace CornwallUtilities.commands
                     var notFoundEmbed = new DiscordEmbedBuilder()
                         .WithTitle("Usuário não encontrado")
                         .WithDescription($"Nenhum registro para **{username}** foi encontrado na coluna D da planilha.")
-                        .WithColor(DiscordColor.IndianRed)
-                        .AddField("Coluna pesquisada", usernameColumnName, true)
-                        .AddField("Total de linhas", rows.Count.ToString(), true);
+                        .WithColor(DiscordColor.IndianRed);
+                        notFoundEmbed.AddField(new DiscordEmbedField("Coluna pesquisada", usernameColumnName, true))
+                        .AddField(new DiscordEmbedField("Total de linhas", rows.Count.ToString(), true));
 
                     await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(notFoundEmbed));
                     return;
@@ -93,8 +93,8 @@ namespace CornwallUtilities.commands
                     .WithDescription($"Dados encontrados para **{username}** (coluna D: **{usernameColumnName}**).")
                     .WithColor(DiscordColor.Blurple)
                     .WithTimestamp(DateTimeOffset.UtcNow)
-                    .AddField("Linhas totais", rows.Count.ToString(), true)
-                    .AddField("Resultados encontrados", matchingRows.Count.ToString(), true);
+                    .AddField(new DiscordEmbedField("Linhas totais", rows.Count.ToString(), true))
+                    .AddField(new DiscordEmbedField("Resultados encontrados", matchingRows.Count.ToString(), true));
 
                 // Build a display of all columns for the matched row, using the labels from row 4
                 // Skip columns where both the label and the value are empty.
@@ -122,7 +122,7 @@ namespace CornwallUtilities.commands
                 {
                     if (fieldText.Length + line.Length + 1 > 900) // keep some headroom
                     {
-                        embed.AddField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false);
+                        embed.AddField(new DiscordEmbedField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false));
                         fieldText.Clear();
                         fieldCount++;
 
@@ -137,7 +137,7 @@ namespace CornwallUtilities.commands
 
                 if (fieldText.Length > 0 && fieldCount < 25)
                 {
-                    embed.AddField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false);
+                    embed.AddField(new DiscordEmbedField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false));
                 }
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
@@ -147,7 +147,7 @@ namespace CornwallUtilities.commands
                 var errEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Erro ao buscar planilha")
                     .WithDescription("Não foi possível ler os dados da planilha. Verifique o URL e a disponibilidade da planilha.")
-                    .AddField("Detalhes", ex.Message)
+                    .AddField(new DiscordEmbedField("Detalhes", ex.Message, false))
                     .WithColor(DiscordColor.IndianRed);
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
