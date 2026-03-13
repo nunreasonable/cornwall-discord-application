@@ -5,13 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities;
 using CornwallUtilities.config;
-using DSharpPlus;
-using DSharpPlus.Entities;
-using DSharpPlus.SlashCommands;
+using DisCatSharp;
+using DisCatSharp.Entities;
+using DisCatSharp.ApplicationCommands;
+using DisCatSharp.Enums;
 
 namespace CornwallUtilities.commands
 {
-    internal class DmRolesCertainRoles : ApplicationCommandModule
+    internal class DmRolesCertainRoles : ApplicationCommandsModule
     {
         private const string FallbackGameLink = "https://example.com";
 

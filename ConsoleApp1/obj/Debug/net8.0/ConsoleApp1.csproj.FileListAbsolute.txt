@@ -3,8 +3,6 @@
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/ConsoleApp1.runtimeconfig.json
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/ConsoleApp1.dll
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/ConsoleApp1.pdb
-/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.dll
-/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.CommandsNext.dll
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/Microsoft.Extensions.DependencyInjection.dll
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/Microsoft.Extensions.Logging.Abstractions.dll
@@ -22,5 +20,9 @@
 /home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ref/ConsoleApp1.dll
 /home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/ConsoleApp1.sourcelink.json
 /home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/ConcurrentCollections.dll
-/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.Interactivity.dll
-/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DSharpPlus.SlashCommands.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DisCatSharp.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DisCatSharp.ApplicationCommands.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DisCatSharp.CommandsNext.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DisCatSharp.Common.dll
+/home/rafael/cornwallbot/ConsoleApp1/bin/Debug/net8.0/DisCatSharp.Interactivity.dll
+/home/rafael/cornwallbot/ConsoleApp1/obj/Debug/net8.0/Sentry.Attributes.cs

@@ -1,11 +1,11 @@
 using CornwallSlashCommandsUtility;
 using CornwallUtilities.commands;
 using CornwallUtilities.config;
-using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.Interactivity;
-using DSharpPlus.Interactivity.Extensions;
-using DSharpPlus.SlashCommands;
+using DisCatSharp;
+using DisCatSharp.CommandsNext;
+using DisCatSharp.Interactivity;
+using DisCatSharp.Interactivity.Extensions;
+using DisCatSharp.ApplicationCommands;
 using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
@@ -27,7 +27,7 @@ namespace CornwallUtilities
 
             var discordConfig = new DiscordConfiguration()
             {
-                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages | DiscordIntents.MessageContents,
+                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages,
                 Token = jsonReader.token,
                 TokenType = TokenType.Bot,
                 AutoReconnect = true
@@ -51,7 +51,7 @@ namespace CornwallUtilities
               EnableDefaultHelp = false,  
             };
 
-            var slashCommandsConfig = new DSharpPlus.SlashCommands.SlashCommandsConfiguration()
+            var slashCommandsConfig = new ApplicationCommandsConfiguration()
             {
                Services = null,
             };
@@ -60,18 +60,19 @@ namespace CornwallUtilities
 
             Commands.RegisterCommands<UtilityCommands>();
 
-            var slashCommands = Client.UseSlashCommands(slashCommandsConfig);
+            var slashCommands = Client.UseApplicationCommands(slashCommandsConfig);
             slashCommands.RegisterCommands<UtilitySlashCommands>();
             slashCommands.RegisterCommands<CheckSpreadsheetInfo>();
             slashCommands.RegisterCommands<DmRolesCertainRoles>();
             slashCommands.RegisterCommands<DmAnyMessage>();
             slashCommands.RegisterCommands<EnlistUser>();
+            slashCommands.RegisterCommands<RobloxEnlist>();
 
             await Client.ConnectAsync();
             await Task.Delay(-1);
         }
 
-        private static Task Client_Ready(DiscordClient sender, DSharpPlus.EventArgs.ReadyEventArgs e)
+        private static Task Client_Ready(DiscordClient sender, DisCatSharp.EventArgs.ReadyEventArgs e)
         {
             Console.WriteLine("Bot is ready!");
             return Task.CompletedTask;

@@ -19,6 +19,10 @@ namespace CornwallUtilities.config
         public string? enlistAltCheckUrl { get; private set; }
         public ulong[]? enlistTargetRoleIds { get; private set; }
 
+        // Config used by the ROBLOX enlistment command
+        public ulong? robloxEnlistChannelId { get; private set; }
+        public ulong[]? robloxEnlistBlockedRoleIds { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config/config.json");
@@ -35,6 +39,9 @@ namespace CornwallUtilities.config
             enlistLogChannelId = data?.enlistLogChannelId;
             enlistAltCheckUrl = data?.enlistAltCheckUrl;
             enlistTargetRoleIds = data?.enlistTargetRoleIds;
+
+            robloxEnlistChannelId = data?.robloxEnlistChannelId;
+            robloxEnlistBlockedRoleIds = data?.robloxEnlistBlockedRoleIds;
         }
     }
 
@@ -51,5 +58,9 @@ namespace CornwallUtilities.config
         public ulong? enlistLogChannelId { get; set; }
         public string? enlistAltCheckUrl { get; set; }
         public ulong[]? enlistTargetRoleIds { get; set; }
+
+        // Config for ROBLOX enlistment command
+        public ulong? robloxEnlistChannelId { get; set; }
+        public ulong[]? robloxEnlistBlockedRoleIds { get; set; }
     }
 }

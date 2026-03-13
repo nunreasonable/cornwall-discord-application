@@ -5,18 +5,21 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
-using DSharpPlus.Entities;
-using DSharpPlus.SlashCommands;
+using DisCatSharp.Entities;
+using DisCatSharp.ApplicationCommands;
+using DisCatSharp.Enums;
+using DisCatSharp.ApplicationCommands.Context;
+using DisCatSharp.ApplicationCommands.Attributes;
 
 namespace CornwallUtilities.commands
 {
-    internal class CheckSpreadsheetInfo : ApplicationCommandModule
+    internal class CheckSpreadsheetInfo : ApplicationCommandsModule
     {
         [SlashCommand("checkspreadsheetinfo", "Verifica as informações da planilha Regimental")]
-        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option("username", "Seu nome de usuário na planilha (coluna de identificação)." )] string username)
+        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option'("username", "Seu nome de usuário na planilha (coluna de identificação)." )] string username)
         {
             // Defer response while we fetch the spreadsheet and prepare the embed
-            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.DeferredChannelMessageWithSource);
+            await ctx.CreateResponseAsync(DisCatSharp.InteractionResponseType.DeferredChannelMessageWithSource);
 
             var config = new JSONReader();
             await config.ReadJSON();

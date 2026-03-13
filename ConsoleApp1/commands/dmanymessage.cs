@@ -4,13 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using CornwallUtilities;
 using CornwallUtilities.config;
-using DSharpPlus;
-using DSharpPlus.Entities;
-using DSharpPlus.SlashCommands;
+using DisCatSharp;
+using DisCatSharp.Entities;
+using DisCatSharp.ApplicationCommands;
+using DisCatSharp.Enums;
 
 namespace CornwallUtilities.commands
 {
-    internal class DmAnyMessage : ApplicationCommandModule
+    internal class DmAnyMessage : ApplicationCommandsModule
     {
         /// <summary>Mensagem curta em PT-BR para falha de DM (ex.: 403 = usuário não aceita DMs).</summary>
         private static string DmFailureReason(Exception ex)

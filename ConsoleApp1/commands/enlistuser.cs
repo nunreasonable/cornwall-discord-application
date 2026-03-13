@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
-using DSharpPlus;
-using DSharpPlus.Entities;
-using DSharpPlus.Interactivity.Extensions;
-using DSharpPlus.SlashCommands;
+using DisCatSharp;
+using DisCatSharp.Entities;
+using DisCatSharp.Interactivity.Extensions;
+using DisCatSharp.ApplicationCommands;
+using DisCatSharp.Enums;
 
 namespace CornwallUtilities.commands
 {
-    internal class EnlistUser : ApplicationCommandModule
+    internal class EnlistUser : ApplicationCommandsModule
     {
         [SlashCommand("enlistuser", "Alista um usuário (confirmação de alt + cargos + nickname + log).")]
         public async Task EnlistUserCommand(

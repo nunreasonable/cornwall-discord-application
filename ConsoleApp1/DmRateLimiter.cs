@@ -5,20 +5,20 @@ using System.Threading.Tasks;
 namespace CornwallUtilities
 {
     /// <summary>
-    /// Global rate limiter for bot DMs: max 10 DMs per 3 minutes to avoid Discord spam flags.
-    /// Shared by all DM commands so the limit applies across the bot.
+    /// Global rate limiter for bot DMs.
+    /// Ensures there is at least a 3 second delay between consecutive DMs
+    /// across the entire bot to avoid Discord spam flags.
     /// </summary>
     internal static class DmRateLimiter
     {
-        private const int MaxDmsPerWindow = 10;
-        private static readonly TimeSpan Window = TimeSpan.FromMinutes(3);
+        private static readonly TimeSpan MinDelayBetweenDms = TimeSpan.FromSeconds(3);
 
         private static readonly object Lock = new object();
-        private static readonly List<DateTimeOffset> SentTimestamps = new List<DateTimeOffset>();
+        private static DateTimeOffset? _lastSentAt;
 
         /// <summary>
-        /// Waits until a DM slot is available (under 10 in the last 3 minutes), then records the send.
-        /// Call this before each DM; if the window is full, this will async wait until the oldest send exits the window.
+        /// Waits until at least 3 seconds have passed since the last DM, then records the send time.
+        /// Call this before each DM; if called too soon, this will async wait for the remaining time.
         /// </summary>
         public static async Task WaitForSlotAsync()
         {
@@ -28,17 +28,20 @@ namespace CornwallUtilities
                 lock (Lock)
                 {
                     var now = DateTimeOffset.UtcNow;
-                    var cutoff = now - Window;
-                    SentTimestamps.RemoveAll(t => t <= cutoff);
-
-                    if (SentTimestamps.Count < MaxDmsPerWindow)
+                    if (_lastSentAt is null)
                     {
-                        SentTimestamps.Add(now);
+                        _lastSentAt = now;
                         return;
                     }
 
-                    var oldest = SentTimestamps[0];
-                    waitFor = (oldest + Window) - now;
+                    var elapsed = now - _lastSentAt.Value;
+                    if (elapsed >= MinDelayBetweenDms)
+                    {
+                        _lastSentAt = now;
+                        return;
+                    }
+
+                    waitFor = MinDelayBetweenDms - elapsed;
                     if (waitFor.Value < TimeSpan.Zero)
                         waitFor = TimeSpan.FromMilliseconds(100);
                 }

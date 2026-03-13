@@ -2,18 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using DSharpPlus.SlashCommands;
-using DSharpPlus.Entities;
+using DisCatSharp.ApplicationCommands;
+using DisCatSharp.Entities;
+using DisCatSharp.Enums;
 
 namespace CornwallSlashCommandsUtility
 {
-    internal class UtilitySlashCommands : ApplicationCommandModule
+    internal class UtilitySlashCommands : ApplicationCommandsModule
     {
         [SlashCommand("ping", "Responde com sua latência em ms")]
         public async Task PingCommand(InteractionContext ctx)
         {
             var latency = ctx.Client.Ping;
-            await ctx.CreateResponseAsync(DSharpPlus.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
+            await ctx.CreateResponseAsync(DisCatSharp.InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
                 .WithContent($"Pong! Latência: {latency}ms"));
         }
     }

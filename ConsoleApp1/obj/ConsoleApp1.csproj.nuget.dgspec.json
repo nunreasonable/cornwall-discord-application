@@ -43,25 +43,75 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
-            "DSharpPlus": {
+            "DisCatSharp": {
               "target": "Package",
-              "version": "[4.5.1, )"
+              "version": "[10.7.0-nightly-072, )"
             },
-            "DSharpPlus.CommandsNext": {
+            "DisCatSharp.Analyzer": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
               "target": "Package",
-              "version": "[4.5.1, )"
+              "version": "[1.0.0, )"
             },
-            "DSharpPlus.Interactivity": {
+            "DisCatSharp.ApplicationCommands": {
               "target": "Package",
-              "version": "[4.5.1, )"
+              "version": "[10.7.0-nightly-072, )"
             },
-            "DSharpPlus.SlashCommands": {
+            "DisCatSharp.Attributes": {
               "target": "Package",
-              "version": "[4.5.1, )"
+              "version": "[2025.3.27, )"
+            },
+            "DisCatSharp.CommandsNext": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Common": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Configuration": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Experimental": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Extensions.OAuth2Web": {
+              "target": "Package",
+              "version": "[3.2.0-nightly-005, )"
+            },
+            "DisCatSharp.Extensions.TwoFactorCommands": {
+              "target": "Package",
+              "version": "[3.2.0-nightly-005, )"
+            },
+            "DisCatSharp.Hosting": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Hosting.DependencyInjection": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Interactivity": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Lavalink": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Voice": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
+            },
+            "DisCatSharp.Voice.Natives": {
+              "target": "Package",
+              "version": "[10.7.0-nightly-072, )"
             },
             "Newtonsoft.Json": {
               "target": "Package",
-              "version": "[13.0.2, )"
+              "version": "[13.0.4, )"
             }
           },
           "imports": [
