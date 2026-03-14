@@ -64,7 +64,8 @@ namespace CornwallUtilities
             slashCommands.RegisterGlobalCommands<DmAnyMessage>();
             slashCommands.RegisterGlobalCommands<EnlistUser>();
             slashCommands.RegisterGlobalCommands<RobloxEnlist>();
-
+            slashCommands.RegisterGlobalCommands<DeploymentsMessage>();
+        
             await Client.ConnectAsync();
             await Task.Delay(-1);
         }
@@ -72,9 +73,17 @@ namespace CornwallUtilities
         private static Task Client_Ready(DiscordClient sender, DisCatSharp.EventArgs.ReadyEventArgs e)
         {
             Console.WriteLine("Bot is ready!");
+            
+            // Register TestPermissions as guild command for faster registration
+            var slashCommands = sender.GetApplicationCommands();
+            var guildId = (ulong)1397973799105855570; // Your guild ID from config
+            slashCommands.RegisterGuildCommands<TestPermissions>(guildId);
+            slashCommands.RegisterGuildCommands<DebugDeployment>(guildId);
+            slashCommands.RegisterGuildCommands<SimpleTest>(guildId);
+            slashCommands.RegisterGuildCommands<PermissionDebug>(guildId);
+            
             return Task.CompletedTask;
         }
 
     }
 }
-

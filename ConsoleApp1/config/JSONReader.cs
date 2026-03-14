@@ -23,6 +23,18 @@ namespace CornwallUtilities.config
         public ulong? robloxEnlistChannelId { get; private set; }
         public ulong[]? robloxEnlistBlockedRoleIds { get; private set; }
 
+        // Config used by the deployment command
+        public string? deploymentGameLink { get; private set; }
+        public string? deploymentVoiceChatLink { get; private set; }
+        public ulong[]? deploymentAllowedRoleIds { get; private set; }
+        public ulong[]? deploymentDefaultRoles { get; private set; }
+        public string? deploymentTitle { get; private set; }
+        public string? deploymentVoiceChannel { get; private set; }
+        public string? deploymentImageUrl { get; private set; }
+        public string? deploymentPlaceId { get; private set; }
+        public string? deploymentQuickLaunchLink { get; private set; }
+        public ulong? deploymentChannelId { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config/config.json");
@@ -42,6 +54,17 @@ namespace CornwallUtilities.config
 
             robloxEnlistChannelId = data?.robloxEnlistChannelId;
             robloxEnlistBlockedRoleIds = data?.robloxEnlistBlockedRoleIds;
+
+            deploymentGameLink = data?.deploymentGameLink;
+            deploymentVoiceChatLink = data?.deploymentVoiceChatLink;
+            deploymentAllowedRoleIds = data?.deploymentAllowedRoleIds;
+            deploymentDefaultRoles = data?.deploymentDefaultRoles;
+            deploymentTitle = data?.deploymentTitle;
+            deploymentVoiceChannel = data?.deploymentVoiceChannel;
+            deploymentImageUrl = data?.deploymentImageUrl;
+            deploymentPlaceId = data?.deploymentPlaceId;
+            deploymentQuickLaunchLink = data?.deploymentQuickLaunchLink;
+            deploymentChannelId = data?.deploymentChannelId;
         }
     }
 
@@ -62,5 +85,17 @@ namespace CornwallUtilities.config
         // Config for ROBLOX enlistment command
         public ulong? robloxEnlistChannelId { get; set; }
         public ulong[]? robloxEnlistBlockedRoleIds { get; set; }
+
+        // Config for deployment command
+        public string? deploymentGameLink { get; set; }
+        public string? deploymentVoiceChatLink { get; set; }
+        public ulong[]? deploymentAllowedRoleIds { get; set; }
+        public ulong[]? deploymentDefaultRoles { get; set; }
+        public string? deploymentTitle { get; set; }
+        public string? deploymentVoiceChannel { get; set; }
+        public string? deploymentImageUrl { get; set; }
+        public string? deploymentPlaceId { get; set; }
+        public string? deploymentQuickLaunchLink { get; set; }
+        public ulong? deploymentChannelId { get; set; }
     }
 }
