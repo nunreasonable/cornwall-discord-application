@@ -79,6 +79,11 @@ namespace CornwallUtilities.commands
             }
 
             // Pede para o próprio usuário responder o formulário no formato especificado
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
+                .WithTitle("Aguardando resposta")
+                .WithDescription("Por favor, aguarde enquanto enviamos o formulário...")
+                .WithColor(DiscordColor.Blurple)));
+
             var questionsEmbed = new DiscordEmbedBuilder()
                 .WithTitle("Formulário de Alistamento - 32nd Regiment")
                 .WithDescription(
@@ -89,11 +94,14 @@ namespace CornwallUtilities.commands
                     "Quem te recrutou?:")
                 .WithColor(DiscordColor.Blurple);
 
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(questionsEmbed));
+            var promptMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(questionsEmbed));
+
+            // Pequeno delay para garantir que a mensagem do bot foi enviada
+            await Task.Delay(1000);
 
             var interactivity = ctx.Client.GetInteractivity();
             var response = await interactivity.WaitForMessageAsync(
-                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id,
+                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id && m.Id != promptMessage.Id,
                 TimeSpan.FromMinutes(5));
 
             if (response.TimedOut)
@@ -107,8 +115,28 @@ namespace CornwallUtilities.commands
                 return;
             }
 
+            Console.WriteLine($"Response timed out: {response.TimedOut}");
+            Console.WriteLine($"Response result exists: {response.Result != null}");
+            if (response.Result != null)
+            {
+                Console.WriteLine($"Response result content: '{response.Result.Content}'");
+                Console.WriteLine($"Response result ID: {response.Result.Id}");
+            }
+
             var formContent = response.Result.Content ?? string.Empty;
-            var lines = formContent.Split('\n');
+            
+            Console.WriteLine($"Message attachments: {response.Result.Attachments.Count}");
+            Console.WriteLine($"Message embeds: {response.Result.Embeds.Count}");
+            Console.WriteLine($"Message components: {response.Result.Components.Count}");
+            
+            // Se o conteúdo estiver vazio, tenta pegar de embeds
+            if (string.IsNullOrWhiteSpace(formContent) && response.Result.Embeds.Count > 0)
+            {
+                formContent = string.Join("\n", response.Result.Embeds.Select(e => e.Description ?? ""));
+            }
+            
+            Console.WriteLine($"Form content: '{formContent}'");
+            var lines = formContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
             string robloxName = string.Empty;
             string languageAnswer = string.Empty;
@@ -118,28 +146,30 @@ namespace CornwallUtilities.commands
             foreach (var rawLine in lines)
             {
                 var line = rawLine.Trim();
+                Console.WriteLine($"Raw line: {rawLine}");
+                Console.WriteLine($"Trimmed line: {line}");
                 if (line.Length == 0)
                     continue;
 
-                if (line.StartsWith("Nome no Roblox", StringComparison.OrdinalIgnoreCase))
+                if (line.StartsWith("Nome no Roblox:", StringComparison.OrdinalIgnoreCase))
                 {
                     var idx = line.IndexOf(':');
                     if (idx >= 0 && idx < line.Length - 1)
                         robloxName = line[(idx + 1)..].Trim();
                 }
-                else if (line.StartsWith("Português", StringComparison.OrdinalIgnoreCase))
+                else if (line.StartsWith("Português 🇵🇹 / Brasileiro 🇧🇷 ?:", StringComparison.OrdinalIgnoreCase))
                 {
                     var idx = line.IndexOf(':');
                     if (idx >= 0 && idx < line.Length - 1)
                         languageAnswer = line[(idx + 1)..].Trim();
                 }
-                else if (line.StartsWith("Pendendo aos grupos", StringComparison.OrdinalIgnoreCase))
+                else if (line.StartsWith("Pendendo aos grupos:", StringComparison.OrdinalIgnoreCase))
                 {
                     var idx = line.IndexOf(':');
                     if (idx >= 0 && idx < line.Length - 1)
                         groupsAnswer = line[(idx + 1)..].Trim();
                 }
-                else if (line.StartsWith("Quem te recrutou", StringComparison.OrdinalIgnoreCase))
+                else if (line.StartsWith("Quem te recrutou:", StringComparison.OrdinalIgnoreCase))
                 {
                     var idx = line.IndexOf(':');
                     if (idx >= 0 && idx < line.Length - 1)

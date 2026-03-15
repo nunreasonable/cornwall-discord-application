@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
 using DisCatSharp;
@@ -10,6 +12,7 @@ using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.ApplicationCommands.Attributes;
+using Newtonsoft.Json.Linq;
 
 namespace CornwallUtilities.commands
 {
@@ -76,77 +79,271 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            // Confirmação manual de alt (sim/não)
-            var confirmEmbed = new DiscordEmbedBuilder()
-                .WithTitle("Confirmação de Alt")
-                .WithDescription($"Você verificou que {user.Mention} é uma conta alternativa (alt)?")
-                .WithColor(DiscordColor.Orange);
+            // Pede para o usuário responder o formulário com nome ROBLOX
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
+                .WithTitle("Aguardando resposta")
+                .WithDescription("Por favor, aguarde enquanto enviamos o formulário...")
+                .WithColor(DiscordColor.Blurple)));
 
-            var buttons = new DiscordComponent[]
-            {
-                new DiscordButtonComponent(ButtonStyle.Primary, "enlist_not_alt", "Não, não é alt"),
-                new DiscordButtonComponent(ButtonStyle.Danger, "enlist_is_alt", "Sim, é alt")
-            };
+            var questionsEmbed = new DiscordEmbedBuilder()
+                .WithTitle("Formulário de Alistamento - 32nd Regiment")
+                .WithDescription(
+                    $"{ctx.User.Mention}, responda **nesta mensagem** seguindo exatamente o formato abaixo:\n\n" +
+                    "Nome no Roblox:\n" +
+                    "Português 🇵🇹 / Brasileiro 🇧🇷 ?: \n" +
+                    "Pendendo aos grupos?: S/N\n" +
+                    "Quem te recrutou?:")
+                .WithColor(DiscordColor.Blurple);
 
-            var promptMessage = await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(confirmEmbed).AddComponents(buttons));
+            var promptMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(questionsEmbed));
+
+            // Pequeno delay para garantir que a mensagem do bot foi enviada
+            await Task.Delay(1000);
 
             var interactivity = ctx.Client.GetInteractivity();
-            var timeout = TimeSpan.FromMinutes(3);
-            var endTime = DateTimeOffset.UtcNow + timeout;
+            var response = await interactivity.WaitForMessageAsync(
+                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id && m.Id != promptMessage.Id,
+                TimeSpan.FromMinutes(5));
 
-            while (true)
+            if (response.TimedOut)
             {
-                var remaining = endTime - DateTimeOffset.UtcNow;
-                if (remaining <= TimeSpan.Zero)
+                var timeoutForm = new DiscordEmbedBuilder()
+                    .WithTitle("Tempo esgotado")
+                    .WithDescription("Nenhuma resposta ao formulário foi recebida a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutForm));
+                return;
+            }
+
+            var formContent = response.Result.Content ?? string.Empty;
+            
+            // Se o conteúdo estiver vazio, tenta pegar de embeds
+            if (string.IsNullOrWhiteSpace(formContent) && response.Result.Embeds.Count > 0)
+            {
+                formContent = string.Join("\n", response.Result.Embeds.Select(e => e.Description ?? ""));
+            }
+            
+            var lines = formContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string robloxName = string.Empty;
+            string languageAnswer = string.Empty;
+            string groupsAnswer = string.Empty;
+            string recruiterAnswer = string.Empty;
+
+            foreach (var rawLine in lines)
+            {
+                var line = rawLine.Trim();
+                if (line.Length == 0)
+                    continue;
+
+                if (line.StartsWith("Nome no Roblox:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                        robloxName = line[(idx + 1)..].Trim();
+                }
+                else if (line.StartsWith("Português 🇵🇹 / Brasileiro 🇧🇷 ?:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                        languageAnswer = line[(idx + 1)..].Trim();
+                }
+                else if (line.StartsWith("Pendendo aos grupos:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                        groupsAnswer = line[(idx + 1)..].Trim();
+                }
+                else if (line.StartsWith("Quem te recrutou:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idx = line.IndexOf(':');
+                    if (idx >= 0 && idx < line.Length - 1)
+                        recruiterAnswer = line[(idx + 1)..].Trim();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(robloxName))
+            {
+                var invalidForm = new DiscordEmbedBuilder()
+                    .WithTitle("Formulário inválido")
+                    .WithDescription("Não foi possível encontrar o campo **\"Nome no Roblox:\"** na sua resposta. Execute o comando novamente e siga exatamente o formato solicitado.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidForm));
+                return;
+            }
+
+            int badgeCount;
+            int friendsCount;
+            TimeSpan accountAge;
+            long robloxUserId;
+
+            using (var http = new HttpClient())
+            {
+                http.Timeout = TimeSpan.FromSeconds(10);
+
+                try
+                {
+                    // Resolve username -> userId
+                    var lookupPayload = new JObject
+                    {
+                        ["usernames"] = new JArray(robloxName),
+                        ["excludeBannedUsers"] = true
+                    };
+
+                    using (var content = new StringContent(lookupPayload.ToString(), Encoding.UTF8, "application/json"))
+                    {
+                        var usernameResponse = await http.PostAsync("https://users.roblox.com/v1/usernames/users", content);
+                        if (!usernameResponse.IsSuccessStatusCode)
+                        {
+                            var errLookup = new DiscordEmbedBuilder()
+                                .WithTitle("Erro ao consultar ROBLOX")
+                                .WithDescription("Não foi possível encontrar uma conta ROBLOX com esse nome. Verifique se o nome foi digitado corretamente.")
+                                .WithColor(DiscordColor.IndianRed);
+
+                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errLookup));
+                            return;
+                        }
+
+                        var usernameJson = JObject.Parse(await usernameResponse.Content.ReadAsStringAsync());
+                        var dataArrayLookup = usernameJson["data"] as JArray;
+                        if (dataArrayLookup == null || dataArrayLookup.Count == 0)
+                        {
+                            var notFound = new DiscordEmbedBuilder()
+                                .WithTitle("Conta ROBLOX não encontrada")
+                                .WithDescription("Nenhuma conta ROBLOX foi encontrada com o nome informado.")
+                                .WithColor(DiscordColor.IndianRed);
+
+                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(notFound));
+                            return;
+                        }
+
+                        robloxUserId = (long?)dataArrayLookup[0]?["id"] ?? 0;
+                        if (robloxUserId <= 0)
+                        {
+                            var invalidLookup = new DiscordEmbedBuilder()
+                                .WithTitle("Conta ROBLOX inválida")
+                                .WithDescription("Não foi possível determinar o ID da conta ROBLOX a partir do nome informado.")
+                                .WithColor(DiscordColor.IndianRed);
+
+                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidLookup));
+                            return;
+                        }
+                    }
+
+                    // Dados básicos (inclui data de criação)
+                    var userInfoResponse = await http.GetAsync($"https://users.roblox.com/v1/users/{robloxUserId}");
+                    if (!userInfoResponse.IsSuccessStatusCode)
+                    {
+                        var errEmbed = new DiscordEmbedBuilder()
+                            .WithTitle("Erro ao consultar ROBLOX")
+                            .WithDescription("Não foi possível obter as informações da conta ROBLOX.")
+                            .WithColor(DiscordColor.IndianRed);
+
+                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        return;
+                    }
+
+                    var userInfoJson = JObject.Parse(await userInfoResponse.Content.ReadAsStringAsync());
+                    var createdStr = (string?)userInfoJson["created"];
+                    if (createdStr == null || !DateTime.TryParse(createdStr, out var createdAt))
+                    {
+                        var errEmbed = new DiscordEmbedBuilder()
+                            .WithTitle("Erro ao ler data de criação")
+                            .WithDescription("Não foi possível determinar a data de criação da conta ROBLOX.")
+                            .WithColor(DiscordColor.IndianRed);
+
+                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        return;
+                    }
+
+                    accountAge = DateTime.UtcNow - createdAt.ToUniversalTime();
+
+                    // Contagem de amigos
+                    var friendsResponse = await http.GetAsync($"https://friends.roblox.com/v1/users/{robloxUserId}/friends/count");
+                    if (!friendsResponse.IsSuccessStatusCode)
+                    {
+                        var errEmbed = new DiscordEmbedBuilder()
+                            .WithTitle("Erro ao consultar amigos ROBLOX")
+                            .WithDescription("Não foi possível obter a quantidade de amigos da conta ROBLOX.")
+                            .WithColor(DiscordColor.IndianRed);
+
+                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        return;
+                    }
+
+                    var friendsJson = JObject.Parse(await friendsResponse.Content.ReadAsStringAsync());
+                    friendsCount = (int?)friendsJson["count"] ?? 0;
+
+                    // Badges
+                    var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
+                    if (!badgesResponse.IsSuccessStatusCode)
+                    {
+                        var errEmbed = new DiscordEmbedBuilder()
+                            .WithTitle("Erro ao consultar badges ROBLOX")
+                            .WithDescription("Não foi possível obter as badges da conta ROBLOX.")
+                            .WithColor(DiscordColor.IndianRed);
+
+                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        return;
+                    }
+
+                    var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
+                    var dataArray = badgesJson["data"] as JArray;
+                    badgeCount = dataArray?.Count ?? 0;
+                }
+                catch (TaskCanceledException)
                 {
                     var timeoutEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("Tempo esgotado")
-                        .WithDescription("Nenhuma confirmação foi recebida. Execute o comando novamente quando estiver pronto.")
+                        .WithTitle("Tempo excedido")
+                        .WithDescription("A consulta à API do ROBLOX demorou demais. Tente novamente em instantes.")
                         .WithColor(DiscordColor.IndianRed);
 
                     await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutEmbed));
                     return;
                 }
-
-                var result = await interactivity.WaitForButtonAsync(
-                    promptMessage,
-                    TimeSpan.FromSeconds(Math.Min(30, remaining.TotalSeconds)));
-
-                if (result.TimedOut)
-                    continue;
-
-                // Se não foi o usuário que executou o comando, avisa de forma ephemeral e continua esperando
-                if (result.Result.User.Id != ctx.User.Id)
+                catch (Exception ex)
                 {
-                    await result.Result.Interaction.CreateResponseAsync(
-                        InteractionResponseType.ChannelMessageWithSource,
-                        new DiscordInteractionResponseBuilder()
-                            .WithContent("Apenas quem executou o comando pode usar esses botões.")
-                            .AsEphemeral());
-                    continue;
-                }
+                    var err = ex.Message ?? string.Empty;
+                    if (err.Length > 150)
+                        err = err[..147] + "...";
 
-                // Só sai do loop quando for o autor do comando
-                await result.Result.Interaction.CreateResponseAsync(InteractionResponseType.UpdateMessage, new DiscordInteractionResponseBuilder()
-                .AddEmbed(new DiscordEmbedBuilder()
-                    .WithTitle("Confirmação recebida")
-                    .WithDescription(result.Result.Id == "enlist_is_alt"
-                        ? "Será tratado como alt e o alistamento será cancelado."
-                        : "Confirmado que não é alt. O alistamento seguirá.")
-                    .WithColor(result.Result.Id == "enlist_is_alt" ? DiscordColor.IndianRed : DiscordColor.Green)));
-
-                if (result.Result.Id == "enlist_is_alt")
-                {
-                    var altEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("Alistamento bloqueado")
-                        .WithDescription("O usuário não pôde ser alistado pois foi marcado como conta alternativa (alt).")
+                    var genericEmbed = new DiscordEmbedBuilder()
+                        .WithTitle("Erro ao consultar ROBLOX")
+                        .WithDescription($"Ocorreu um erro inesperado ao consultar a conta ROBLOX: `{err}`")
                         .WithColor(DiscordColor.IndianRed);
 
-                    await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(altEmbed));
+                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(genericEmbed));
                     return;
                 }
+            }
 
-                break;
+            // Critérios principais para NÃO ser alt
+            var minAccountAge = TimeSpan.FromDays(90); // > 3 meses
+            const int minFriends = 1;
+            const int minBadgesForBonus = 50; // usado apenas como bônus, não bloqueia
+
+            var passesAge = accountAge >= minAccountAge;
+            var passesFriends = friendsCount >= minFriends;
+            var hasBadgeBonus = badgeCount >= minBadgesForBonus;
+
+            // A decisão de ALT usa apenas idade da conta + amigos.
+            // Badges contam apenas como informação/bônus, não bloqueiam o alistamento.
+            var isLikelyMain = passesAge && passesFriends;
+
+            if (!isLikelyMain)
+            {
+                var deniedEmbed = new DiscordEmbedBuilder()
+                    .WithTitle("Alistamento negado - Conta provavelmente ALT")
+                    .WithDescription("A conta ROBLOX fornecida não atende aos critérios mínimos de confiabilidade.")
+                    .WithColor(DiscordColor.IndianRed)
+                    .AddField(new DiscordEmbedField("Idade da conta", $"{accountAge.Days} dias", true))
+                    .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
+                    .AddField(new DiscordEmbedField("Badges (bônus)", badgeCount.ToString(), true));
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(deniedEmbed));
+                return;
             }
 
             // Adiciona cargos ao membro (ignorando cargos que ele já possui)
@@ -207,9 +404,16 @@ namespace CornwallUtilities.commands
                             .WithTimestamp(DateTimeOffset.UtcNow)
                             .AddField(new DiscordEmbedField("Executor", ctx.User.Mention, true))
                             .AddField(new DiscordEmbedField("Alistado", user.Mention, true))
+                            .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
+                            .AddField(new DiscordEmbedField("ROBLOX ID", robloxUserId.ToString(), true))
+                            .AddField(new DiscordEmbedField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true))
+                            .AddField(new DiscordEmbedField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true))
+                            .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true))
+                            .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
+                            .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
+                            .AddField(new DiscordEmbedField("Badges", badgeCount.ToString(), true))
                             .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
-                            .AddField(new DiscordEmbedField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true))
-                            .AddField(new DiscordEmbedField("Verificação de alt", "Não", true));
+                            .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
                     }
@@ -231,14 +435,17 @@ namespace CornwallUtilities.commands
             }
 
             var successEmbed = new DiscordEmbedBuilder()
-                .WithTitle("32nd Regiment - Alistamento bem-sucedido")
-                .WithDescription($"O usuário **{user.Username}** foi alistado com sucesso.")
+                .WithTitle("32nd Regiment - Alistamento bem-sucedido (ROBLOX)")
+                .WithDescription($"O usuário **{user.Username}** foi alistado com sucesso após passar na verificação automática da sua conta ROBLOX.")
                 .WithColor(DiscordColor.Green)
                 .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
-                .WithFooter("Confirmação de alistamento", ctx.Client.CurrentUser.AvatarUrl)
+                .WithFooter("Confirmação de alistamento ROBLOX", ctx.Client.CurrentUser.AvatarUrl)
                 .WithTimestamp(DateTimeOffset.UtcNow)
+                .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
                 .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true))
-                .AddField(new DiscordEmbedField("Nickname atualizado", currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "Já possuía" : $"{prefix} {currentNick}", true));
+                .AddField(new DiscordEmbedField("ROBLOX - idade da conta (dias)", accountAge.Days.ToString(), true))
+                .AddField(new DiscordEmbedField("ROBLOX - amigos", friendsCount.ToString(), true))
+                .AddField(new DiscordEmbedField("ROBLOX - badges", badgeCount.ToString(), true));
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }

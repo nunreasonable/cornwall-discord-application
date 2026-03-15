@@ -66,15 +66,25 @@ namespace CornwallUtilities
             Commands.RegisterCommands<UtilityCommands>();
 
             var slashCommands = Client.UseApplicationCommands(slashCommandsConfig);
-            slashCommands.RegisterGlobalCommands<UtilitySlashCommands>();
-            slashCommands.RegisterGlobalCommands<CheckSpreadsheetInfo>();
-            slashCommands.RegisterGlobalCommands<DmRolesCertainRoles>();
-            slashCommands.RegisterGlobalCommands<DmAnyMessage>();
-            slashCommands.RegisterGlobalCommands<EnlistUser>();
-            slashCommands.RegisterGlobalCommands<RobloxEnlist>();
-            slashCommands.RegisterGlobalCommands<DeploymentsMessage>();
+            
+            // Register global commands (these have stricter rate limits, so register fewer)
+            Console.WriteLine("Registering global commands...");
             slashCommands.RegisterGlobalCommands<RepostMessage>();
-            slashCommands.RegisterGlobalCommands<MessageStorageStatus>();
+            Console.WriteLine("Global commands registered.");
+            
+            // Register guild commands for faster registration (no rate limits for guild commands)
+            var guildId = (ulong)1397973799105855570; // Your guild ID from config
+            Console.WriteLine("Registering guild commands...");
+            slashCommands.RegisterGuildCommands<UtilitySlashCommands>(guildId);
+            slashCommands.RegisterGuildCommands<CheckSpreadsheetInfo>(guildId);
+            slashCommands.RegisterGuildCommands<DmRolesCertainRoles>(guildId);
+            slashCommands.RegisterGuildCommands<DmAnyMessage>(guildId);
+            slashCommands.RegisterGuildCommands<EnlistUser>(guildId);
+            slashCommands.RegisterGuildCommands<RobloxEnlist>(guildId);
+            slashCommands.RegisterGuildCommands<DeploymentsMessage>(guildId);
+            slashCommands.RegisterGuildCommands<RepostMessage>(guildId);
+            slashCommands.RegisterGuildCommands<MessageStorageStatus>(guildId);
+            Console.WriteLine("Guild commands registered.");
         
             // Initialize message storage service if enabled
             if (jsonReader.messageRepostingEnabled == true && jsonReader.messageRepostingTargetChannelId.HasValue)
@@ -102,14 +112,6 @@ namespace CornwallUtilities
             
             // Initialize terminal interface
             TerminalShenanigans.Initialize(sender);
-            
-            // Register TestPermissions as guild command for faster registration
-            var slashCommands = sender.GetApplicationCommands();
-            var guildId = (ulong)1397973799105855570; // Your guild ID from config
-            slashCommands.RegisterGuildCommands<TestPermissions>(guildId);
-            slashCommands.RegisterGuildCommands<DebugDeployment>(guildId);
-            slashCommands.RegisterGuildCommands<SimpleTest>(guildId);
-            slashCommands.RegisterGuildCommands<PermissionDebug>(guildId);
             
             return Task.CompletedTask;
         }

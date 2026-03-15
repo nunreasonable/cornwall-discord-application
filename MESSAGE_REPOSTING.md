@@ -66,6 +66,7 @@ Check the current status of message storage:
   - Whether reposting is available
   - Progress bar toward minimum requirement
   - Helpful status information
+- **Availability**: Registered globally and in your guild for instant access
 
 **Cooldown Behavior:**
 - When someone uses `/repost`, it immediately posts a random message
