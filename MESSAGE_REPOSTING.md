@@ -57,6 +57,16 @@ You can also manually trigger a message repost using the slash command:
 - **Requirements**: Message reposting service must be enabled
 - **Permissions**: Available to all users
 
+## Status Check Command
+Check the current status of message storage:
+- `/messages` - Shows message storage statistics and status
+- **Information displayed**:
+  - Number of stored messages
+  - Minimum messages required
+  - Whether reposting is available
+  - Progress bar toward minimum requirement
+  - Helpful status information
+
 **Cooldown Behavior:**
 - When someone uses `/repost`, it immediately posts a random message
 - The automatic reposting service then goes on cooldown for 2 hours

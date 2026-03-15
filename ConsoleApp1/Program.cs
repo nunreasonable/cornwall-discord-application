@@ -74,6 +74,7 @@ namespace CornwallUtilities
             slashCommands.RegisterGlobalCommands<RobloxEnlist>();
             slashCommands.RegisterGlobalCommands<DeploymentsMessage>();
             slashCommands.RegisterGlobalCommands<RepostMessage>();
+            slashCommands.RegisterGlobalCommands<MessageStorageStatus>();
         
             // Initialize message storage service if enabled
             if (jsonReader.messageRepostingEnabled == true && jsonReader.messageRepostingTargetChannelId.HasValue)
