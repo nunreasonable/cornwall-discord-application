@@ -1,6 +1,7 @@
 using CornwallSlashCommandsUtility;
 using CornwallUtilities.commands;
 using CornwallUtilities.config;
+using CornwallUtilities.Services;
 using DisCatSharp;
 using DisCatSharp.Enums;
 using DisCatSharp.Entities;
@@ -10,6 +11,7 @@ using DisCatSharp.Interactivity.Extensions;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.ApplicationCommands.Attributes;
+using DisCatSharp.EventArgs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +24,7 @@ namespace CornwallUtilities
     {
         private static DiscordClient? Client { get; set; }
         private static CommandsNextExtension? Commands { get; set; }
+        public static MessageStorageService? MessageStorage { get; private set; }
 
         static async Task Main(string[] args)
         {
@@ -45,6 +48,8 @@ namespace CornwallUtilities
             });
 
             Client.Ready += Client_Ready;
+            Client.ComponentInteractionCreated += HandleComponentInteraction;
+            Client.MessageCreated += HandleMessageCreated;
 
             var commandsConfig = new CommandsNextConfiguration()
             {
@@ -53,19 +58,39 @@ namespace CornwallUtilities
                 EnableDms = true,
                 EnableDefaultHelp = false  
             };
-
+            
             var slashCommandsConfig = new ApplicationCommandsConfiguration();
 
             Commands = Client.UseCommandsNext(commandsConfig);
 
+            Commands.RegisterCommands<UtilityCommands>();
+
             var slashCommands = Client.UseApplicationCommands(slashCommandsConfig);
+            slashCommands.RegisterGlobalCommands<UtilitySlashCommands>();
             slashCommands.RegisterGlobalCommands<CheckSpreadsheetInfo>();
             slashCommands.RegisterGlobalCommands<DmRolesCertainRoles>();
             slashCommands.RegisterGlobalCommands<DmAnyMessage>();
             slashCommands.RegisterGlobalCommands<EnlistUser>();
             slashCommands.RegisterGlobalCommands<RobloxEnlist>();
             slashCommands.RegisterGlobalCommands<DeploymentsMessage>();
+            slashCommands.RegisterGlobalCommands<RepostMessage>();
         
+            // Initialize message storage service if enabled
+            if (jsonReader.messageRepostingEnabled == true && jsonReader.messageRepostingTargetChannelId.HasValue)
+            {
+                MessageStorage = new MessageStorageService(
+                    Client,
+                    jsonReader.messageRepostingTargetChannelId.Value,
+                    jsonReader.messageRepostingIntervalMinutes ?? 60,
+                    jsonReader.messageRepostingRetentionHours ?? 24,
+                    jsonReader.messageRepostingMinimumMessages ?? 50
+                );
+                Console.WriteLine("Message reposting service initialized.");
+            }
+
+            // Get the message storage service
+            var messageStorage = Program.MessageStorage;
+
             await Client.ConnectAsync();
             await Task.Delay(-1);
         }
@@ -73,6 +98,9 @@ namespace CornwallUtilities
         private static Task Client_Ready(DiscordClient sender, DisCatSharp.EventArgs.ReadyEventArgs e)
         {
             Console.WriteLine("Bot is ready!");
+            
+            // Initialize terminal interface
+            TerminalShenanigans.Initialize(sender);
             
             // Register TestPermissions as guild command for faster registration
             var slashCommands = sender.GetApplicationCommands();
@@ -83,6 +111,41 @@ namespace CornwallUtilities
             slashCommands.RegisterGuildCommands<PermissionDebug>(guildId);
             
             return Task.CompletedTask;
+        }
+
+        private static async Task HandleComponentInteraction(DiscordClient sender, ComponentInteractionCreateEventArgs e)
+        {
+            try
+            {
+                // Link buttons don't send interactions, so this handler is only for other buttons
+                await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
+                    .WithContent("❌ Botão não reconhecido.")
+                    .AsEphemeral());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling button interaction: {ex.Message}");
+                try
+                {
+                    await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
+                        .WithContent("❌ Ocorreu um erro ao processar esta interação.")
+                        .AsEphemeral());
+                }
+                catch
+                {
+                    // If we can't respond, the interaction may have expired
+                    Console.WriteLine("Failed to respond to interaction - may have expired");
+                }
+            }
+        }
+
+        private static async Task HandleMessageCreated(DiscordClient sender, MessageCreateEventArgs e)
+        {
+            // Store message if the service is enabled
+            if (MessageStorage != null)
+            {
+                MessageStorage.StoreMessage(e.Message);
+            }
         }
 
     }

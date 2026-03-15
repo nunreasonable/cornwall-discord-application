@@ -35,6 +35,13 @@ namespace CornwallUtilities.config
         public string? deploymentQuickLaunchLink { get; private set; }
         public ulong? deploymentChannelId { get; private set; }
 
+        // Config used by message reposting
+        public bool? messageRepostingEnabled { get; private set; }
+        public ulong? messageRepostingTargetChannelId { get; private set; }
+        public int? messageRepostingIntervalMinutes { get; private set; }
+        public int? messageRepostingRetentionHours { get; private set; }
+        public int? messageRepostingMinimumMessages { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config/config.json");
@@ -65,6 +72,12 @@ namespace CornwallUtilities.config
             deploymentPlaceId = data?.deploymentPlaceId;
             deploymentQuickLaunchLink = data?.deploymentQuickLaunchLink;
             deploymentChannelId = data?.deploymentChannelId;
+
+            messageRepostingEnabled = data?.messageReposting?.enabled;
+            messageRepostingTargetChannelId = data?.messageReposting?.targetChannelId;
+            messageRepostingIntervalMinutes = data?.messageReposting?.repostIntervalMinutes;
+            messageRepostingRetentionHours = data?.messageReposting?.messageRetentionHours;
+            messageRepostingMinimumMessages = data?.messageReposting?.minimumMessagesForRepost;
         }
     }
 
@@ -97,5 +110,17 @@ namespace CornwallUtilities.config
         public string? deploymentPlaceId { get; set; }
         public string? deploymentQuickLaunchLink { get; set; }
         public ulong? deploymentChannelId { get; set; }
+
+        // Config for message reposting
+        public MessageRepostingConfig? messageReposting { get; set; }
+    }
+
+    internal sealed class MessageRepostingConfig
+    {
+        public bool enabled { get; set; }
+        public ulong targetChannelId { get; set; }
+        public int repostIntervalMinutes { get; set; }
+        public int messageRetentionHours { get; set; }
+        public int minimumMessagesForRepost { get; set; }
     }
 }

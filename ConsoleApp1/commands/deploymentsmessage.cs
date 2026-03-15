@@ -153,14 +153,20 @@ namespace CornwallUtilities.commands
             // Criar botões
             var buttons = new List<DiscordComponent>();
 
-            // Botão de Quick Launch com link dinâmico
-            var quickLaunchButton = new DiscordButtonComponent(ButtonStyle.Primary, "quick_launch", $"🚀 Quick Launch / {codigo}");
+            // Botão de Quick Launch com link direto
+            var quickLaunchButton = new DiscordLinkButtonComponent(
+                "https://www.roblox.com/games/12068120918/Napoleonic-Wars", 
+                "🚀 Quick Launch");
 
-            // Botão do Jogo
-            var gameButton = new DiscordButtonComponent(ButtonStyle.Secondary, "game_link", "🎮 Napoleonic Wars Game");
+            // Botão do Jogo com link direto
+            var gameButton = new DiscordLinkButtonComponent(
+                "https://www.roblox.com/games/12068120918/Napoleonic-Wars", 
+                "🎮 Napoleonic Wars");
 
-            // Botão para entrar no canal de voz
-            var vcButton = new DiscordButtonComponent(ButtonStyle.Success, "join_vc", "🔊 Entrar no Canal de Voz");
+            // Botão para entrar no canal de voz - também usa link direto
+            var vcButton = new DiscordLinkButtonComponent(
+                "https://discord.com/channels/1397973799105855570/1417989019605925978", 
+                "🔊 Entrar no Canal de Voz");
 
             buttons.Add(quickLaunchButton);
             buttons.Add(gameButton);

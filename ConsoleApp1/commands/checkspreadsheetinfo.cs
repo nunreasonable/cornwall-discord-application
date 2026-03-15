@@ -16,7 +16,7 @@ namespace CornwallUtilities.commands
     internal class CheckSpreadsheetInfo : ApplicationCommandsModule
     {
         [SlashCommand("checkspreadsheetinfo", "Verifica as informações da planilha Regimental")]
-        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option("username", "Seu nome de usuário na planilha (coluna de identificação).")] string username)
+        public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option("username", "Seu nome de usuário na planilha.")] string username)
         {
             // Defer response while we fetch the spreadsheet and prepare the embed
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
@@ -90,7 +90,7 @@ namespace CornwallUtilities.commands
                 var foundRow = matchingRows[0];
                 var embed = new DiscordEmbedBuilder()
                     .WithTitle("Informações da planilha (Roster)")
-                    .WithDescription($"Dados encontrados para **{username}** (coluna D: **{usernameColumnName}**).")
+                    .WithDescription($"Dados encontrados para **{username}**.")
                     .WithColor(DiscordColor.Blurple)
                     .WithTimestamp(DateTimeOffset.UtcNow)
                     .AddField(new DiscordEmbedField("Linhas totais", rows.Count.ToString(), true))
