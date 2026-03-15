@@ -18,10 +18,11 @@ namespace CornwallUtilities.commands
 {
     internal class EnlistUser : ApplicationCommandsModule
     {
-        [SlashCommand("enlistuser", "Alista um usuário (confirmação de alt + cargos + nickname + log).")]
+        [SlashCommand("enlistuser", "Alista um usuário (verificação ROBLOX automática + cargos + nickname + log).")]
         public async Task EnlistUserCommand(
             InteractionContext ctx,
-            [Option("user", "Usuário a ser alistado")] DiscordUser user)
+            [Option("user", "Usuário a ser alistado")] DiscordUser user,
+            [Option("roblox_username", "Username do ROBLOX do usuário")] string robloxUsername)
         {
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
@@ -79,98 +80,21 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            // Pede para o usuário responder o formulário com nome ROBLOX
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
-                .WithTitle("Aguardando resposta")
-                .WithDescription("Por favor, aguarde enquanto enviamos o formulário...")
-                .WithColor(DiscordColor.Blurple)));
+            var robloxName = robloxUsername?.Trim() ?? string.Empty;
 
-            var questionsEmbed = new DiscordEmbedBuilder()
-                .WithTitle("Formulário de Alistamento - 32nd Regiment")
-                .WithDescription(
-                    $"{ctx.User.Mention}, responda **nesta mensagem** seguindo exatamente o formato abaixo:\n\n" +
-                    "Nome no Roblox:\n" +
-                    "Português 🇵🇹 / Brasileiro 🇧🇷 ?: \n" +
-                    "Pendendo aos grupos?: S/N\n" +
-                    "Quem te recrutou?:")
-                .WithColor(DiscordColor.Blurple);
-
-            var promptMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(questionsEmbed));
-
-            // Pequeno delay para garantir que a mensagem do bot foi enviada
-            await Task.Delay(1000);
-
-            var interactivity = ctx.Client.GetInteractivity();
-            var response = await interactivity.WaitForMessageAsync(
-                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id && m.Id != promptMessage.Id,
-                TimeSpan.FromMinutes(5));
-
-            if (response.TimedOut)
-            {
-                var timeoutForm = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Nenhuma resposta ao formulário foi recebida a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutForm));
-                return;
-            }
-
-            var formContent = response.Result.Content ?? string.Empty;
-            
-            // Se o conteúdo estiver vazio, tenta pegar de embeds
-            if (string.IsNullOrWhiteSpace(formContent) && response.Result.Embeds.Count > 0)
-            {
-                formContent = string.Join("\n", response.Result.Embeds.Select(e => e.Description ?? ""));
-            }
-            
-            var lines = formContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-            string robloxName = string.Empty;
-            string languageAnswer = string.Empty;
-            string groupsAnswer = string.Empty;
-            string recruiterAnswer = string.Empty;
-
-            foreach (var rawLine in lines)
-            {
-                var line = rawLine.Trim();
-                if (line.Length == 0)
-                    continue;
-
-                if (line.StartsWith("Nome no Roblox:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        robloxName = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Português 🇵🇹 / Brasileiro 🇧🇷 ?:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        languageAnswer = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Pendendo aos grupos:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        groupsAnswer = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Quem te recrutou:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        recruiterAnswer = line[(idx + 1)..].Trim();
-                }
-            }
+            // Debug: mostrar o username recebido
+            Console.WriteLine($"[DEBUG] Username recebido: '{robloxUsername}'");
+            Console.WriteLine($"[DEBUG] Username após trim: '{robloxName}'");
+            Console.WriteLine($"[DEBUG] Username length: {robloxName.Length}");
 
             if (string.IsNullOrWhiteSpace(robloxName))
             {
-                var invalidForm = new DiscordEmbedBuilder()
-                    .WithTitle("Formulário inválido")
-                    .WithDescription("Não foi possível encontrar o campo **\"Nome no Roblox:\"** na sua resposta. Execute o comando novamente e siga exatamente o formato solicitado.")
+                var invalidInput = new DiscordEmbedBuilder()
+                    .WithTitle("Username inválido")
+                    .WithDescription("O username fornecido está vazio. Execute o comando novamente.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidForm));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidInput));
                 return;
             }
 
@@ -207,7 +131,9 @@ namespace CornwallUtilities.commands
                         }
 
                         var usernameJson = JObject.Parse(await usernameResponse.Content.ReadAsStringAsync());
+                        Console.WriteLine($"[DEBUG] ROBLOX API Response: {usernameJson.ToString()}");
                         var dataArrayLookup = usernameJson["data"] as JArray;
+                        Console.WriteLine($"[DEBUG] Data array count: {dataArrayLookup?.Count ?? 0}");
                         if (dataArrayLookup == null || dataArrayLookup.Count == 0)
                         {
                             var notFound = new DiscordEmbedBuilder()
@@ -406,9 +332,6 @@ namespace CornwallUtilities.commands
                             .AddField(new DiscordEmbedField("Alistado", user.Mention, true))
                             .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
                             .AddField(new DiscordEmbedField("ROBLOX ID", robloxUserId.ToString(), true))
-                            .AddField(new DiscordEmbedField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true))
-                            .AddField(new DiscordEmbedField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true))
-                            .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true))
                             .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
                             .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
                             .AddField(new DiscordEmbedField("Badges", badgeCount.ToString(), true))
