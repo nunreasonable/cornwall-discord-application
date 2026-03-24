@@ -46,19 +46,51 @@ namespace CornwallUtilities.Services
             if (message.Author.IsBot || message.Author.IsSystem == true) 
                 return;
 
-            // Skip messages that are too short or too long
-            if (string.IsNullOrWhiteSpace(message.Content) || message.Content.Length > 2000)
-                return;
-
-            var storedMessage = new StoredMessage
+            // Only store messages from the target channel
+            if (message.ChannelId != _targetChannelId)
             {
-                Content = message.Content,
-                AuthorUsername = message.Author.Username,
-                Timestamp = DateTime.UtcNow,
-                ChannelId = message.ChannelId
-            };
+                Console.WriteLine($"Skipping message from channel {message.ChannelId} (only logging from target channel {_targetChannelId})");
+                return;
+            }
 
-            _messageQueue.Enqueue(storedMessage);
+            // Check if we have any content to store
+            string contentToStore = null;
+            
+            // If message has text content (not just whitespace)
+            if (!string.IsNullOrWhiteSpace(message.Content) && message.Content.Length <= 2000)
+            {
+                contentToStore = message.Content;
+            }
+            // If message has attachments or embeds but no text
+            else if (message.Attachments.Count > 0 || message.Embeds.Count > 0)
+            {
+                contentToStore = $"[Message with {message.Attachments.Count} attachment(s) and {message.Embeds.Count} embed(s)]";
+            }
+            // If message has only whitespace, create a placeholder
+            else if (!string.IsNullOrEmpty(message.Content) && message.Content.Trim().Length == 0)
+            {
+                contentToStore = $"[Whitespace message: {message.Content.Length} chars]";
+            }
+            // If message has no content but is a valid message (stickers, reactions, etc.)
+            else if (string.IsNullOrEmpty(message.Content) && message.Attachments.Count == 0 && message.Embeds.Count == 0)
+            {
+                contentToStore = "[Non-text message (sticker/reaction/other)]";
+            }
+
+            // If we have content to store, store it
+            if (contentToStore != null)
+            {
+                var storedMessage = new StoredMessage
+                {
+                    Content = contentToStore,
+                    AuthorUsername = message.Author.Username,
+                    Timestamp = DateTime.UtcNow,
+                    ChannelId = message.ChannelId
+                };
+
+                _messageQueue.Enqueue(storedMessage);
+                Console.WriteLine($"Stored message from {storedMessage.AuthorUsername}: \"{contentToStore.Substring(0, Math.Min(30, contentToStore.Length))}\"... Total: {_messageQueue.Count}");
+            }
 
             // Keep only messages from last 24 hours (rough limit to prevent memory issues)
             if (_messageQueue.Count > 1000)

@@ -41,6 +41,7 @@ namespace CornwallUtilities.config
         public int? messageRepostingIntervalMinutes { get; private set; }
         public int? messageRepostingRetentionHours { get; private set; }
         public int? messageRepostingMinimumMessages { get; private set; }
+        public ulong[]? messageRepostingExcludedChannelIds { get; private set; }
 
         public async Task ReadJSON()
         {
@@ -78,6 +79,7 @@ namespace CornwallUtilities.config
             messageRepostingIntervalMinutes = data?.messageReposting?.repostIntervalMinutes;
             messageRepostingRetentionHours = data?.messageReposting?.messageRetentionHours;
             messageRepostingMinimumMessages = data?.messageReposting?.minimumMessagesForRepost;
+            messageRepostingExcludedChannelIds = data?.messageReposting?.excludedChannelIds;
         }
     }
 
@@ -122,5 +124,6 @@ namespace CornwallUtilities.config
         public int repostIntervalMinutes { get; set; }
         public int messageRetentionHours { get; set; }
         public int minimumMessagesForRepost { get; set; }
+        public ulong[]? excludedChannelIds { get; set; }
     }
 }
