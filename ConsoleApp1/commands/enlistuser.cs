@@ -276,41 +276,106 @@ namespace CornwallUtilities.commands
             var addedRoles = new List<DiscordRole>();
             if (config.enlistTargetRoleIds != null && config.enlistTargetRoleIds.Length > 0)
             {
+                Console.WriteLine($"[DEBUG] Tentando adicionar {config.enlistTargetRoleIds.Length} cargos ao usuário {targetMember.Username}");
+                
+                // Verifica se o bot tem permissão para gerenciar cargos
+                var botMember = await ctx.Guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
+                var botCanManageRoles = botMember?.PermissionsIn(ctx.Channel).HasPermission(Permissions.ManageRoles) ?? false;
+                Console.WriteLine($"[DEBUG] Bot pode gerenciar cargos: {botCanManageRoles}");
+                
+                if (!botCanManageRoles)
+                {
+                    Console.WriteLine("[ERROR] Bot não tem permissão para gerenciar cargos!");
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O bot não tem permissão para gerenciar cargos. Verifique as permissões do bot.");
+                }
+                
                 foreach (var roleId in config.enlistTargetRoleIds)
                 {
+                    Console.WriteLine($"[DEBUG] Processando cargo ID: {roleId}");
+                    
                     if (!ctx.Guild.Roles.TryGetValue(roleId, out var role))
+                    {
+                        Console.WriteLine($"[ERROR] Cargo ID {roleId} não encontrado no servidor");
                         continue;
+                    }
+
+                    Console.WriteLine($"[DEBUG] Cargo encontrado: {role.Name} (ID: {role.Id})");
 
                     // Ignora cargos que o membro já possui
                     if (targetMember.Roles.Any(r => r.Id == roleId))
+                    {
+                        Console.WriteLine($"[DEBUG] Usuário já possui o cargo {role.Name}");
                         continue;
+                    }
+
+                    // Verifica hierarquia de cargos - o bot só pode atribuir cargos abaixo do seu cargo mais alto
+                    var botHighestRole = botMember?.Roles.OrderByDescending(r => r.Position).FirstOrDefault();
+                    if (botHighestRole != null && role.Position >= botHighestRole.Position)
+                    {
+                        Console.WriteLine($"[ERROR] Não é possível atribuir o cargo {role.Name} - posição ({role.Position}) é igual ou superior ao cargo mais alto do bot ({botHighestRole.Name} - posição {botHighestRole.Position})");
+                        continue;
+                    }
 
                     try
                     {
+                        Console.WriteLine($"[DEBUG] Tentando adicionar cargo {role.Name} ao usuário {targetMember.Username}");
                         await targetMember.GrantRoleAsync(role, "Alistamento via comando");
                         addedRoles.Add(role);
+                        Console.WriteLine($"[SUCCESS] Cargo {role.Name} adicionado com sucesso");
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Ignore failures for specific roles to continue with others
+                        Console.WriteLine($"[ERROR] Falha ao adicionar cargo {role.Name}: {ex.Message}");
+                        // Continue tentando outros cargos mesmo que um falhe
                     }
                 }
+                
+                Console.WriteLine($"[DEBUG] Total de cargos adicionados: {addedRoles.Count}/{config.enlistTargetRoleIds.Length}");
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] Nenhum cargo configurado para alistamento (enlistTargetRoleIds está vazio)");
             }
 
             // Atualiza nickname adicionando o prefixo [32nd] se ainda não existir
             var currentNick = targetMember.Nickname ?? targetMember.Username;
             const string prefix = "[32nd]";
+            Console.WriteLine($"[DEBUG] Nickname atual: '{currentNick}'");
+            Console.WriteLine($"[DEBUG] Verificando se já tem prefixo '{prefix}'");
+            
             if (!currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 var newNick = $"{prefix} {currentNick}";
-                try
+                Console.WriteLine($"[DEBUG] Novo nickname será: '{newNick}'");
+                
+                // Verifica se o bot tem permissão para gerenciar nicknames
+                var botMember = await ctx.Guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
+                var botCanManageNicknames = botMember?.PermissionsIn(ctx.Channel).HasPermission(Permissions.ManageNicknames) ?? false;
+                Console.WriteLine($"[DEBUG] Bot pode gerenciar nicknames: {botCanManageNicknames}");
+                
+                if (!botCanManageNicknames)
                 {
-                    await targetMember.ModifyAsync(m => m.Nickname = newNick);
+                    Console.WriteLine("[ERROR] Bot não tem permissão para gerenciar nicknames!");
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O bot não tem permissão para gerenciar apelidos. Verifique as permissões do bot.");
                 }
-                catch
+                else
                 {
-                    // Caso não seja possível alterar o nickname, ignore.
+                    try
+                    {
+                        Console.WriteLine($"[DEBUG] Tentando alterar nickname de '{currentNick}' para '{newNick}'");
+                        await targetMember.ModifyAsync(m => m.Nickname = newNick);
+                        Console.WriteLine("[SUCCESS] Nickname alterado com sucesso");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Falha ao alterar nickname: {ex.Message}");
+                        await ctx.Channel.SendMessageAsync($"⚠️ **Aviso**: Não foi possível alterar o nickname. Erro: {ex.Message}");
+                    }
                 }
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] Usuário já possui o prefixo [32nd] no nickname");
             }
 
             // Envia log para canal específico (busca o canal na API do Discord para não depender do cache)

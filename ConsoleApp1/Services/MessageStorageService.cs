@@ -53,44 +53,36 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            // Check if we have any content to store
-            string contentToStore = null;
+            // Determine what content to store
+            string contentToStore;
             
             // If message has text content (not just whitespace)
             if (!string.IsNullOrWhiteSpace(message.Content) && message.Content.Length <= 2000)
             {
                 contentToStore = message.Content;
             }
-            // If message has attachments or embeds but no text
+            // If message has attachments or embeds
             else if (message.Attachments.Count > 0 || message.Embeds.Count > 0)
             {
                 contentToStore = $"[Message with {message.Attachments.Count} attachment(s) and {message.Embeds.Count} embed(s)]";
             }
-            // If message has only whitespace, create a placeholder
-            else if (!string.IsNullOrEmpty(message.Content) && message.Content.Trim().Length == 0)
+            // For messages with no text (stickers, reactions, etc.)
+            else
             {
-                contentToStore = $"[Whitespace message: {message.Content.Length} chars]";
-            }
-            // If message has no content but is a valid message (stickers, reactions, etc.)
-            else if (string.IsNullOrEmpty(message.Content) && message.Attachments.Count == 0 && message.Embeds.Count == 0)
-            {
-                contentToStore = "[Non-text message (sticker/reaction/other)]";
+                contentToStore = $"[Message from {message.Author.Username}]";
             }
 
-            // If we have content to store, store it
-            if (contentToStore != null)
+            // Store the message
+            var storedMessage = new StoredMessage
             {
-                var storedMessage = new StoredMessage
-                {
-                    Content = contentToStore,
-                    AuthorUsername = message.Author.Username,
-                    Timestamp = DateTime.UtcNow,
-                    ChannelId = message.ChannelId
-                };
+                Content = contentToStore,
+                AuthorUsername = message.Author.Username,
+                Timestamp = DateTime.UtcNow,
+                ChannelId = message.ChannelId
+            };
 
-                _messageQueue.Enqueue(storedMessage);
-                Console.WriteLine($"Stored message from {storedMessage.AuthorUsername}: \"{contentToStore.Substring(0, Math.Min(30, contentToStore.Length))}\"... Total: {_messageQueue.Count}");
-            }
+            _messageQueue.Enqueue(storedMessage);
+            Console.WriteLine($"Stored message from {storedMessage.AuthorUsername}: \"{contentToStore.Substring(0, Math.Min(30, contentToStore.Length))}\"... Total: {_messageQueue.Count}");
 
             // Keep only messages from last 24 hours (rough limit to prevent memory issues)
             if (_messageQueue.Count > 1000)

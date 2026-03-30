@@ -70,7 +70,7 @@ namespace CornwallUtilities.commands
                 {
                     var blockedEmbed = new DiscordEmbedBuilder()
                         .WithTitle("Alistamento negado")
-                        .WithDescription("Este usuário já está alistado em algum outro regimento, favor redirecionar-se ao canal #transfer-office para solicitar a transferência.")
+                        .WithDescription("Este usuário já está alistado em algum outro regimento, favor redirecionar-se ao canal <#1397974742228533322> para solicitar a transferência.")
                         .WithColor(DiscordColor.IndianRed);
 
                     await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(blockedEmbed));
@@ -78,116 +78,178 @@ namespace CornwallUtilities.commands
                 }
             }
 
-            // Pede para o próprio usuário responder o formulário no formato especificado
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
-                .WithTitle("Aguardando resposta")
-                .WithDescription("Por favor, aguarde enquanto enviamos o formulário...")
-                .WithColor(DiscordColor.Blurple)));
-
-            var questionsEmbed = new DiscordEmbedBuilder()
+            // Cria um formulário interativo com botões
+            var formEmbed = new DiscordEmbedBuilder()
                 .WithTitle("Formulário de Alistamento - 32nd Regiment")
-                .WithDescription(
-                    $"{ctx.User.Mention}, responda **nesta mensagem** seguindo exatamente o formato abaixo:\n\n" +
-                    "Nome no Roblox:\n" +
-                    "Português 🇵🇹 / Brasileiro 🇧🇷 ?: \n" +
-                    "Pendendo aos grupos?: S/N\n" +
-                    "Quem te recrutou?:")
+                .WithDescription($"{ctx.User.Mention}, por favor, preencha o formulário respondendo às perguntas abaixo:")
                 .WithColor(DiscordColor.Blurple);
 
-            var promptMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(questionsEmbed));
-
-            // Pequeno delay para garantir que a mensagem do bot foi enviada
-            await Task.Delay(1000);
+            var formMessage = await ctx.EditResponseAsync(new DiscordWebhookBuilder()
+                .AddEmbed(formEmbed));
 
             var interactivity = ctx.Client.GetInteractivity();
-            var response = await interactivity.WaitForMessageAsync(
-                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id && m.Id != promptMessage.Id,
-                TimeSpan.FromMinutes(5));
 
-            if (response.TimedOut)
+            // Pergunta 1: Nome no Roblox - usando modal com TextInputComponent
+            var nameEmbed = new DiscordEmbedBuilder()
+                .WithTitle("1️⃣ Nome no Roblox")
+                .WithDescription("Por favor, clique no botão abaixo para abrir o formulário de digitação:")
+                .WithColor(DiscordColor.Blurple);
+
+            var nameButton = new DiscordButtonComponent(ButtonStyle.Primary, "roblox_name_modal", "📝 Digitar Nome");
+
+            var nameMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                .AddEmbed(nameEmbed)
+                .AddComponents(nameButton));
+
+            var nameButtonResult = await interactivity.WaitForButtonAsync(
+                nameMessage,
+                TimeSpan.FromMinutes(1)); // Reduzi o timeout para evitar expiração
+
+            if (nameButtonResult.TimedOut)
             {
-                var timeoutForm = new DiscordEmbedBuilder()
+                var timeoutName = new DiscordEmbedBuilder()
                     .WithTitle("Tempo esgotado")
-                    .WithDescription("Nenhuma resposta ao formulário foi recebida a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutForm));
+                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(timeoutName));
                 return;
             }
 
-            Console.WriteLine($"Response timed out: {response.TimedOut}");
-            Console.WriteLine($"Response result exists: {response.Result != null}");
-            if (response.Result != null)
+            // Como DisCatSharp não suporta TextInputComponent nativamente, vamos usar uma abordagem alternativa
+            // Criamos uma resposta ephemeral que funciona como um "prompt" dentro do embed
+            try
             {
-                Console.WriteLine($"Response result content: '{response.Result.Content}'");
-                Console.WriteLine($"Response result ID: {response.Result.Id}");
+                await nameButtonResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+                // Após defer, enviamos o prompt
+                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
+            }
+            catch (DisCatSharp.Exceptions.NotFoundException)
+            {
+                // Se a interação expirou, tentamos usar follow-up
+                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
+            }
+            catch (DisCatSharp.Exceptions.BadRequestException)
+            {
+                // Se houver bad request, tentamos abordagem mais simples
+                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
             }
 
-            var formContent = response.Result.Content ?? string.Empty;
-            
-            Console.WriteLine($"Message attachments: {response.Result.Attachments.Count}");
-            Console.WriteLine($"Message embeds: {response.Result.Embeds.Count}");
-            Console.WriteLine($"Message components: {response.Result.Components.Count}");
-            
-            // Se o conteúdo estiver vazio, tenta pegar de embeds
-            if (string.IsNullOrWhiteSpace(formContent) && response.Result.Embeds.Count > 0)
-            {
-                formContent = string.Join("\n", response.Result.Embeds.Select(e => e.Description ?? ""));
-            }
-            
-            Console.WriteLine($"Form content: '{formContent}'");
-            var lines = formContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var nameResponse = await interactivity.WaitForMessageAsync(
+                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id,
+                TimeSpan.FromMinutes(2));
 
-            string robloxName = string.Empty;
+            if (nameResponse.TimedOut || string.IsNullOrWhiteSpace(nameResponse.Result.Content))
+            {
+                var timeoutName = new DiscordEmbedBuilder()
+                    .WithTitle("Tempo esgotado")
+                    .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(timeoutName));
+                return;
+            }
+
+            string robloxName = nameResponse.Result.Content.Trim();
+
+            // Pergunta 2: Nacionalidade
+            var languageEmbed = new DiscordEmbedBuilder()
+                .WithTitle("2️⃣ Nacionalidade")
+                .WithDescription("Selecione sua nacionalidade clicando nos botões abaixo:")
+                .WithColor(DiscordColor.Blurple);
+
+            var portuguesButton = new DiscordButtonComponent(ButtonStyle.Secondary, "lang_pt", "🇵🇹 Português");
+            var brasileiroButton = new DiscordButtonComponent(ButtonStyle.Secondary, "lang_br", "🇧🇷 Brasileiro");
+
+            var langMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                .AddEmbed(languageEmbed)
+                .AddComponents(portuguesButton, brasileiroButton));
+
+            var langResult = await interactivity.WaitForButtonAsync(
+                langMessage,
+                TimeSpan.FromMinutes(2));
+
             string languageAnswer = string.Empty;
-            string groupsAnswer = string.Empty;
-            string recruiterAnswer = string.Empty;
-
-            foreach (var rawLine in lines)
+            if (langResult.TimedOut)
             {
-                var line = rawLine.Trim();
-                Console.WriteLine($"Raw line: {rawLine}");
-                Console.WriteLine($"Trimmed line: {line}");
-                if (line.Length == 0)
-                    continue;
-
-                if (line.StartsWith("Nome no Roblox:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        robloxName = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Português 🇵🇹 / Brasileiro 🇧🇷 ?:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        languageAnswer = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Pendendo aos grupos:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        groupsAnswer = line[(idx + 1)..].Trim();
-                }
-                else if (line.StartsWith("Quem te recrutou:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = line.IndexOf(':');
-                    if (idx >= 0 && idx < line.Length - 1)
-                        recruiterAnswer = line[(idx + 1)..].Trim();
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(robloxName))
-            {
-                var invalidForm = new DiscordEmbedBuilder()
-                    .WithTitle("Formulário inválido")
-                    .WithDescription("Não foi possível encontrar o campo **\"Nome no Roblox:\"** na sua resposta. Execute o comando novamente e siga exatamente o formato solicitado.")
+                var timeoutLang = new DiscordEmbedBuilder()
+                    .WithTitle("Tempo esgotado")
+                    .WithDescription("Nacionalidade não selecionada a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidForm));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutLang));
                 return;
             }
 
+            languageAnswer = langResult.Result.Id == "lang_pt" ? "Português 🇵🇹" : "Brasileiro 🇧🇷";
+            await langResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+
+            // Pergunta 3: Pendendo aos grupos
+            var groupsEmbed = new DiscordEmbedBuilder()
+                .WithTitle("3️⃣ Pendendo aos grupos?")
+                .WithDescription("Você está pendendo a outros grupos?")
+                .WithColor(DiscordColor.Blurple);
+
+            var simButton = new DiscordButtonComponent(ButtonStyle.Success, "groups_sim", "✅ Sim");
+            var naoButton = new DiscordButtonComponent(ButtonStyle.Danger, "groups_nao", "❌ Não");
+
+            var groupsMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
+                .AddEmbed(groupsEmbed)
+                .AddComponents(simButton, naoButton));
+
+            var groupsResult = await interactivity.WaitForButtonAsync(
+                groupsMessage,
+                TimeSpan.FromMinutes(2));
+
+            string groupsAnswer = string.Empty;
+            if (groupsResult.TimedOut)
+            {
+                var timeoutGroups = new DiscordEmbedBuilder()
+                    .WithTitle("Tempo esgotado")
+                    .WithDescription("Resposta sobre grupos não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutGroups));
+                return;
+            }
+
+            groupsAnswer = groupsResult.Result.Id == "groups_sim" ? "S" : "N";
+            await groupsResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+
+            // Pergunta 4: Quem recrutou (opcional)
+            var recruiterEmbed = new DiscordEmbedBuilder()
+                .WithTitle("4️⃣ Quem te recrutou?")
+                .WithDescription("Digite o nome de quem te recrutou (ou digite 'não sei' para pular):")
+                .WithColor(DiscordColor.Blurple);
+
+            await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(recruiterEmbed));
+
+            var recruiterResponse = await interactivity.WaitForMessageAsync(
+                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id,
+                TimeSpan.FromMinutes(2));
+
+            string recruiterAnswer = string.Empty;
+            if (!recruiterResponse.TimedOut && !string.IsNullOrWhiteSpace(recruiterResponse.Result.Content))
+            {
+                recruiterAnswer = recruiterResponse.Result.Content.Trim();
+            }
+
+            // Confirmação final
+            var confirmEmbed = new DiscordEmbedBuilder()
+                .WithTitle("✅ Formulário Completo")
+                .WithDescription("Obrigado! Seu formulário foi preenchido. Processando suas informações...")
+                .WithColor(DiscordColor.Green)
+                .AddField(new DiscordEmbedField("Nome no Roblox", robloxName))
+                .AddField(new DiscordEmbedField("Nacionalidade", languageAnswer))
+                .AddField(new DiscordEmbedField("Pendendo aos grupos?", groupsAnswer))
+                .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "Não informado" : recruiterAnswer));
+
+            await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(confirmEmbed));
+
+            
             int badgeCount;
             int friendsCount;
             TimeSpan accountAge;
