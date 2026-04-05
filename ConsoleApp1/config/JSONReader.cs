@@ -43,6 +43,9 @@ namespace CornwallUtilities.config
         public int? messageRepostingMinimumMessages { get; private set; }
         public ulong[]? messageRepostingExcludedChannelIds { get; private set; }
 
+        // Config used by message blacklist detection
+        public MessageBlacklistConfig? messageBlacklist { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config/config.json");
@@ -80,6 +83,8 @@ namespace CornwallUtilities.config
             messageRepostingRetentionHours = data?.messageReposting?.messageRetentionHours;
             messageRepostingMinimumMessages = data?.messageReposting?.minimumMessagesForRepost;
             messageRepostingExcludedChannelIds = data?.messageReposting?.excludedChannelIds;
+
+            messageBlacklist = data?.messageBlacklist;
         }
     }
 
@@ -115,6 +120,9 @@ namespace CornwallUtilities.config
 
         // Config for message reposting
         public MessageRepostingConfig? messageReposting { get; set; }
+
+        // Config for message blacklist detection
+        public MessageBlacklistConfig? messageBlacklist { get; set; }
     }
 
     internal sealed class MessageRepostingConfig
@@ -125,5 +133,15 @@ namespace CornwallUtilities.config
         public int messageRetentionHours { get; set; }
         public int minimumMessagesForRepost { get; set; }
         public ulong[]? excludedChannelIds { get; set; }
+    }
+
+    internal sealed class MessageBlacklistConfig
+    {
+        public bool enabled { get; set; }
+        public string[]? blacklistedTerms { get; set; }
+        public string? responseMessage { get; set; }
+        public string? responseMessage2Term { get; set; }
+        public string[]? responseMessage2Terms { get; set; }
+        public string? responseMessage2 { get; set; }
     }
 }

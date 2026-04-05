@@ -25,6 +25,7 @@ namespace CornwallUtilities
         private static DiscordClient? Client { get; set; }
         private static CommandsNextExtension? Commands { get; set; }
         public static MessageStorageService? MessageStorage { get; private set; }
+        public static MessageBlacklistService? MessageBlacklist { get; private set; }
 
         static async Task Main(string[] args)
         {
@@ -33,7 +34,7 @@ namespace CornwallUtilities
 
             var discordConfig = new DiscordConfiguration()
             {
-                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages,
+                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages | DiscordIntents.MessageContent,
                 Token = jsonReader.token,
                 TokenType = TokenType.Bot,
                 AutoReconnect = true
@@ -73,7 +74,8 @@ namespace CornwallUtilities
             Console.WriteLine("Global commands registered.");
             
             // Register guild commands for faster registration (no rate limits for guild commands)
-            var guildId = (ulong)1397973799105855570; // Your guild ID from config
+            var guildId = (ulong)1487938282200236224;
+            var guildId2 = (ulong)1397973799105855570; // Your guild ID from config
             Console.WriteLine("Registering guild commands...");
             slashCommands.RegisterGuildCommands<UtilitySlashCommands>(guildId);
             slashCommands.RegisterGuildCommands<CheckSpreadsheetInfo>(guildId);
@@ -84,6 +86,15 @@ namespace CornwallUtilities
             slashCommands.RegisterGuildCommands<DeploymentsMessage>(guildId);
             slashCommands.RegisterGuildCommands<RepostMessage>(guildId);
             slashCommands.RegisterGuildCommands<MessageStorageStatus>(guildId);
+            slashCommands.RegisterGuildCommands<UtilitySlashCommands>(guildId2);
+            slashCommands.RegisterGuildCommands<CheckSpreadsheetInfo>(guildId2);
+            slashCommands.RegisterGuildCommands<DmRolesCertainRoles>(guildId2);
+            slashCommands.RegisterGuildCommands<DmAnyMessage>(guildId2);
+            slashCommands.RegisterGuildCommands<EnlistUser>(guildId2);
+            slashCommands.RegisterGuildCommands<RobloxEnlist>(guildId2);
+            slashCommands.RegisterGuildCommands<DeploymentsMessage>(guildId2);
+            slashCommands.RegisterGuildCommands<RepostMessage>(guildId2);
+            slashCommands.RegisterGuildCommands<MessageStorageStatus>(guildId2);
             Console.WriteLine("Guild commands registered.");
         
             // Initialize message storage service if enabled
@@ -97,6 +108,19 @@ namespace CornwallUtilities
                     jsonReader.messageRepostingMinimumMessages ?? 50
                 );
                 Console.WriteLine("Message reposting service initialized.");
+            }
+
+            if (jsonReader.messageBlacklist?.enabled == true)
+            {
+                MessageBlacklist = new MessageBlacklistService(
+                    jsonReader.messageBlacklist.blacklistedTerms ?? Array.Empty<string>(),
+                    jsonReader.messageBlacklist.responseMessage ?? string.Empty,
+                    jsonReader.messageBlacklist.responseMessage2Terms ?? (string.IsNullOrWhiteSpace(jsonReader.messageBlacklist.responseMessage2Term)
+                        ? Array.Empty<string>()
+                        : new[] { jsonReader.messageBlacklist.responseMessage2Term }),
+                    jsonReader.messageBlacklist.responseMessage2
+                );
+                Console.WriteLine("Message blacklist service initialized.");
             }
 
             // Get the message storage service
@@ -148,6 +172,11 @@ namespace CornwallUtilities
             if (MessageStorage != null)
             {
                 MessageStorage.StoreMessage(e.Message);
+            }
+
+            if (MessageBlacklist != null)
+            {
+                await MessageBlacklist.HandleMessageAsync(e.Message);
             }
         }
 

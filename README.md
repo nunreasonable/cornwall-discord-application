@@ -61,6 +61,9 @@ O bot utiliza o arquivo `config.json` para configurações de:
 - URLs de planilhas e links
 - Permissões de comandos
 - Mensagens personalizadas
+- Lista de termos bloqueados e resposta automática do blacklist
+
+Observação: o bot agora usa o intent `MessageContent` para ler o texto das mensagens e detectar termos bloqueados. Esse intent também precisa estar habilitado no painel do aplicativo do Discord.
 
 ## Requisitos
 

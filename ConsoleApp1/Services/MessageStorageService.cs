@@ -53,42 +53,238 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            // Determine what content to store
-            string contentToStore;
-            
-            // If message has text content (not just whitespace)
-            if (!string.IsNullOrWhiteSpace(message.Content) && message.Content.Length <= 2000)
-            {
-                contentToStore = message.Content;
-            }
-            // If message has attachments or embeds
-            else if (message.Attachments.Count > 0 || message.Embeds.Count > 0)
-            {
-                contentToStore = $"[Message with {message.Attachments.Count} attachment(s) and {message.Embeds.Count} embed(s)]";
-            }
-            // For messages with no text (stickers, reactions, etc.)
-            else
-            {
-                contentToStore = $"[Message from {message.Author.Username}]";
-            }
-
-            // Store the message
+            // Create comprehensive stored message
             var storedMessage = new StoredMessage
             {
-                Content = contentToStore,
+                Content = message.Content ?? string.Empty,
                 AuthorUsername = message.Author.Username,
                 Timestamp = DateTime.UtcNow,
-                ChannelId = message.ChannelId
+                ChannelId = message.ChannelId,
+                HasMentions = message.MentionedUsers.Count > 0 || message.MentionedRoles.Count > 0 || message.MentionedChannels.Count > 0,
+                OriginalMessageUrl = $"https://discord.com/channels/{message.Channel.GuildId}/{message.ChannelId}/{message.Id}"
             };
 
+            // Process attachments
+            foreach (var attachment in message.Attachments)
+            {
+                var storedAttachment = new StoredAttachment
+                {
+                    FileName = attachment.Id.ToString(), // Use ID as filename since FileName property doesn't exist
+                    Url = attachment.Url.ToString(),
+                    ContentType = "attachment", // Simplified since MediaType might not be available
+                    FileSize = null, // FileSize might not be available
+                    IsImage = attachment.Url.ToString().Contains("image") || attachment.Url.ToString().EndsWith(".png") || attachment.Url.ToString().EndsWith(".jpg") || attachment.Url.ToString().EndsWith(".gif"),
+                    Description = string.Empty
+                };
+                storedMessage.Attachments.Add(storedAttachment);
+            }
+
+            // Process embeds
+            foreach (var embed in message.Embeds)
+            {
+                var storedEmbed = new StoredEmbed
+                {
+                    Title = embed.Title ?? string.Empty,
+                    Description = embed.Description ?? string.Empty,
+                    Url = embed.Url?.ToString() ?? string.Empty,
+                    Color = embed.Color.HasValue ? embed.Color.Value.ToString() : string.Empty
+                };
+
+                // Process embed fields
+                foreach (var field in embed.Fields)
+                {
+                    storedEmbed.Fields.Add(new StoredEmbedField
+                    {
+                        Name = field.Name,
+                        Value = field.Value,
+                        Inline = field.Inline
+                    });
+                }
+
+                // Process embed image
+                if (embed.Image != null)
+                {
+                    storedEmbed.Image = new StoredEmbedImage
+                    {
+                        Url = embed.Image.Url?.ToString() ?? string.Empty,
+                        ProxyUrl = embed.Image.ProxyUrl?.ToString() ?? string.Empty,
+                        Width = embed.Image.Width,
+                        Height = embed.Image.Height
+                    };
+                }
+
+                // Process embed thumbnail
+                if (embed.Thumbnail != null)
+                {
+                    storedEmbed.Thumbnail = new StoredEmbedImage
+                    {
+                        Url = embed.Thumbnail.Url?.ToString() ?? string.Empty,
+                        ProxyUrl = embed.Thumbnail.ProxyUrl?.ToString() ?? string.Empty,
+                        Width = embed.Thumbnail.Width,
+                        Height = embed.Thumbnail.Height
+                    };
+                }
+
+                // Process embed footer
+                if (embed.Footer != null)
+                {
+                    storedEmbed.Footer = new StoredEmbedFooter
+                    {
+                        Text = embed.Footer.Text ?? string.Empty,
+                        IconUrl = embed.Footer.IconUrl?.ToString() ?? string.Empty
+                    };
+                }
+
+                // Process embed author
+                if (embed.Author != null)
+                {
+                    storedEmbed.Author = new StoredEmbedAuthor
+                    {
+                        Name = embed.Author.Name ?? string.Empty,
+                        Url = embed.Author.Url?.ToString() ?? string.Empty,
+                        IconUrl = embed.Author.IconUrl?.ToString() ?? string.Empty
+                    };
+                }
+
+                storedMessage.Embeds.Add(storedEmbed);
+            }
+
+            // Process stickers
+            foreach (var sticker in message.Stickers)
+            {
+                var storedSticker = new StoredSticker
+                {
+                    Name = sticker.Name,
+                    Description = sticker.Description ?? string.Empty,
+                    Url = $"https://cdn.discordapp.com/stickers/{sticker.Id}.png", // Construct sticker URL
+                    FormatType = sticker.FormatType.ToString()
+                };
+                storedMessage.Stickers.Add(storedSticker);
+            }
+
+            // Process reactions
+            foreach (var reaction in message.Reactions)
+            {
+                var emojiUrl = "";
+                try
+                {
+                    // Try to get emoji URL - this might fail for some emojis
+                    if (reaction.Emoji.Id != 0)
+                    {
+                        emojiUrl = $"https://cdn.discordapp.com/emojis/{reaction.Emoji.Id}";
+                    }
+                }
+                catch
+                {
+                    // Fallback for any issues
+                    emojiUrl = string.Empty;
+                }
+                
+                var storedReaction = new StoredReaction
+                {
+                    EmojiName = reaction.Emoji.Name ?? "Unknown",
+                    IsCustomEmoji = reaction.Emoji.Id != 0,
+                    EmojiUrl = emojiUrl,
+                    Count = reaction.Count
+                };
+                storedMessage.Reactions.Add(storedReaction);
+            }
+
+            // Determine message type
+            storedMessage.MessageType = DetermineMessageType(storedMessage);
+
+            // Store the message
             _messageQueue.Enqueue(storedMessage);
-            Console.WriteLine($"Stored message from {storedMessage.AuthorUsername}: \"{contentToStore.Substring(0, Math.Min(30, contentToStore.Length))}\"... Total: {_messageQueue.Count}");
+            
+            // Log with detailed information
+            LogStoredMessage(storedMessage);
 
             // Keep only messages from last 24 hours (rough limit to prevent memory issues)
             if (_messageQueue.Count > 1000)
             {
                 CleanupOldMessages(null!);
             }
+        }
+
+        private MessageType DetermineMessageType(StoredMessage message)
+        {
+            var hasText = !string.IsNullOrWhiteSpace(message.Content);
+            var hasAttachments = message.Attachments.Count > 0;
+            var hasEmbeds = message.Embeds.Count > 0;
+            var hasStickers = message.Stickers.Count > 0;
+            var hasReactions = message.Reactions.Count > 0;
+
+            var contentTypes = new List<bool> { hasText, hasAttachments, hasEmbeds, hasStickers, hasReactions };
+            var activeTypes = contentTypes.Count(x => x);
+
+            if (activeTypes == 0) return MessageType.SystemMessage;
+            if (activeTypes == 1)
+            {
+                if (hasAttachments && message.Attachments.All(a => a.IsImage)) return MessageType.ImageOnly;
+                if (hasAttachments) return MessageType.AttachmentOnly;
+                if (hasEmbeds) return MessageType.EmbedOnly;
+                if (hasStickers) return MessageType.StickerOnly;
+                if (hasReactions) return MessageType.ReactionOnly;
+            }
+
+            return MessageType.MixedContent;
+        }
+
+        private void LogStoredMessage(StoredMessage message)
+        {
+            var logParts = new List<string>();
+            
+            // Basic info
+            logParts.Add($"Stored message from {message.AuthorUsername}");
+            
+            // Message type
+            logParts.Add($"Type: {message.MessageType}");
+            
+            // Content preview
+            if (!string.IsNullOrWhiteSpace(message.Content))
+            {
+                var preview = message.Content.Length > 50 ? message.Content.Substring(0, 47) + "..." : message.Content;
+                logParts.Add($"Text: \"{preview}\"");
+            }
+            
+            // Attachments
+            if (message.Attachments.Count > 0)
+            {
+                var imageCount = message.Attachments.Count(a => a.IsImage);
+                var otherCount = message.Attachments.Count - imageCount;
+                var attachmentInfo = new List<string>();
+                if (imageCount > 0) attachmentInfo.Add($"{imageCount} image(s)");
+                if (otherCount > 0) attachmentInfo.Add($"{otherCount} other file(s)");
+                logParts.Add($"Attachments: {string.Join(", ", attachmentInfo)}");
+            }
+            
+            // Embeds
+            if (message.Embeds.Count > 0)
+            {
+                logParts.Add($"Embeds: {message.Embeds.Count}");
+            }
+            
+            // Stickers
+            if (message.Stickers.Count > 0)
+            {
+                logParts.Add($"Stickers: {message.Stickers.Count} ({string.Join(", ", message.Stickers.Select(s => s.Name))})");
+            }
+            
+            // Reactions
+            if (message.Reactions.Count > 0)
+            {
+                logParts.Add($"Reactions: {message.Reactions.Count}");
+            }
+            
+            // Mentions
+            if (message.HasMentions)
+            {
+                logParts.Add("Has mentions");
+            }
+            
+            logParts.Add($"Total messages: {_messageQueue.Count}");
+            
+            Console.WriteLine(string.Join(" | ", logParts));
         }
 
         private void ScheduleNextRepost()
@@ -124,15 +320,28 @@ namespace CornwallUtilities.Services
                     return;
                 }
 
-                // Pick a random message
-                var randomMessage = messages[_random.Next(messages.Length)];
+                // Pick a random message that has text and/or attachment URLs so it can be reposted faithfully
+                var repostableMessages = messages.Where(IsRepostableMessage).ToArray();
+                if (repostableMessages.Length == 0)
+                {
+                    Console.WriteLine("No repostable messages with text or attachments available");
+                    return;
+                }
+
+                var randomMessage = repostableMessages[_random.Next(repostableMessages.Length)];
 
                 // Get the target channel
                 var channel = await _client.GetChannelAsync(_targetChannelId);
                 if (channel != null)
                 {
-                    await channel.SendMessageAsync(randomMessage.Content);
-                    Console.WriteLine($"Reposted message from {randomMessage.AuthorUsername}: {randomMessage.Content}");
+                    var sent = await RepostExactMessage(channel, randomMessage);
+                    if (!sent)
+                    {
+                        Console.WriteLine("Selected message could not be reposted as exact text.");
+                        return;
+                    }
+
+                    Console.WriteLine($"Reposted exact message from {randomMessage.AuthorUsername}");
                     
                     // Set cooldown for 2 hours
                     _nextRepostTime = DateTime.UtcNow.AddHours(2);
@@ -199,14 +408,27 @@ namespace CornwallUtilities.Services
                     return false;
                 }
 
-                var randomMessage = GetRandomMessage();
+                var repostableMessages = messages.Where(IsRepostableMessage).ToArray();
+                if (repostableMessages.Length == 0)
+                {
+                    Console.WriteLine("Manual repost rejected: No repostable messages with text or attachments available");
+                    return false;
+                }
+
+                var randomMessage = repostableMessages[_random.Next(repostableMessages.Length)];
                 if (randomMessage == null) return false;
 
                 var channel = await _client.GetChannelAsync(_targetChannelId);
                 if (channel != null)
                 {
-                    await channel.SendMessageAsync(randomMessage.Content);
-                    Console.WriteLine($"Manual repost triggered: {randomMessage.Content}");
+                    var sent = await RepostExactMessage(channel, randomMessage);
+                    if (!sent)
+                    {
+                        Console.WriteLine("Manual repost rejected: Selected message could not be reposted as exact text");
+                        return false;
+                    }
+
+                    Console.WriteLine("Manual repost triggered: exact message content sent");
                     
                     // Set cooldown for 2 hours
                     _nextRepostTime = DateTime.UtcNow.AddHours(2);
@@ -222,6 +444,41 @@ namespace CornwallUtilities.Services
             return false;
         }
 
+        private static bool IsRepostableMessage(StoredMessage message)
+        {
+            return !string.IsNullOrWhiteSpace(message.Content) ||
+                   message.Attachments.Any(a => !string.IsNullOrWhiteSpace(a.Url));
+        }
+
+        private async Task<bool> RepostExactMessage(DiscordChannel channel, StoredMessage message)
+        {
+            var hasText = !string.IsNullOrWhiteSpace(message.Content);
+            var attachmentUrls = message.Attachments
+                .Select(a => a.Url)
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct()
+                .ToList();
+
+            if (!hasText && attachmentUrls.Count == 0)
+            {
+                return false;
+            }
+
+            // Send original text exactly as stored so Discord markdown/rich formatting is preserved.
+            if (hasText)
+            {
+                await channel.SendMessageAsync(message.Content);
+            }
+
+            // Send attachment URLs so Discord can render image previews/rich embeds from CDN links.
+            foreach (var url in attachmentUrls)
+            {
+                await channel.SendMessageAsync(url);
+            }
+
+            return true;
+        }
+
         public void Dispose()
         {
             _cleanupTimer?.Dispose();
@@ -235,5 +492,91 @@ namespace CornwallUtilities.Services
         public string AuthorUsername { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public ulong ChannelId { get; set; }
+        public List<StoredAttachment> Attachments { get; set; } = new();
+        public List<StoredEmbed> Embeds { get; set; } = new();
+        public List<StoredSticker> Stickers { get; set; } = new();
+        public List<StoredReaction> Reactions { get; set; } = new();
+        public MessageType MessageType { get; set; }
+        public bool HasMentions { get; set; }
+        public string OriginalMessageUrl { get; set; } = string.Empty;
+    }
+
+    public class StoredAttachment
+    {
+        public string FileName { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public long? FileSize { get; set; }
+        public bool IsImage { get; set; }
+        public string Description { get; set; } = string.Empty;
+    }
+
+    public class StoredEmbed
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public List<StoredEmbedField> Fields { get; set; } = new();
+        public StoredEmbedImage? Image { get; set; }
+        public StoredEmbedImage? Thumbnail { get; set; }
+        public StoredEmbedFooter? Footer { get; set; }
+        public StoredEmbedAuthor? Author { get; set; }
+    }
+
+    public class StoredEmbedField
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public bool Inline { get; set; }
+    }
+
+    public class StoredEmbedImage
+    {
+        public string Url { get; set; } = string.Empty;
+        public string ProxyUrl { get; set; } = string.Empty;
+        public int? Width { get; set; }
+        public int? Height { get; set; }
+    }
+
+    public class StoredEmbedFooter
+    {
+        public string Text { get; set; } = string.Empty;
+        public string IconUrl { get; set; } = string.Empty;
+    }
+
+    public class StoredEmbedAuthor
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string IconUrl { get; set; } = string.Empty;
+    }
+
+    public class StoredSticker
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string FormatType { get; set; } = string.Empty;
+    }
+
+    public class StoredReaction
+    {
+        public string EmojiName { get; set; } = string.Empty;
+        public bool IsCustomEmoji { get; set; }
+        public string EmojiUrl { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
+
+    public enum MessageType
+    {
+        Default,
+        ImageOnly,
+        AttachmentOnly,
+        EmbedOnly,
+        StickerOnly,
+        ReactionOnly,
+        MixedContent,
+        SystemMessage
     }
 }
