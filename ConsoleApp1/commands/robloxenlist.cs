@@ -496,17 +496,9 @@ namespace CornwallUtilities.commands
             }
 
             var successEmbed = new DiscordEmbedBuilder()
-                .WithTitle("32nd Regiment - Alistamento bem-sucedido (ROBLOX)")
-                .WithDescription($"Você foi alistado com sucesso após passar na verificação automática da sua conta ROBLOX.")
-                .WithColor(DiscordColor.Green)
-                .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
-                .WithFooter("Confirmação de alistamento ROBLOX", ctx.Client.CurrentUser.AvatarUrl)
-                .WithTimestamp(DateTimeOffset.UtcNow)
-                .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
-                .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true))
-                .AddField(new DiscordEmbedField("ROBLOX - idade da conta (dias)", accountAge.Days.ToString(), true))
-                .AddField(new DiscordEmbedField("ROBLOX - amigos", friendsCount.ToString(), true))
-                .AddField(new DiscordEmbedField("ROBLOX - badges", badgeCount.ToString(), true));
+                .WithTitle("Alistamento concluido")
+                .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 32nd.")
+                .WithColor(DiscordColor.Green);
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }

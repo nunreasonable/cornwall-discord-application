@@ -36,8 +36,10 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            // Defer the response since we might need time to process
-            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+            // Defer as ephemeral so the final confirmation is visible only to the command user.
+            await ctx.CreateResponseAsync(
+                InteractionResponseType.DeferredChannelMessageWithSource,
+                new DiscordInteractionResponseBuilder().AsEphemeral());
 
             try
             {
