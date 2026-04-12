@@ -36,7 +36,7 @@ namespace CornwallUtilities.commands
             var config = new JSONReader();
             await config.ReadJSON();
 
-            if (ctx.Guild == null)
+            if (ctx.Guild is null)
             {
                 var noGuildEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Erro")
@@ -71,7 +71,7 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            if (role == null && user == null)
+            if (role is null && user is null)
             {
                 var missingEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Parâmetros insuficientes")
@@ -85,7 +85,7 @@ namespace CornwallUtilities.commands
             List<DiscordMember> membersToDm;
             var targetName = string.Empty;
 
-            if (user != null)
+            if (user is not null)
             {
                 // Ensure the user is in this guild
                 try
@@ -110,7 +110,7 @@ namespace CornwallUtilities.commands
                 // GetAllMembersAsync busca todos os membros na API do Discord; o cache (Members) só tem uma parte.
                 var allMembers = await ctx.Guild.GetAllMembersAsync();
                 membersToDm = allMembers
-                    .Where(m => role != null && m.Roles.Contains(role) && !m.IsBot)
+                    .Where(m => role is not null && m.Roles.Contains(role) && !m.IsBot)
                     .ToList();
 
                 targetName = role?.Name ?? "destinatários";

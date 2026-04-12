@@ -51,6 +51,18 @@ namespace CornwallUtilities.commands
             var config = new JSONReader();
             await config.ReadJSON();
 
+            var guild = ctx.Guild;
+            if (guild is null)
+            {
+                var noGuildEmbed = new DiscordEmbedBuilder()
+                    .WithTitle("Erro")
+                    .WithDescription("Este comando só pode ser usado em servidores (guilds).")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(noGuildEmbed));
+                return;
+            }
+
             var gameLink = !string.IsNullOrWhiteSpace(config.deploymentGameLink)
                 ? config.deploymentGameLink
                 : (!string.IsNullOrWhiteSpace(config.defaultGameLink)
@@ -193,7 +205,7 @@ namespace CornwallUtilities.commands
             {
                 // Obter o canal configurado
                 var deploymentChannel = await ctx.Client.GetChannelAsync(config.deploymentChannelId.Value);
-                if (deploymentChannel == null || deploymentChannel.GuildId != ctx.Guild.Id)
+                if (deploymentChannel is null || deploymentChannel.GuildId != guild.Id)
                 {
                     var channelNotFoundEmbed = new DiscordEmbedBuilder()
                         .WithTitle("Canal não encontrado")
@@ -205,7 +217,7 @@ namespace CornwallUtilities.commands
                 }
 
                 // Verificar se o bot tem permissão para enviar mensagens no canal
-                var botMember = await ctx.Guild?.GetMemberAsync(ctx.Client.CurrentUser.Id);
+                var botMember = await guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
                 if (botMember is not null)
                 {
                     var botPermissions = deploymentChannel.PermissionsFor(botMember);

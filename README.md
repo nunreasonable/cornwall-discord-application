@@ -71,3 +71,14 @@ Observação: o bot agora usa o intent `MessageContent` para ler o texto das men
 - DisCatSharp
 - Configuração adequada no `config.json`
 - Permissões do bot no servidor Discord
+
+## Troubleshooting de Build/Restore
+
+Se `dotnet restore` ou `dotnet build` falhar com `NU1301` e timeout para `https://api.nuget.org/v3/index.json`, execute com IPv6 desativado:
+
+```bash
+DOTNET_SYSTEM_NET_DISABLEIPV6=1 dotnet restore ConsoleApp1/ConsoleApp1.csproj
+DOTNET_SYSTEM_NET_DISABLEIPV6=1 dotnet build ConsoleApp1/ConsoleApp1.csproj
+```
+
+Observação: as tasks do VS Code em `.vscode/tasks.json` já foram configuradas para usar essa variável automaticamente.

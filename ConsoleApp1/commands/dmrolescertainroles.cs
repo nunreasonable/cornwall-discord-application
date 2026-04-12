@@ -44,7 +44,7 @@ namespace CornwallUtilities.commands
                 ? FallbackGameLink
                 : config.defaultGameLink;
 
-            if (ctx.Guild == null)
+            if (ctx.Guild is null)
             {
                 var noGuildEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Erro")
@@ -79,7 +79,7 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            if (role == null && user == null)
+            if (role is null && user is null)
             {
                 var missingEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Parâmetros insuficientes")
@@ -92,7 +92,7 @@ namespace CornwallUtilities.commands
 
             List<DiscordMember> membersToDm;
 
-            if (user != null)
+            if (user is not null)
             {
                 DiscordMember guildMember;
                 try
@@ -117,7 +117,7 @@ namespace CornwallUtilities.commands
                 // GetAllMembersAsync busca todos os membros na API do Discord; o cache (Members) só tem uma parte.
                 var allMembers = await ctx.Guild.GetAllMembersAsync();
                 membersToDm = allMembers
-                    .Where(m => role != null && m.Roles.Contains(role) && !m.IsBot)
+                    .Where(m => role is not null && m.Roles.Contains(role) && !m.IsBot)
                     .ToList();
             }
 
@@ -144,7 +144,7 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            var targetName = user != null
+            var targetName = user is not null
                 ? membersToDm[0].DisplayName ?? membersToDm[0].Username
                 : (role?.Name ?? "destinatário");
 

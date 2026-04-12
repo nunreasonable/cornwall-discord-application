@@ -26,7 +26,7 @@ namespace CornwallUtilities.commands
             var config = new JSONReader();
             await config.ReadJSON();
 
-            if (ctx.Guild == null)
+            if (ctx.Guild is null)
             {
                 var guildEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Comando inválido")
@@ -466,7 +466,7 @@ namespace CornwallUtilities.commands
                 try
                 {
                     var logChannel = await ctx.Client.GetChannelAsync(config.enlistLogChannelId.Value);
-                    if (logChannel != null && logChannel.GuildId == ctx.Guild.Id)
+                    if (logChannel is not null && logChannel.GuildId == ctx.Guild.Id)
                     {
                         var logEmbed = new DiscordEmbedBuilder()
                             .WithTitle("32nd Regiment - Recruit Log (ROBLOX)")

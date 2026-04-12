@@ -51,7 +51,7 @@ namespace CornwallUtilities
 
                     else if (cmd.StartsWith("say "))
                     {
-                        if (currentChannel == null)
+                        if (currentChannel is null)
                         {
                             Console.WriteLine("Defina um canal primeiro com >channel ID");
                             continue;

@@ -29,7 +29,7 @@ namespace CornwallUtilities.commands
             var config = new JSONReader();
             await config.ReadJSON();
 
-            if (ctx.Guild == null)
+            if (ctx.Guild is null)
             {
                 var guildEmbed = new DiscordEmbedBuilder()
                     .WithTitle("Comando inválido")
@@ -310,7 +310,7 @@ namespace CornwallUtilities.commands
 
                     // Verifica hierarquia de cargos - o bot só pode atribuir cargos abaixo do seu cargo mais alto
                     var botHighestRole = botMember?.Roles.OrderByDescending(r => r.Position).FirstOrDefault();
-                    if (botHighestRole != null && role.Position >= botHighestRole.Position)
+                    if (botHighestRole is not null && role.Position >= botHighestRole.Position)
                     {
                         Console.WriteLine($"[ERROR] Não é possível atribuir o cargo {role.Name} - posição ({role.Position}) é igual ou superior ao cargo mais alto do bot ({botHighestRole.Name} - posição {botHighestRole.Position})");
                         continue;
@@ -384,7 +384,7 @@ namespace CornwallUtilities.commands
                 try
                 {
                     var logChannel = await ctx.Client.GetChannelAsync(config.enlistLogChannelId.Value);
-                    if (logChannel != null && logChannel.GuildId == ctx.Guild.Id)
+                    if (logChannel is not null && logChannel.GuildId == ctx.Guild.Id)
                     {
                         var logEmbed = new DiscordEmbedBuilder()
                             .WithTitle("32nd Regiment - Recruit Log")
@@ -405,7 +405,7 @@ namespace CornwallUtilities.commands
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
                     }
-                    else if (logChannel == null)
+                    else if (logChannel is null)
                     {
                         await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de logs (ID inválido ou canal de outro servidor?). Verifique o `enlistLogChannelId` no config.json.");
                     }

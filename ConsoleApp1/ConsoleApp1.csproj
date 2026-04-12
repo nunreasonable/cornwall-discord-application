@@ -8,19 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DisCatSharp" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Analyzer" Version="1.0.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="DisCatSharp.Attributes" Version="2025.3.27" />
-    <PackageReference Include="DisCatSharp.CommandsNext" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Common" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Configuration" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Experimental" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Hosting" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.Interactivity" Version="10.6.7" />
-    <PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.6.7" />
+    <PackageReference Include="DisCatSharp" Version="10.7.0" />
+    <PackageReference Include="DisCatSharp.ApplicationCommands" Version="10.7.0" />
+    <PackageReference Include="DisCatSharp.CommandsNext" Version="10.7.0" />
+    <PackageReference Include="DisCatSharp.Interactivity" Version="10.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 

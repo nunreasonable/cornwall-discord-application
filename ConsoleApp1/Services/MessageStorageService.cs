@@ -67,13 +67,19 @@ namespace CornwallUtilities.Services
             // Process attachments
             foreach (var attachment in message.Attachments)
             {
+                if (attachment is null)
+                {
+                    continue;
+                }
+
+                var attachmentUrl = attachment.Url?.ToString() ?? string.Empty;
                 var storedAttachment = new StoredAttachment
                 {
-                    FileName = attachment.Id.ToString(), // Use ID as filename since FileName property doesn't exist
-                    Url = attachment.Url.ToString(),
+                    FileName = attachment.Id.ToString() ?? string.Empty, // Use ID as filename since FileName property doesn't exist
+                    Url = attachmentUrl,
                     ContentType = "attachment", // Simplified since MediaType might not be available
                     FileSize = null, // FileSize might not be available
-                    IsImage = attachment.Url.ToString().Contains("image") || attachment.Url.ToString().EndsWith(".png") || attachment.Url.ToString().EndsWith(".jpg") || attachment.Url.ToString().EndsWith(".gif"),
+                    IsImage = attachmentUrl.Contains("image") || attachmentUrl.EndsWith(".png") || attachmentUrl.EndsWith(".jpg") || attachmentUrl.EndsWith(".gif"),
                     Description = string.Empty
                 };
                 storedMessage.Attachments.Add(storedAttachment);
@@ -332,7 +338,7 @@ namespace CornwallUtilities.Services
 
                 // Get the target channel
                 var channel = await _client.GetChannelAsync(_targetChannelId);
-                if (channel != null)
+                if (channel is not null)
                 {
                     var sent = await RepostExactMessage(channel, randomMessage);
                     if (!sent)
@@ -416,10 +422,10 @@ namespace CornwallUtilities.Services
                 }
 
                 var randomMessage = repostableMessages[_random.Next(repostableMessages.Length)];
-                if (randomMessage == null) return false;
+                if (randomMessage is null) return false;
 
                 var channel = await _client.GetChannelAsync(_targetChannelId);
-                if (channel != null)
+                if (channel is not null)
                 {
                     var sent = await RepostExactMessage(channel, randomMessage);
                     if (!sent)
