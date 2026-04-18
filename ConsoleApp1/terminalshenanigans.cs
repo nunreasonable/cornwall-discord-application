@@ -30,26 +30,39 @@ namespace CornwallUtilities
                     if (string.IsNullOrWhiteSpace(input))
                         continue;
 
-                    if (!input.StartsWith(">"))
-                        continue;
-
-                    var cmd = input.Substring(1);
-
-                    if (cmd.StartsWith("channel "))
+                    if (input.StartsWith(">"))
                     {
-                        try
+                        var cmd = input.Substring(1).Trim();
+
+                        if (cmd.StartsWith("channel "))
                         {
-                            ulong id = ulong.Parse(cmd.Split(' ')[1]);
-                            currentChannel = await client!.GetChannelAsync(id);
-                            Console.WriteLine($"Canal definido: {currentChannel?.Name}");
+                            try
+                            {
+                                ulong id = ulong.Parse(cmd.Split(' ')[1]);
+                                currentChannel = await client!.GetChannelAsync(id);
+                                Console.WriteLine($"Canal definido: {currentChannel?.Name}");
+                            }
+                            catch
+                            {
+                                Console.WriteLine("ID de canal inválido.");
+                            }
                         }
-                        catch
+
+                        else if (cmd == "exit")
                         {
-                            Console.WriteLine("ID de canal inválido.");
+                            Console.WriteLine("Encerrando interface terminal...");
+                            break;
+                        }
+
+                        else if (cmd == "help")
+                        {
+                            Console.WriteLine("Comandos:");
+                            Console.WriteLine(">channel ID   - definir canal");
+                            Console.WriteLine("Texto normal  - enviar mensagem ao canal definido");
+                            Console.WriteLine(">exit         - sair da interface");
                         }
                     }
-
-                    else if (cmd.StartsWith("say "))
+                    else
                     {
                         if (currentChannel is null)
                         {
@@ -57,22 +70,7 @@ namespace CornwallUtilities
                             continue;
                         }
 
-                        var msg = cmd.Substring(4);
-                        await currentChannel.SendMessageAsync(msg);
-                    }
-
-                    else if (cmd == "exit")
-                    {
-                        Console.WriteLine("Encerrando interface terminal...");
-                        break;
-                    }
-
-                    else if (cmd == "help")
-                    {
-                        Console.WriteLine("Comandos:");
-                        Console.WriteLine(">channel ID   - definir canal");
-                        Console.WriteLine(">say mensagem - enviar mensagem");
-                        Console.WriteLine(">exit         - sair da interface");
+                        await currentChannel.SendMessageAsync(input);
                     }
                 }
             });

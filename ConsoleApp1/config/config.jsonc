@@ -5,7 +5,7 @@
     "spreadsheetRosterCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
     "defaultGameLink": "https://www.roblox.com/games/12068120918/Napoleonic-Wars",
 
-    "enlistPermissionRoleId": 1487945889581629582, //32nd Cargo de Staff -> Permite Alistamento e DMs
+    "enlistPermissionRoleId": 1487945889581629582,
     "enlistLogChannelId": 1487939794188238858,
     "enlistTargetRoleIds": [
       1487938785345011815,
@@ -35,7 +35,7 @@
     ],
     "deploymentTitle": ":32nd: 32ND À BATALHA!!!!! :32ndKC:",
     "deploymentVoiceChannel": "🍺Bar de Cornwall",
-    "deploymentImageUrl": "https://media.discordapp.net/attachments/1417988789267333231/1472332335725805741/Captura_de_tela_2026-02-14_174200.png?ex=69b5c857&is=69b476d7&hm=a3dbc7fd29b24a47443ceac555407d90bfebe9cc8505c0d70c62437f607b277d&=&format=webp&quality=lossless&width=1343&height=848",
+    "deploymentImageUrl": "https://daeese.me/filearchive/image.png",
     "deploymentQuickLaunchLink": "https://www.roblox.com/games/start?launchData=CODE_HERE&placeId=12068120918",
     "deploymentChannelId": 1487939775875911841,
 

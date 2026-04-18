@@ -26,6 +26,7 @@ namespace CornwallUtilities
         private static CommandsNextExtension? Commands { get; set; }
         public static MessageStorageService? MessageStorage { get; private set; }
         public static MessageBlacklistService? MessageBlacklist { get; private set; }
+        public static DashboardHttpService? DashboardHttp { get; private set; }
 
         static async Task Main(string[] args)
         {
@@ -86,6 +87,7 @@ namespace CornwallUtilities
             slashCommands.RegisterGuildCommands<DeploymentsMessage>(guildId);
             slashCommands.RegisterGuildCommands<RepostMessage>(guildId);
             slashCommands.RegisterGuildCommands<MessageStorageStatus>(guildId);
+            slashCommands.RegisterGuildCommands<DashboardLink>(guildId);
             slashCommands.RegisterGuildCommands<UtilitySlashCommands>(guildId2);
             slashCommands.RegisterGuildCommands<CheckSpreadsheetInfo>(guildId2);
             slashCommands.RegisterGuildCommands<DmRolesCertainRoles>(guildId2);
@@ -95,6 +97,7 @@ namespace CornwallUtilities
             slashCommands.RegisterGuildCommands<DeploymentsMessage>(guildId2);
             slashCommands.RegisterGuildCommands<RepostMessage>(guildId2);
             slashCommands.RegisterGuildCommands<MessageStorageStatus>(guildId2);
+            slashCommands.RegisterGuildCommands<DashboardLink>(guildId2);
             Console.WriteLine("Guild commands registered.");
         
             // Initialize message storage service if enabled
@@ -122,6 +125,9 @@ namespace CornwallUtilities
                 );
                 Console.WriteLine("Message blacklist service initialized.");
             }
+
+            DashboardHttp = new DashboardHttpService(Client, new DashboardAuthService("config/dashboard_auth.json"));
+            await DashboardHttp.StartAsync();
 
             // Get the message storage service
             var messageStorage = Program.MessageStorage;
