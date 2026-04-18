@@ -1,0 +1,57 @@
+{
+    "token": "",
+    "prefix": "-",
+    "spreadsheetCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=0",
+    "spreadsheetRosterCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
+    "defaultGameLink": "https://www.roblox.com/games/12068120918/Napoleonic-Wars",
+
+    "enlistPermissionRoleId": 1487945889581629582, //32nd Cargo de Staff -> Permite Alistamento e DMs
+    "enlistLogChannelId": 1487939794188238858,
+    "enlistTargetRoleIds": [
+      1487938785345011815,
+      1487938826729951525,
+      1487938827925590097,
+      1487938867431739496,
+      1487938884145778858,
+      1487938885156868257
+    ],
+
+    "robloxEnlistChannelId": 1487939769378930768, 
+    "robloxEnlistBlockedRoleIds": [
+       1487938853275828396,
+       1487938857889566890,
+       1487938862406828176,
+       1487938868945883218,
+       1487938874805325884
+    ],
+
+    "deploymentGameLink": "https://www.roblox.com/games/12068120918/Napoleonic-Wars",
+    "deploymentVoiceChatLink": "https://discord.com/channels/1487938282200236224/1487939307695116379",
+    "deploymentAllowedRoleIds": [
+        1487945889581629582
+    ],
+    "deploymentDefaultRoles": [
+        1487938884145778858
+    ],
+    "deploymentTitle": ":32nd: 32ND À BATALHA!!!!! :32ndKC:",
+    "deploymentVoiceChannel": "🍺Bar de Cornwall",
+    "deploymentImageUrl": "https://media.discordapp.net/attachments/1417988789267333231/1472332335725805741/Captura_de_tela_2026-02-14_174200.png?ex=69b5c857&is=69b476d7&hm=a3dbc7fd29b24a47443ceac555407d90bfebe9cc8505c0d70c62437f607b277d&=&format=webp&quality=lossless&width=1343&height=848",
+    "deploymentQuickLaunchLink": "https://www.roblox.com/games/start?launchData=CODE_HERE&placeId=12068120918",
+    "deploymentChannelId": 1487939775875911841,
+
+    "messageReposting": {
+        "enabled": true,
+        "targetChannelId": 1487939783182516407,
+        "repostIntervalMinutes": 60,
+        "messageRetentionHours": 24,
+        "minimumMessagesForRepost": 50
+    },
+
+    "messageBlacklist": {
+        "enabled": true,
+        "blacklistedTerms": ["desgraçado", "filho da puta", "retardado", "vai se fuder", "traveco", "trany", "assediar", "assediado", "assediei" ,"estuprei", "estuprar", "estuprado", "nazi", "nazista", "fascista", "gozei na sua boca", "nazistinha", "fascistinha" ],
+        "responseMessage": "ou vai com calma ae",
+        "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call"],
+        "responseMessage2": "Ta se achando aí, né?" 
+    }
+}

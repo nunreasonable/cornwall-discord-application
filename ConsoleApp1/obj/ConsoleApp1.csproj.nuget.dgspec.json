@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/home/rafael/cornwallbot/ConsoleApp1/ConsoleApp1.csproj": {}
+    "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj": {}
   },
   "projects": {
-    "/home/rafael/cornwallbot/ConsoleApp1/ConsoleApp1.csproj": {
+    "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/rafael/cornwallbot/ConsoleApp1/ConsoleApp1.csproj",
+        "projectUniqueName": "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj",
         "projectName": "ConsoleApp1",
-        "projectPath": "/home/rafael/cornwallbot/ConsoleApp1/ConsoleApp1.csproj",
+        "projectPath": "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj",
         "packagesPath": "/home/rafael/.nuget/packages/",
-        "outputPath": "/home/rafael/cornwallbot/ConsoleApp1/obj/",
+        "outputPath": "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/rafael/.nuget/NuGet/NuGet.Config"
@@ -20,6 +20,7 @@
           "net8.0"
         ],
         "sources": {
+          "/usr/lib/dotnet/library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -37,7 +38,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
         "net8.0": {
@@ -45,45 +47,19 @@
           "dependencies": {
             "DisCatSharp": {
               "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Analyzer": {
-              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
-              "suppressParent": "All",
-              "target": "Package",
-              "version": "[1.0.0, )"
+              "version": "[10.7.0, )"
             },
             "DisCatSharp.ApplicationCommands": {
               "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Attributes": {
-              "target": "Package",
-              "version": "[2025.3.27, )"
+              "version": "[10.7.0, )"
             },
             "DisCatSharp.CommandsNext": {
               "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Common": {
-              "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Configuration": {
-              "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Experimental": {
-              "target": "Package",
-              "version": "[10.6.7, )"
-            },
-            "DisCatSharp.Hosting": {
-              "target": "Package",
-              "version": "[10.6.7, )"
+              "version": "[10.7.0, )"
             },
             "DisCatSharp.Interactivity": {
               "target": "Package",
-              "version": "[10.6.7, )"
+              "version": "[10.7.0, )"
             },
             "Newtonsoft.Json": {
               "target": "Package",
@@ -101,12 +77,18 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.NETCore.App.Host.linux-x64",
+              "version": "[8.0.25, 8.0.25]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/home/rafael/.dotnet/sdk/8.0.200/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/9.0.115/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

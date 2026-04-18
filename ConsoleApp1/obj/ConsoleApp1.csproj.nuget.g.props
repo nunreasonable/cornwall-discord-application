@@ -7,17 +7,16 @@
     <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">/home/rafael/.nuget/packages/</NuGetPackageRoot>
     <NuGetPackageFolders Condition=" '$(NuGetPackageFolders)' == '' ">/home/rafael/.nuget/packages/</NuGetPackageFolders>
     <NuGetProjectStyle Condition=" '$(NuGetProjectStyle)' == '' ">PackageReference</NuGetProjectStyle>
-    <NuGetToolVersion Condition=" '$(NuGetToolVersion)' == '' ">6.9.1</NuGetToolVersion>
+    <NuGetToolVersion Condition=" '$(NuGetToolVersion)' == '' ">6.12.4</NuGetToolVersion>
   </PropertyGroup>
   <ItemGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <SourceRoot Include="/home/rafael/.nuget/packages/" />
   </ItemGroup>
   <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <Import Project="$(NuGetPackageRoot)microsoft.extensions.configuration.usersecrets/9.0.1/buildTransitive/net8.0/Microsoft.Extensions.Configuration.UserSecrets.props" Condition="Exists('$(NuGetPackageRoot)microsoft.extensions.configuration.usersecrets/9.0.1/buildTransitive/net8.0/Microsoft.Extensions.Configuration.UserSecrets.props')" />
+    <Import Project="$(NuGetPackageRoot)sentry/6.2.0/buildTransitive/Sentry.props" Condition="Exists('$(NuGetPackageRoot)sentry/6.2.0/buildTransitive/Sentry.props')" />
   </ImportGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
-    <PkgSentry Condition=" '$(PkgSentry)' == '' ">/home/rafael/.nuget/packages/sentry/5.1.0</PkgSentry>
+    <PkgSentry Condition=" '$(PkgSentry)' == '' ">/home/rafael/.nuget/packages/sentry/6.2.0</PkgSentry>
     <PkgMicrosoft_DependencyValidation_Analyzers Condition=" '$(PkgMicrosoft_DependencyValidation_Analyzers)' == '' ">/home/rafael/.nuget/packages/microsoft.dependencyvalidation.analyzers/0.11.0</PkgMicrosoft_DependencyValidation_Analyzers>
-    <PkgDisCatSharp_Analyzer Condition=" '$(PkgDisCatSharp_Analyzer)' == '' ">/home/rafael/.nuget/packages/discatsharp.analyzer/1.0.0</PkgDisCatSharp_Analyzer>
   </PropertyGroup>
 </Project>
