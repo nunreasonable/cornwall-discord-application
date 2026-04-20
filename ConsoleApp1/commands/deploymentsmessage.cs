@@ -103,10 +103,10 @@ namespace CornwallUtilities.commands
             // Obter configurações do JSON
             var tituloRaw = !string.IsNullOrWhiteSpace(config.deploymentTitle) 
                 ? config.deploymentTitle 
-                : ":Resenha: 32ND À BATALHA!!!!!";
+                : "<:Resenha1490483982331023572> 32ND À BATALHA!!!!!";
             var voz = !string.IsNullOrWhiteSpace(config.deploymentVoiceChannel) 
                 ? config.deploymentVoiceChannel 
-                : "Bar de Cornwall";
+                : ":beer: Bar de Cornwall";
             var imagem = config.deploymentImageUrl;
             
             // Processar o título para substituir emojis customizados

@@ -105,7 +105,7 @@ namespace CornwallUtilities.commands
 
             using (var http = new HttpClient())
             {
-                http.Timeout = TimeSpan.FromSeconds(10);
+                http.Timeout = TimeSpan.FromSeconds(20);
 
                 try
                 {

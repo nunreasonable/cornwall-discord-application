@@ -324,7 +324,7 @@ namespace CornwallUtilities.Services
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var channelId = ReadSnowflake(body, "channelId");
-            var message = ((string?)body?["message"])?.Trim();
+            var message = (string?)body?["message"];
             if (!channelId.HasValue || string.IsNullOrWhiteSpace(message))
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "channelId e message são obrigatórios." });
@@ -334,14 +334,30 @@ namespace CornwallUtilities.Services
             try
             {
                 var channel = await _client.GetChannelAsync(channelId.Value);
-                await channel.SendMessageAsync(message);
+                var chunkCount = 0;
+                foreach (var chunk in SplitMessageForDiscord(message))
+                {
+                    await channel.SendMessageAsync(chunk);
+                    chunkCount++;
+                }
 
-                await AuditAsync(session, "SEND_MESSAGE", $"Enviou mensagem para o canal {channelId}.");
+                await AuditAsync(session, "SEND_MESSAGE", $"Enviou mensagem para o canal {channelId} em {chunkCount} parte(s).");
                 await WriteJsonAsync(ctx.Response, 200, new { ok = true });
             }
             catch (Exception ex)
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar mensagem.", details = ex.Message });
+            }
+        }
+
+        private static IEnumerable<string> SplitMessageForDiscord(string message)
+        {
+            const int maxLength = 2000;
+
+            for (var index = 0; index < message.Length; index += maxLength)
+            {
+                var length = Math.Min(maxLength, message.Length - index);
+                yield return message.Substring(index, length);
             }
         }
 
