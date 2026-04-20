@@ -1,3 +1,4 @@
-~/cornwallbot/ConsoleApp1/bin/Debug/config.json
-~/cornwallbot/ConsoleApp1/config/config.
-./.vscode/
+ConsoleApp1/config/config.jsonc
+ConsoleApp1/config/dashboard_auth.json
+ConsoleApp1/bin/
+ConsoleApp1/obj/
