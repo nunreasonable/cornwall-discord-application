@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -322,8 +323,10 @@ namespace CornwallUtilities.commands
                     }
 
                     var userInfoJson = JObject.Parse(await userInfoResponse.Content.ReadAsStringAsync());
-                    var createdStr = (string?)userInfoJson["created"];
-                    if (createdStr == null || !DateTime.TryParse(createdStr, out var createdAt))
+                    var createdToken = userInfoJson["created"];
+                    var createdStr = createdToken?.Value<string>()?.Trim();
+                    if (string.IsNullOrWhiteSpace(createdStr) ||
+                        !DateTimeOffset.TryParse(createdStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var createdAt))
                     {
                         var errEmbed = new DiscordEmbedBuilder()
                             .WithTitle("Erro ao ler data de criação")
@@ -334,7 +337,7 @@ namespace CornwallUtilities.commands
                         return;
                     }
 
-                    accountAge = DateTime.UtcNow - createdAt.ToUniversalTime();
+                    accountAge = DateTimeOffset.UtcNow - createdAt;
 
                     // Contagem de amigos
                     var friendsResponse = await http.GetAsync($"https://friends.roblox.com/v1/users/{robloxUserId}/friends/count");

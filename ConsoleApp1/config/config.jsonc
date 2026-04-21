@@ -51,7 +51,7 @@
         "enabled": true,
         "blacklistedTerms": ["desgraçado", "filho da puta", "retardado", "vai se fuder", "traveco", "trany", "assediar", "assediado", "assediei" ,"estuprei", "estuprar", "estuprado", "nazi", "nazista", "fascista", "gozei na sua boca", "nazistinha", "fascistinha" ],
         "responseMessage": "ou vai com calma ae",
-        "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call"],
+        "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call", "Rafael Gordo"],
         "responseMessage2": "Ta se achando aí, né?" 
     }
 }

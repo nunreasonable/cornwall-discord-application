@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -24,6 +25,7 @@ namespace CornwallUtilities.commands
             [Option("user", "Usuário a ser alistado")] DiscordUser user,
             [Option("roblox_username", "Username do ROBLOX do usuário")] string robloxUsername)
         {
+
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
 
             var config = new JSONReader();
@@ -172,8 +174,10 @@ namespace CornwallUtilities.commands
                     }
 
                     var userInfoJson = JObject.Parse(await userInfoResponse.Content.ReadAsStringAsync());
-                    var createdStr = (string?)userInfoJson["created"];
-                    if (createdStr == null || !DateTime.TryParse(createdStr, out var createdAt))
+                    var createdToken = userInfoJson["created"];
+                    var createdStr = createdToken?.Value<string>()?.Trim();
+                    if (string.IsNullOrWhiteSpace(createdStr) ||
+                        !DateTimeOffset.TryParse(createdStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var createdAt))
                     {
                         var errEmbed = new DiscordEmbedBuilder()
                             .WithTitle("Erro ao ler data de criação")
@@ -184,7 +188,7 @@ namespace CornwallUtilities.commands
                         return;
                     }
 
-                    accountAge = DateTime.UtcNow - createdAt.ToUniversalTime();
+                    accountAge = DateTimeOffset.UtcNow - createdAt;
 
                     // Contagem de amigos
                     var friendsResponse = await http.GetAsync($"https://friends.roblox.com/v1/users/{robloxUserId}/friends/count");
@@ -423,17 +427,12 @@ namespace CornwallUtilities.commands
             }
 
             var successEmbed = new DiscordEmbedBuilder()
-                .WithTitle("32nd Regiment - Alistamento bem-sucedido (ROBLOX)")
-                .WithDescription($"O usuário **{user.Username}** foi alistado com sucesso após passar na verificação automática da sua conta ROBLOX.")
+                .WithTitle("32nd - Usuário alistado com sucesso")
+                .WithDescription("Bem vindo ao 32nd!")
                 .WithColor(DiscordColor.Green)
                 .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                 .WithFooter("Confirmação de alistamento ROBLOX", ctx.Client.CurrentUser.AvatarUrl)
-                .WithTimestamp(DateTimeOffset.UtcNow)
-                .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
-                .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Name)) : "Nenhum", true))
-                .AddField(new DiscordEmbedField("ROBLOX - idade da conta (dias)", accountAge.Days.ToString(), true))
-                .AddField(new DiscordEmbedField("ROBLOX - amigos", friendsCount.ToString(), true))
-                .AddField(new DiscordEmbedField("ROBLOX - badges", badgeCount.ToString(), true));
+                .WithTimestamp(DateTimeOffset.UtcNow);
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }

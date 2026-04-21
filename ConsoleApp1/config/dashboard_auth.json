@@ -33,7 +33,7 @@
       "username": "daeese",
       "permissionLevel": 4,
       "firstWhitelistedAt": "2026-04-17T18:44:41.3523559+00:00",
-      "lastValidatedAt": "2026-04-18T18:58:52.5917179+00:00"
+      "lastValidatedAt": "2026-04-20T14:35:57.8054786+00:00"
     },
     {
       "userId": 751505315442196622,
@@ -378,6 +378,22 @@
       "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/72094bb3bf1e284bc53308c23cfadd3e.png?size=1024",
       "action": "SEND_MESSAGE",
       "details": "Enviou mensagem para o canal 1487939783182516407 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-20T14:30:18.1134555+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/70a568767d33a3bbfd57909a3096eca4.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-20T14:35:57.8059193+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/70a568767d33a3bbfd57909a3096eca4.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
     }
   ]
 }
