@@ -33,7 +33,7 @@
       "username": "daeese",
       "permissionLevel": 4,
       "firstWhitelistedAt": "2026-04-17T18:44:41.3523559+00:00",
-      "lastValidatedAt": "2026-04-20T14:35:57.8054786+00:00"
+      "lastValidatedAt": "2026-04-27T21:34:03.8279741+00:00"
     },
     {
       "userId": 751505315442196622,
@@ -48,6 +48,20 @@
       "permissionLevel": 1,
       "firstWhitelistedAt": "2026-04-18T00:54:08.4763085+00:00",
       "lastValidatedAt": "2026-04-18T00:54:08.4763086+00:00"
+    },
+    {
+      "userId": 405122601581674498,
+      "username": "rafanimal",
+      "permissionLevel": 1,
+      "firstWhitelistedAt": "2026-04-21T20:46:09.4859132+00:00",
+      "lastValidatedAt": "2026-04-28T22:17:09.9852939+00:00"
+    },
+    {
+      "userId": 1324708249609699441,
+      "username": "pavloskountouriotis",
+      "permissionLevel": 1,
+      "firstWhitelistedAt": "2026-04-21T20:48:09.579013+00:00",
+      "lastValidatedAt": "2026-04-21T20:48:09.5790131+00:00"
     }
   ],
   "auditLog": [
@@ -392,6 +406,206 @@
       "actorUserId": 1402344358199689348,
       "actorUsername": "daeese",
       "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/70a568767d33a3bbfd57909a3096eca4.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:04:03.9114035+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:04:17.1718914+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:11:07.2120493+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:22:44.423073+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:24:05.528168+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:24:30.787808+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:24:47.0184909+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T15:29:05.8459712+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T16:45:56.2515397+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-21T17:35:35.5178533+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939775875911841 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T17:36:23.567066+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939775875911841 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T20:45:03.4163055+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/ade280e54eed8df66e983b3e027e6ad8.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-21T20:46:09.4862822+00:00",
+      "actorUserId": 405122601581674498,
+      "actorUsername": "rafanimal",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/405122601581674498/935e6d4e04df62477ab00bcea3cc8847.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-21T20:47:14.3907302+00:00",
+      "actorUserId": 405122601581674498,
+      "actorUsername": "rafanimal",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/405122601581674498/935e6d4e04df62477ab00bcea3cc8847.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939783182516407 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-21T20:48:09.5793425+00:00",
+      "actorUserId": 1324708249609699441,
+      "actorUsername": "pavloskountouriotis",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1324708249609699441/bf07de716b15ee7d8e53c3ae9e948507.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:34:03.8327548+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "LOGIN",
+      "details": "Login efetuado via link do bot."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:34:33.8650534+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:35:00.7304238+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:39:46.0926911+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939005822664716 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:40:37.4207788+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:40:59.6230717+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:41:13.7300966+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:41:51.1723124+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-27T21:47:38.4093676+00:00",
+      "actorUserId": 1402344358199689348,
+      "actorUsername": "daeese",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/1402344358199689348/9bd0a19474eb36771ec651a3ca698428.png?size=1024",
+      "action": "SEND_MESSAGE",
+      "details": "Enviou mensagem para o canal 1487939774214832138 em 1 parte(s)."
+    },
+    {
+      "timestampUtc": "2026-04-28T22:17:09.9898626+00:00",
+      "actorUserId": 405122601581674498,
+      "actorUsername": "rafanimal",
+      "actorAvatarUrl": "https://cdn.discordapp.com/avatars/405122601581674498/935e6d4e04df62477ab00bcea3cc8847.png?size=1024",
       "action": "LOGIN",
       "details": "Login efetuado via link do bot."
     }

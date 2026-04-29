@@ -23,7 +23,7 @@ namespace CornwallUtilities.commands
                 return "DMs desativadas ou bot bloqueado";
             return msg.Length > 80 ? msg[..77] + "..." : msg;
         }
-        [SlashCommand("dmrolemsg", "Envia uma DM para um usuário ou para todos os membros de um cargo (sem código/link).")]
+        [SlashCommand("dmreminder", "Envia uma DM para um usuário ou para todos os membros de um cargo (sem código/link).")]
         public async Task DmRoleMessageCommand(
             InteractionContext ctx,
             [Option("role", "Cargo para enviar a mensagem (opcional)")] DiscordRole? role = null,

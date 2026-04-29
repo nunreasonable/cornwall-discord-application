@@ -27,7 +27,7 @@ namespace CornwallUtilities.commands
             return msg.Length > 80 ? msg[..77] + "..." : msg;
         }
 
-        [SlashCommand("dmrole", "Envia uma DM para um usuário ou para todos os membros de um cargo.")]
+        [SlashCommand("dmdeployment", "Envia uma DM para um usuário ou para todos os membros de um cargo.")]
         public async Task DmRoleCommand(
             InteractionContext ctx,
             [Option("role", "Cargo para enviar a mensagem (opcional)")] DiscordRole? role = null,
