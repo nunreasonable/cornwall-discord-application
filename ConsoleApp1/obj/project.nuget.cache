@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "BZfuGT3A0XA=",
+  "dgSpecHash": "uvnRohvIsAk=",
   "success": true,
   "projectFilePath": "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj",
   "expectedPackageFiles": [
@@ -19,9 +19,9 @@
     "/home/rafael/.nuget/packages/microsoft.extensions.configuration.binder/10.0.5/microsoft.extensions.configuration.binder.10.0.5.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.dependencyinjection/10.0.5/microsoft.extensions.dependencyinjection.10.0.5.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/10.0.5/microsoft.extensions.dependencyinjection.abstractions.10.0.5.nupkg.sha512",
-    "/home/rafael/.nuget/packages/microsoft.extensions.diagnostics/8.0.0/microsoft.extensions.diagnostics.8.0.0.nupkg.sha512",
-    "/home/rafael/.nuget/packages/microsoft.extensions.diagnostics.abstractions/8.0.0/microsoft.extensions.diagnostics.abstractions.8.0.0.nupkg.sha512",
-    "/home/rafael/.nuget/packages/microsoft.extensions.http/8.0.0/microsoft.extensions.http.8.0.0.nupkg.sha512",
+    "/home/rafael/.nuget/packages/microsoft.extensions.diagnostics/9.0.0/microsoft.extensions.diagnostics.9.0.0.nupkg.sha512",
+    "/home/rafael/.nuget/packages/microsoft.extensions.diagnostics.abstractions/9.0.0/microsoft.extensions.diagnostics.abstractions.9.0.0.nupkg.sha512",
+    "/home/rafael/.nuget/packages/microsoft.extensions.http/9.0.0/microsoft.extensions.http.9.0.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.logging/10.0.5/microsoft.extensions.logging.10.0.5.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.logging.abstractions/10.0.5/microsoft.extensions.logging.abstractions.10.0.5.nupkg.sha512",
     "/home/rafael/.nuget/packages/microsoft.extensions.logging.configuration/10.0.5/microsoft.extensions.logging.configuration.10.0.5.nupkg.sha512",
@@ -120,7 +120,7 @@
     "/home/rafael/.nuget/packages/system.threading.threadpool/4.3.0/system.threading.threadpool.4.3.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/system.threading.timer/4.3.0/system.threading.timer.4.3.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/system.valuetuple/4.6.2/system.valuetuple.4.6.2.nupkg.sha512",
-    "/home/rafael/.nuget/packages/microsoft.netcore.app.host.linux-x64/8.0.26/microsoft.netcore.app.host.linux-x64.8.0.26.nupkg.sha512"
+    "/home/rafael/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512"
   ],
   "logs": []
 }
