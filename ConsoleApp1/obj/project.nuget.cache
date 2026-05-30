@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "uvnRohvIsAk=",
+  "dgSpecHash": "KIAiWDUNhEA=",
   "success": true,
   "projectFilePath": "/home/rafael/daeeseworkspace/cornwall-discord-application/ConsoleApp1/ConsoleApp1.csproj",
   "expectedPackageFiles": [
@@ -120,7 +120,7 @@
     "/home/rafael/.nuget/packages/system.threading.threadpool/4.3.0/system.threading.threadpool.4.3.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/system.threading.timer/4.3.0/system.threading.timer.4.3.0.nupkg.sha512",
     "/home/rafael/.nuget/packages/system.valuetuple/4.6.2/system.valuetuple.4.6.2.nupkg.sha512",
-    "/home/rafael/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512"
+    "/home/rafael/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.16/microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512"
   ],
   "logs": []
 }

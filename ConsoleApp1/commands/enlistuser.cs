@@ -100,10 +100,11 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            int badgeCount;
+            int badgeCount = 0;
             int friendsCount;
             TimeSpan accountAge;
             long robloxUserId;
+            bool badgesAvailable = true;
 
             using (var http = new HttpClient())
             {
@@ -206,22 +207,40 @@ namespace CornwallUtilities.commands
                     var friendsJson = JObject.Parse(await friendsResponse.Content.ReadAsStringAsync());
                     friendsCount = (int?)friendsJson["count"] ?? 0;
 
-                    // Badges
-                    var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
-                    if (!badgesResponse.IsSuccessStatusCode)
+                    // Badges (opcionais)
+                    try
                     {
-                        var errEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("Erro ao consultar badges ROBLOX")
-                            .WithDescription("Não foi possível obter as badges da conta ROBLOX.")
-                            .WithColor(DiscordColor.IndianRed);
-
-                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
-                        return;
+                        var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
+                        if (!badgesResponse.IsSuccessStatusCode)
+                        {
+                            badgesAvailable = false;
+                            Console.WriteLine($"[WARN] Falha ao consultar badges ROBLOX. Status: {badgesResponse.StatusCode}");
+                        }
+                        else
+                        {
+                            var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
+                            var dataArray = badgesJson["data"] as JArray;
+                            if (dataArray is null)
+                            {
+                                badgesAvailable = false;
+                                Console.WriteLine("[WARN] Resposta de badges ROBLOX sem campo 'data'.");
+                            }
+                            else
+                            {
+                                badgeCount = dataArray.Count;
+                            }
+                        }
                     }
-
-                    var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
-                    var dataArray = badgesJson["data"] as JArray;
-                    badgeCount = dataArray?.Count ?? 0;
+                    catch (TaskCanceledException)
+                    {
+                        badgesAvailable = false;
+                        Console.WriteLine("[WARN] Tempo excedido ao consultar badges ROBLOX.");
+                    }
+                    catch (Exception ex)
+                    {
+                        badgesAvailable = false;
+                        Console.WriteLine($"[WARN] Falha ao consultar badges ROBLOX: {ex.Message}");
+                    }
                 }
                 catch (TaskCanceledException)
                 {
@@ -257,6 +276,7 @@ namespace CornwallUtilities.commands
             var passesAge = accountAge >= minAccountAge;
             var passesFriends = friendsCount >= minFriends;
             var hasBadgeBonus = badgeCount >= minBadgesForBonus;
+            var badgesDisplay = badgesAvailable ? badgeCount.ToString() : "Indisponível";
 
             // A decisão de ALT usa apenas idade da conta + amigos.
             // Badges contam apenas como informação/bônus, não bloqueiam o alistamento.
@@ -270,7 +290,7 @@ namespace CornwallUtilities.commands
                     .WithColor(DiscordColor.IndianRed)
                     .AddField(new DiscordEmbedField("Idade da conta", $"{accountAge.Days} dias", true))
                     .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                    .AddField(new DiscordEmbedField("Badges (bônus)", badgeCount.ToString(), true));
+                    .AddField(new DiscordEmbedField("Badges (bônus)", badgesDisplay, true));
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(deniedEmbed));
                 return;
@@ -403,7 +423,7 @@ namespace CornwallUtilities.commands
                             .AddField(new DiscordEmbedField("ROBLOX ID", robloxUserId.ToString(), true))
                             .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
                             .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                            .AddField(new DiscordEmbedField("Badges", badgeCount.ToString(), true))
+                            .AddField(new DiscordEmbedField("Badges", badgesDisplay, true))
                             .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
                             .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
 
@@ -426,9 +446,13 @@ namespace CornwallUtilities.commands
                 }
             }
 
+            var successDescription = badgesAvailable
+                ? "Bem vindo ao 32nd!"
+                : "Bem vindo ao 32nd! (Badges indisponíveis no momento.)";
+
             var successEmbed = new DiscordEmbedBuilder()
                 .WithTitle("32nd - Usuário alistado com sucesso")
-                .WithDescription("Bem vindo ao 32nd!")
+                .WithDescription(successDescription)
                 .WithColor(DiscordColor.Green)
                 .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                 .WithFooter("Confirmação de alistamento ROBLOX", ctx.Client.CurrentUser.AvatarUrl)
