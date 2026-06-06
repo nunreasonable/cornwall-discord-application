@@ -108,6 +108,7 @@ namespace CornwallUtilities.commands
                 ? config.deploymentVoiceChannel 
                 : ":beer: Taverna dos Faiões";
             var imagem = config.deploymentImageUrl;
+            var voiceChatLink = config.deploymentVoiceChatLink;
             
             // Processar o título para substituir emojis customizados
             var titulo = ProcessarTituloComEmoji(tituloRaw, ctx.Guild);
@@ -132,10 +133,46 @@ namespace CornwallUtilities.commands
                 }
             }
 
+            var cleanedMentions = "";
+            if (!string.IsNullOrWhiteSpace(roleMentions))
+            {
+                cleanedMentions = string.Join(" ", roleMentions.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Distinct());
+            }
+
+            var voiceChannelDisplay = voz;
+            if (!string.IsNullOrWhiteSpace(voiceChatLink) && Uri.TryCreate(voiceChatLink, UriKind.Absolute, out var voiceChatUri))
+            {
+                voiceChannelDisplay = $"[{voz}]({voiceChatUri})";
+            }
+
+            var quickLaunchTemplate = !string.IsNullOrWhiteSpace(config.deploymentQuickLaunchLink)
+                ? config.deploymentQuickLaunchLink
+                : (!string.IsNullOrWhiteSpace(config.deploymentPlaceId)
+                    ? $"https://www.roblox.com/games/start?launchData=CODE_HERE&placeId={config.deploymentPlaceId}"
+                    : gameLink);
+
+            string? quickLaunchLink = null;
+            if (!string.IsNullOrWhiteSpace(quickLaunchTemplate))
+            {
+                var resolvedTemplate = quickLaunchTemplate;
+                if (resolvedTemplate.Contains("CODE_HERE"))
+                {
+                    resolvedTemplate = resolvedTemplate.Replace("CODE_HERE", Uri.EscapeDataString(codigo));
+                }
+                if (resolvedTemplate.Contains("{CODE}"))
+                {
+                    resolvedTemplate = resolvedTemplate.Replace("{CODE}", Uri.EscapeDataString(codigo));
+                }
+                if (Uri.TryCreate(resolvedTemplate, UriKind.Absolute, out var quickLaunchUri))
+                {
+                    quickLaunchLink = quickLaunchUri.ToString();
+                }
+            }
+
             // Criar embed
             var embed = new DiscordEmbedBuilder()
-                .WithColor(DiscordColor.Blurple)
-                .WithTimestamp(DateTimeOffset.UtcNow);
+                .WithColor(DiscordColor.Blurple);
+            var imageWarning = "";
 
             // Adicionar imagem como imagem principal no topo
             if (!string.IsNullOrWhiteSpace(imagem))
@@ -146,51 +183,55 @@ namespace CornwallUtilities.commands
                 }
                 else
                 {
-                    embed.WithDescription("⚠️ URL da imagem inválida. A imagem não será exibida.");
+                    imageWarning = "⚠️ URL da imagem inválida. A imagem não será exibida.";
                 }
             }
 
             // Adicionar título após a imagem
             embed.WithTitle(titulo);
 
-            // Separador nativo do Discord (linha em branco)
-            embed.AddField(new DiscordEmbedField("** **", "** **", false));
-            
-            embed.AddField(new DiscordEmbedField("🔊 Canal de Voz", voz, true));
-            embed.AddField(new DiscordEmbedField("🔑 Código", codigo, true));
-            
-            // Separador nativo do Discord antes dos botões
-            embed.AddField(new DiscordEmbedField("** **", "** **", false));
+            var descriptionLines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(cleanedMentions))
+            {
+                descriptionLines.Add(cleanedMentions);
+                descriptionLines.Add(string.Empty);
+            }
+            descriptionLines.Add($"**Voice Channel:** {voiceChannelDisplay}");
+            descriptionLines.Add($"**Code:** `{codigo}`");
+            descriptionLines.Add(string.Empty);
+            if (!string.IsNullOrWhiteSpace(quickLaunchLink))
+            {
+                descriptionLines.Add($"**Quick Launch Link:** [Join & Enter {codigo}]({quickLaunchLink})");
+            }
+            else
+            {
+                descriptionLines.Add($"**Quick Launch Link:** Join & Enter {codigo}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(imageWarning))
+            {
+                descriptionLines.Add(string.Empty);
+                descriptionLines.Add(imageWarning);
+            }
+
+            embed.WithDescription(string.Join("\n", descriptionLines));
 
             // Criar botões
             var buttons = new List<DiscordComponent>();
 
             // Botão de Quick Launch com link direto
             var quickLaunchButton = new DiscordLinkButtonComponent(
-                "https://www.roblox.com/games/12068120918/Napoleonic-Wars", 
-                "🚀 Quick Launch");
-
-            // Botão do Jogo com link direto
-            var gameButton = new DiscordLinkButtonComponent(
-                "https://www.roblox.com/games/12068120918/Napoleonic-Wars", 
-                "🎮 Napoleonic Wars");
-
-            // Botão para entrar no canal de voz - também usa link direto
-            var vcButton = new DiscordLinkButtonComponent(
-                "https://discord.com/channels/1397973799105855570/1417989019605925978", 
-                "🔊 Entrar no Canal de Voz");
+                quickLaunchLink ?? gameLink, 
+                "Quick Launch");
 
             buttons.Add(quickLaunchButton);
-            buttons.Add(gameButton);
-            buttons.Add(vcButton);
 
             // Enviar mensagem com menções de cargo fora do embed para notificação
             var messageBuilder = new DiscordMessageBuilder();
             
             // Adicionar menções de cargo no conteúdo da mensagem para notificar
-            if (!string.IsNullOrWhiteSpace(roleMentions))
+            if (!string.IsNullOrWhiteSpace(cleanedMentions))
             {
-                var cleanedMentions = string.Join(" ", roleMentions.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Distinct());
                 messageBuilder.WithContent(cleanedMentions);
             }
             

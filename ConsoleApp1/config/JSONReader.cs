@@ -16,8 +16,10 @@ namespace CornwallUtilities.config
         // Config used by the /enlistuser slash command
         public ulong? enlistPermissionRoleId { get; private set; }
         public ulong? enlistLogChannelId { get; private set; }
+        public ulong? enlistWelcomeChannelId { get; private set; }
         public string? enlistAltCheckUrl { get; private set; }
         public ulong[]? enlistTargetRoleIds { get; private set; }
+        public ulong? enlistSocialRoleId { get; private set; }
 
         // Config used by the ROBLOX enlistment command
         public ulong? robloxEnlistChannelId { get; private set; }
@@ -60,8 +62,10 @@ namespace CornwallUtilities.config
 
             enlistPermissionRoleId = data?.enlistPermissionRoleId;
             enlistLogChannelId = data?.enlistLogChannelId;
+            enlistWelcomeChannelId = data?.enlistWelcomeChannelId;
             enlistAltCheckUrl = data?.enlistAltCheckUrl;
             enlistTargetRoleIds = data?.enlistTargetRoleIds;
+            enlistSocialRoleId = data?.enlistSocialRoleId;
 
             robloxEnlistChannelId = data?.robloxEnlistChannelId;
             robloxEnlistBlockedRoleIds = data?.robloxEnlistBlockedRoleIds;
@@ -99,8 +103,10 @@ namespace CornwallUtilities.config
         // Config for /enlistuser
         public ulong? enlistPermissionRoleId { get; set; }
         public ulong? enlistLogChannelId { get; set; }
+        public ulong? enlistWelcomeChannelId { get; set; }
         public string? enlistAltCheckUrl { get; set; }
         public ulong[]? enlistTargetRoleIds { get; set; }
+        public ulong? enlistSocialRoleId { get; set; }
 
         // Config for ROBLOX enlistment command
         public ulong? robloxEnlistChannelId { get; set; }

@@ -7,7 +7,7 @@ By using the Cornwall Discord Bot ("the Bot"), you agree to comply with and be b
 
 ## 2. Description of Service
 
-The Cornwall Discord Bot is a Discord bot designed for the 32nd "The Cornwall" Regiment of Foot community. The Bot provides features including:
+The Cornwall Discord Bot is a Discord bot designed for the 12° "The Cornwall" Regiment of Foot community. The Bot provides features including:
 - User enlistment and ROBLOX verification
 - Deployment messaging
 - Direct messaging to roles/users

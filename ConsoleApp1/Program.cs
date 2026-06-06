@@ -35,7 +35,11 @@ namespace CornwallUtilities
 
             var discordConfig = new DiscordConfiguration()
             {
-                Intents = DiscordIntents.Guilds | DiscordIntents.GuildMembers | DiscordIntents.GuildMessages | DiscordIntents.MessageContent,
+                Intents = DiscordIntents.Guilds |
+                          DiscordIntents.GuildMembers |
+                          DiscordIntents.GuildMessages |
+                          DiscordIntents.DirectMessages |
+                          DiscordIntents.MessageContent,
                 Token = jsonReader.token,
                 TokenType = TokenType.Bot,
                 AutoReconnect = true

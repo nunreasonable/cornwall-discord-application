@@ -79,134 +79,131 @@ namespace CornwallUtilities.commands
                 }
             }
 
-            // Cria um formulário interativo com botões
+            var interactivity = ctx.Client.GetInteractivity();
+
+            DiscordDmChannel dmChannel;
             var formEmbed = new DiscordEmbedBuilder()
-                .WithTitle("Formulário de Alistamento - 32nd Regiment")
+                .WithTitle("Formulário de Alistamento - 12° Regiment")
                 .WithDescription($"{ctx.User.Mention}, por favor, preencha o formulário respondendo às perguntas abaixo:")
                 .WithColor(DiscordColor.Blurple);
 
-            var formMessage = await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .AddEmbed(formEmbed));
-
-            var interactivity = ctx.Client.GetInteractivity();
-
-            // Pergunta 1: Nome no Roblox - usando modal com TextInputComponent
-            var nameEmbed = new DiscordEmbedBuilder()
-                .WithTitle("1️⃣ Nome no Roblox")
-                .WithDescription("Por favor, clique no botão abaixo para abrir o formulário de digitação:")
-                .WithColor(DiscordColor.Blurple);
-
-            var nameButton = new DiscordButtonComponent(ButtonStyle.Primary, "roblox_name_modal", "📝 Digitar Nome");
-
-            var nameMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                .AddEmbed(nameEmbed)
-                .AddComponents(nameButton));
-
-            var nameButtonResult = await interactivity.WaitForButtonAsync(
-                nameMessage,
-                TimeSpan.FromMinutes(1)); // Reduzi o timeout para evitar expiração
-
-            if (nameButtonResult.TimedOut)
-            {
-                var timeoutName = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(timeoutName));
-                return;
-            }
-
-            // Como DisCatSharp não suporta TextInputComponent nativamente, vamos usar uma abordagem alternativa
-            // Criamos uma resposta ephemeral que funciona como um "prompt" dentro do embed
             try
             {
-                await nameButtonResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
-                // Após defer, enviamos o prompt
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
+                dmChannel = await ctx.User.CreateDmChannelAsync();
+                await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(formEmbed));
+            }
+            catch (DisCatSharp.Exceptions.UnauthorizedException)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
+                return;
             }
             catch (DisCatSharp.Exceptions.NotFoundException)
             {
-                // Se a interação expirou, tentamos usar follow-up
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
+                return;
             }
             catch (DisCatSharp.Exceptions.BadRequestException)
             {
-                // Se houver bad request, tentamos abordagem mais simples
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                    .WithContent("Por favor, digite seu nome de usuário no Roblox:"));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
+                return;
+            }
+            await ctx.EditResponseAsync(new DiscordWebhookBuilder()
+                .WithContent("Enviei o formulário por DM. Responda às perguntas por lá."));
+
+            async Task<string?> AskDmQuestionAsync(string title, string description, TimeSpan timeout)
+            {
+                var questionEmbed = new DiscordEmbedBuilder()
+                    .WithTitle(title)
+                    .WithDescription(description)
+                    .WithColor(DiscordColor.Blurple);
+
+                await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(questionEmbed));
+
+                var response = await interactivity.WaitForMessageAsync(
+                    m => m.Author.Id == ctx.User.Id && m.Channel.Id == dmChannel.Id,
+                    timeout);
+
+                if (response.TimedOut || response.Result is null || string.IsNullOrWhiteSpace(response.Result.Content))
+                {
+                    return null;
+                }
+
+                return response.Result.Content.Trim();
             }
 
-            var nameResponse = await interactivity.WaitForMessageAsync(
-                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id,
+            static bool? ParseYesNo(string input)
+            {
+                var normalized = input.Trim().ToLowerInvariant();
+                if (normalized == "sim" || normalized == "s")
+                    return true;
+                if (normalized == "não" || normalized == "nao" || normalized == "n")
+                    return false;
+                return null;
+            }
+
+            // Pergunta 1: Nome no Roblox
+            var robloxName = await AskDmQuestionAsync(
+                "1️⃣ Nome no Roblox",
+                "Digite seu nome de usuário no Roblox:",
                 TimeSpan.FromMinutes(2));
 
-            if (nameResponse.TimedOut || string.IsNullOrWhiteSpace(nameResponse.Result.Content))
+            if (robloxName is null)
             {
                 var timeoutName = new DiscordEmbedBuilder()
                     .WithTitle("Tempo esgotado")
                     .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(timeoutName));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutName));
                 return;
             }
 
-            string robloxName = nameResponse.Result.Content.Trim();
-
             // Pergunta 2: Nacionalidade
-            var languageEmbed = new DiscordEmbedBuilder()
-                .WithTitle("2️⃣ Nacionalidade")
-                .WithDescription("Selecione sua nacionalidade clicando nos botões abaixo:")
-                .WithColor(DiscordColor.Blurple);
-
-            var portuguesButton = new DiscordButtonComponent(ButtonStyle.Secondary, "lang_pt", "🇵🇹 Português");
-            var brasileiroButton = new DiscordButtonComponent(ButtonStyle.Secondary, "lang_br", "🇧🇷 Brasileiro");
-
-            var langMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                .AddEmbed(languageEmbed)
-                .AddComponents(portuguesButton, brasileiroButton));
-
-            var langResult = await interactivity.WaitForButtonAsync(
-                langMessage,
+            var languageRaw = await AskDmQuestionAsync(
+                "2️⃣ Nacionalidade",
+                "Responda com `português` ou `brasileiro`:",
                 TimeSpan.FromMinutes(2));
 
-            string languageAnswer = string.Empty;
-            if (langResult.TimedOut)
+            if (languageRaw is null)
             {
                 var timeoutLang = new DiscordEmbedBuilder()
                     .WithTitle("Tempo esgotado")
-                    .WithDescription("Nacionalidade não selecionada a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithDescription("Nacionalidade não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutLang));
                 return;
             }
 
-            languageAnswer = langResult.Result.Id == "lang_pt" ? "Português 🇵🇹" : "Brasileiro 🇧🇷";
-            await langResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+            var languageNormalized = languageRaw.Trim().ToLowerInvariant();
+            string languageAnswer;
+            if (languageNormalized.StartsWith("port"))
+            {
+                languageAnswer = "Português 🇵🇹";
+            }
+            else if (languageNormalized.StartsWith("bra"))
+            {
+                languageAnswer = "Brasileiro 🇧🇷";
+            }
+            else
+            {
+                await dmChannel.SendMessageAsync("Resposta inválida. Use `português` ou `brasileiro` e execute o comando novamente.");
+                var invalidLang = new DiscordEmbedBuilder()
+                    .WithTitle("Resposta inválida")
+                    .WithDescription("Nacionalidade inválida. Execute o comando novamente e responda com `português` ou `brasileiro`.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidLang));
+                return;
+            }
 
             // Pergunta 3: Pendendo aos grupos
-            var groupsEmbed = new DiscordEmbedBuilder()
-                .WithTitle("3️⃣ Pendendo aos grupos?")
-                .WithDescription("Você está pendendo a outros grupos?")
-                .WithColor(DiscordColor.Blurple);
-
-            var simButton = new DiscordButtonComponent(ButtonStyle.Success, "groups_sim", "✅ Sim");
-            var naoButton = new DiscordButtonComponent(ButtonStyle.Danger, "groups_nao", "❌ Não");
-
-            var groupsMessage = await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder()
-                .AddEmbed(groupsEmbed)
-                .AddComponents(simButton, naoButton));
-
-            var groupsResult = await interactivity.WaitForButtonAsync(
-                groupsMessage,
+            var groupsRaw = await AskDmQuestionAsync(
+                "3️⃣ Pendendo aos grupos?",
+                "Responda com `sim` ou `não`:",
                 TimeSpan.FromMinutes(2));
 
-            string groupsAnswer = string.Empty;
-            if (groupsResult.TimedOut)
+            if (groupsRaw is null)
             {
                 var timeoutGroups = new DiscordEmbedBuilder()
                     .WithTitle("Tempo esgotado")
@@ -217,26 +214,69 @@ namespace CornwallUtilities.commands
                 return;
             }
 
-            groupsAnswer = groupsResult.Result.Id == "groups_sim" ? "S" : "N";
-            await groupsResult.Result.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+            var groupsParsed = ParseYesNo(groupsRaw);
+            if (!groupsParsed.HasValue)
+            {
+                await dmChannel.SendMessageAsync("Resposta inválida. Use `sim` ou `não` e execute o comando novamente.");
+                var invalidGroups = new DiscordEmbedBuilder()
+                    .WithTitle("Resposta inválida")
+                    .WithDescription("Resposta sobre grupos inválida. Execute o comando novamente e responda com `sim` ou `não`.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidGroups));
+                return;
+            }
+
+            var groupsAnswer = groupsParsed.Value ? "Sim" : "Não";
 
             // Pergunta 4: Quem recrutou (opcional)
-            var recruiterEmbed = new DiscordEmbedBuilder()
-                .WithTitle("4️⃣ Quem te recrutou?")
-                .WithDescription("Digite o nome de quem te recrutou (ou digite 'não sei' para pular):")
-                .WithColor(DiscordColor.Blurple);
-
-            await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(recruiterEmbed));
-
-            var recruiterResponse = await interactivity.WaitForMessageAsync(
-                m => m.Author.Id == ctx.User.Id && m.Channel.Id == ctx.Channel.Id,
+            var recruiterResponse = await AskDmQuestionAsync(
+                "4️⃣ Quem te recrutou?",
+                "Digite o nome de quem te recrutou (ou digite 'não sei' para pular):",
                 TimeSpan.FromMinutes(2));
 
             string recruiterAnswer = string.Empty;
-            if (!recruiterResponse.TimedOut && !string.IsNullOrWhiteSpace(recruiterResponse.Result.Content))
+            if (!string.IsNullOrWhiteSpace(recruiterResponse))
             {
-                recruiterAnswer = recruiterResponse.Result.Content.Trim();
+                var recruiterNormalized = recruiterResponse.Trim().ToLowerInvariant();
+                if (recruiterNormalized != "não sei" && recruiterNormalized != "nao sei")
+                {
+                    recruiterAnswer = recruiterResponse.Trim();
+                }
             }
+
+            // Pergunta 5: Cargo social
+            var socialRoleRaw = await AskDmQuestionAsync(
+                "5️⃣ Cargo social?",
+                "Responda com `sim` ou `não`:",
+                TimeSpan.FromMinutes(2));
+
+            if (socialRoleRaw is null)
+            {
+                var timeoutSocial = new DiscordEmbedBuilder()
+                    .WithTitle("Tempo esgotado")
+                    .WithDescription("Resposta sobre cargo social não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutSocial));
+                return;
+            }
+
+            var socialParsed = ParseYesNo(socialRoleRaw);
+            if (!socialParsed.HasValue)
+            {
+                await dmChannel.SendMessageAsync("Resposta inválida. Use `sim` ou `não` e execute o comando novamente.");
+                var invalidSocial = new DiscordEmbedBuilder()
+                    .WithTitle("Resposta inválida")
+                    .WithDescription("Resposta sobre cargo social inválida. Execute o comando novamente e responda com `sim` ou `não`.")
+                    .WithColor(DiscordColor.IndianRed);
+
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidSocial));
+                return;
+            }
+
+            var wantsSocialRole = socialParsed.Value;
+            var socialRoleAnswer = wantsSocialRole ? "Sim" : "Não";
 
             // Confirmação final
             var confirmEmbed = new DiscordEmbedBuilder()
@@ -246,15 +286,17 @@ namespace CornwallUtilities.commands
                 .AddField(new DiscordEmbedField("Nome no Roblox", robloxName))
                 .AddField(new DiscordEmbedField("Nacionalidade", languageAnswer))
                 .AddField(new DiscordEmbedField("Pendendo aos grupos?", groupsAnswer))
-                .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "Não informado" : recruiterAnswer));
+                .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "Não informado" : recruiterAnswer))
+                .AddField(new DiscordEmbedField("Cargo social?", socialRoleAnswer));
 
-            await ctx.FollowUpAsync(new DiscordFollowupMessageBuilder().AddEmbed(confirmEmbed));
+            await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(confirmEmbed));
 
             
-            int badgeCount;
+            int badgeCount= 0;
             int friendsCount;
             TimeSpan accountAge;
             long robloxUserId;
+            bool badgesAvailable = true;
 
             using (var http = new HttpClient())
             {
@@ -355,22 +397,26 @@ namespace CornwallUtilities.commands
                     var friendsJson = JObject.Parse(await friendsResponse.Content.ReadAsStringAsync());
                     friendsCount = (int?)friendsJson["count"] ?? 0;
 
-                    // Badges
-                    var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
-                    if (!badgesResponse.IsSuccessStatusCode)
+                    // Badges (opcional)
+                    try
                     {
-                        var errEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("Erro ao consultar badges ROBLOX")
-                            .WithDescription("Não foi possível obter as badges da conta ROBLOX.")
-                            .WithColor(DiscordColor.IndianRed);
-
-                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
-                        return;
+                        var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
+                        if (!badgesResponse.IsSuccessStatusCode)
+                        {
+                            badgesAvailable = false;
+                        }
+                        else
+                        
+                        {
+                            var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
+                            var dataArray = badgesJson["data"] as JArray;
+                            badgeCount = dataArray?.Count ?? 0;
+                        }
                     }
-
-                    var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
-                    var dataArray = badgesJson["data"] as JArray;
-                    badgeCount = dataArray?.Count ?? 0;
+                    catch
+                    {
+                        badgesAvailable = false;
+                    }
                 }
                 catch (TaskCanceledException)
                 {
@@ -405,7 +451,8 @@ namespace CornwallUtilities.commands
 
             var passesAge = accountAge >= minAccountAge;
             var passesFriends = friendsCount >= minFriends;
-            var hasBadgeBonus = badgeCount >= minBadgesForBonus;
+            var hasBadgeBonus = badgesAvailable && badgeCount >= minBadgesForBonus;
+            var badgesDisplay = badgesAvailable ? badgeCount.ToString() : "Indisponível";
 
             // A decisão de ALT usa apenas idade da conta + amigos.
             // Badges contam apenas como informação/bônus, não bloqueiam o alistamento.
@@ -419,7 +466,7 @@ namespace CornwallUtilities.commands
                     .WithColor(DiscordColor.IndianRed)
                     .AddField(new DiscordEmbedField("Idade da conta", $"{accountAge.Days} dias", true))
                     .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                    .AddField(new DiscordEmbedField("Badges (bônus)", badgeCount.ToString(), true));
+                    .AddField(new DiscordEmbedField("Badges (bônus)", badgesDisplay, true));
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(deniedEmbed));
                 return;
@@ -448,9 +495,35 @@ namespace CornwallUtilities.commands
                 }
             }
 
-            // Atualiza nickname adicionando o prefixo [32nd] se ainda não existir
+            if (wantsSocialRole)
+            {
+                if (!config.enlistSocialRoleId.HasValue || config.enlistSocialRoleId.Value == 0)
+                {
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social não está configurado. Verifique o `enlistSocialRoleId` no config.jsonc.");
+                }
+                else if (!ctx.Guild.Roles.TryGetValue(config.enlistSocialRoleId.Value, out var socialRoleEntity))
+                {
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social configurado não foi encontrado no servidor. Verifique o `enlistSocialRoleId` no config.jsonc.");
+                }
+                else if (!targetMember.Roles.Any(r => r.Id == socialRoleEntity.Id))
+                {
+                    try
+                    {
+                        await targetMember.GrantRoleAsync(socialRoleEntity, "Cargo social via robloxenlist");
+                        addedRoles.Add(socialRoleEntity);
+                    }
+                    catch (Exception ex)
+                    {
+                        var err = ex.Message ?? "";
+                        if (err.Length > 150) err = err[..147] + "...";
+                        await ctx.Channel.SendMessageAsync($"⚠️ **Aviso**: Falha ao adicionar o cargo social. Erro: {err}");
+                    }
+                }
+            }
+
+            // Atualiza nickname adicionando o prefixo [12°] se ainda não existir
             var currentNick = targetMember.Nickname ?? targetMember.Username;
-            const string prefix = "[32nd]";
+            const string prefix = "[12°]";
             if (!currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 var newNick = $"{prefix} {currentNick}";
@@ -472,7 +545,7 @@ namespace CornwallUtilities.commands
                     if (logChannel is not null && logChannel.GuildId == ctx.Guild.Id)
                     {
                         var logEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("32nd Regiment - Recruit Log (ROBLOX)")
+                            .WithTitle("12° Regiment - Recruit Log (ROBLOX)")
                             .WithDescription("Registro de alistamento realizado com verificação automática de conta ROBLOX.")
                             .WithColor(DiscordColor.Blurple)
                             .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
@@ -484,9 +557,10 @@ namespace CornwallUtilities.commands
                             .AddField(new DiscordEmbedField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true))
                             .AddField(new DiscordEmbedField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true))
                             .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true))
+                            .AddField(new DiscordEmbedField("Cargo social?", string.IsNullOrWhiteSpace(socialRoleAnswer) ? "N/A" : socialRoleAnswer, true))
                             .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
                             .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                            .AddField(new DiscordEmbedField("Badges", badgeCount.ToString(), true))
+                            .AddField(new DiscordEmbedField("Badges", badgesDisplay, true))
                             .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
                             .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
 
@@ -498,13 +572,38 @@ namespace CornwallUtilities.commands
                 }
             }
 
+            if (config.enlistWelcomeChannelId.HasValue && config.enlistWelcomeChannelId.Value != 0)
+            {
+                try
+                {
+                    var welcomeChannel = await ctx.Client.GetChannelAsync(config.enlistWelcomeChannelId.Value);
+                    if (welcomeChannel is not null && welcomeChannel.GuildId == ctx.Guild.Id)
+                    {
+                        await welcomeChannel.SendMessageAsync($"Bem-vindo ao 12°, {targetMember.Mention}!");
+                    }
+                    else if (welcomeChannel is null)
+                    {
+                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de boas-vindas (ID inválido ou canal de outro servidor?). Verifique o `enlistWelcomeChannelId` no config.json.");
+                    }
+                    else
+                    {
+                        await ctx.Channel.SendMessageAsync("O canal de boas-vindas configurado pertence a outro servidor. Verifique o `enlistWelcomeChannelId` no config.json.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var err = ex.Message ?? "";
+                    if (err.Length > 150) err = err[..147] + "...";
+                    await ctx.Channel.SendMessageAsync($"Erro ao enviar boas-vindas no canal geral: **{err}**. Verifique se o ID do canal está correto e se o bot tem permissão **Ver canal** e **Enviar mensagens** nesse canal.");
+                }
+            }
+
             var successEmbed = new DiscordEmbedBuilder()
                 .WithTitle("Alistamento concluido")
-                .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 32nd.")
+                .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 12°.")
                 .WithColor(DiscordColor.Green);
 
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
         }
     }
 }
-

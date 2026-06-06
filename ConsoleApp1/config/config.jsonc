@@ -7,6 +7,7 @@
 
     "enlistPermissionRoleId": 1487945889581629582,
     "enlistLogChannelId": 1487939794188238858,
+    "enlistWelcomeChannelId": 1487939783182516407,
     "enlistTargetRoleIds": [
       1487938785345011815,
       1487938826729951525,
@@ -15,6 +16,7 @@
       1487938884145778858,
       1487938885156868257
     ],
+    "enlistSocialRoleId": 1487968738891268166,
 
     "robloxEnlistChannelId": 1487939769378930768, 
     "robloxEnlistBlockedRoleIds": [
@@ -31,11 +33,12 @@
         1487945889581629582
     ],
     "deploymentDefaultRoles": [
+        //1487945889581629582
         1487938884145778858
     ],
-    "deploymentTitle": ":32nd: 32ND À BATALHA!!!!! :32ndKC:",
-    "deploymentVoiceChannel": "🍺Bar de Cornwall",
-    "deploymentImageUrl": "https://daeese.me/filearchive/image.png",
+    "deploymentTitle": "<:12o:1510296898290843658> À BATALHA!!!!! <:12oKC:1510296791260725343>",
+    "deploymentVoiceChannel": "🍺 Taverna de Faiões",
+    "deploymentImageUrl": "https://media.discordapp.net/attachments/1475182613592277123/1506133933362778202/how_to_join.gif?ex=6a2045c8&is=6a1ef448&hm=dc81ccb3c1bbf2b5ef134c8f8de0a4e739f3aafdd012671bf04137381506d343&",
     "deploymentQuickLaunchLink": "https://www.roblox.com/games/start?launchData=CODE_HERE&placeId=12068120918",
     "deploymentChannelId": 1487939775875911841,
 

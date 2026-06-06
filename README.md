@@ -1,6 +1,6 @@
 # Cornwall Discord Bot
 
-Bot Discord para o 32nd "The Cornwall" Regiment of Foot com funcionalidades de alistamento, deployments e mensagens.
+Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de alistamento, deployments e mensagens.
 
 ## Comandos do Bot
 

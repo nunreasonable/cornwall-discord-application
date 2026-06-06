@@ -23,7 +23,8 @@ namespace CornwallUtilities.commands
         public async Task EnlistUserCommand(
             InteractionContext ctx,
             [Option("user", "Usuário a ser alistado")] DiscordUser user,
-            [Option("roblox_username", "Username do ROBLOX do usuário")] string robloxUsername)
+            [Option("roblox_username", "Username do ROBLOX do usuário")] string robloxUsername,
+            [Option("socialrole", "Adicionar cargo social?")] bool socialRole = false)
         {
 
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
@@ -361,9 +362,60 @@ namespace CornwallUtilities.commands
                 Console.WriteLine("[DEBUG] Nenhum cargo configurado para alistamento (enlistTargetRoleIds está vazio)");
             }
 
-            // Atualiza nickname adicionando o prefixo [32nd] se ainda não existir
+            if (socialRole)
+            {
+                if (!config.enlistSocialRoleId.HasValue || config.enlistSocialRoleId.Value == 0)
+                {
+                    Console.WriteLine("[ERROR] enlistSocialRoleId não está configurado no config.jsonc");
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social não está configurado. Verifique o `enlistSocialRoleId` no config.jsonc.");
+                }
+                else if (!ctx.Guild.Roles.TryGetValue(config.enlistSocialRoleId.Value, out var socialRoleEntity))
+                {
+                    Console.WriteLine($"[ERROR] Cargo social ID {config.enlistSocialRoleId.Value} não encontrado no servidor");
+                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social configurado não foi encontrado no servidor. Verifique o `enlistSocialRoleId` no config.jsonc.");
+                }
+                else if (targetMember.Roles.Any(r => r.Id == socialRoleEntity.Id))
+                {
+                    Console.WriteLine("[DEBUG] Usuário já possui o cargo social");
+                }
+                else
+                {
+                    var botMember = await ctx.Guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
+                    var botCanManageRoles = botMember?.PermissionsIn(ctx.Channel).HasPermission(Permissions.ManageRoles) ?? false;
+                    if (!botCanManageRoles)
+                    {
+                        Console.WriteLine("[ERROR] Bot não tem permissão para gerenciar cargos (cargo social)");
+                        await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O bot não tem permissão para gerenciar cargos. Verifique as permissões do bot.");
+                    }
+                    else
+                    {
+                        var botHighestRole = botMember?.Roles.OrderByDescending(r => r.Position).FirstOrDefault();
+                        if (botHighestRole is not null && socialRoleEntity.Position >= botHighestRole.Position)
+                        {
+                            Console.WriteLine($"[ERROR] Não é possível atribuir o cargo social {socialRoleEntity.Name} - posição é igual ou superior ao cargo mais alto do bot");
+                            await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: Não foi possível atribuir o cargo social devido à hierarquia de cargos do bot.");
+                        }
+                        else
+                        {
+                            try
+                            {
+                                await targetMember.GrantRoleAsync(socialRoleEntity, "Cargo social via comando");
+                                addedRoles.Add(socialRoleEntity);
+                                Console.WriteLine("[SUCCESS] Cargo social adicionado com sucesso");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[ERROR] Falha ao adicionar cargo social: {ex.Message}");
+                                await ctx.Channel.SendMessageAsync($"⚠️ **Aviso**: Falha ao adicionar o cargo social. Erro: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Atualiza nickname adicionando o prefixo [12°] se ainda não existir
             var currentNick = targetMember.Nickname ?? targetMember.Username;
-            const string prefix = "[32nd]";
+            const string prefix = "[12°]";
             Console.WriteLine($"[DEBUG] Nickname atual: '{currentNick}'");
             Console.WriteLine($"[DEBUG] Verificando se já tem prefixo '{prefix}'");
             
@@ -399,7 +451,7 @@ namespace CornwallUtilities.commands
             }
             else
             {
-                Console.WriteLine("[DEBUG] Usuário já possui o prefixo [32nd] no nickname");
+                Console.WriteLine("[DEBUG] Usuário já possui o prefixo [12°] no nickname");
             }
 
             // Envia log para canal específico (busca o canal na API do Discord para não depender do cache)
@@ -411,7 +463,7 @@ namespace CornwallUtilities.commands
                     if (logChannel is not null && logChannel.GuildId == ctx.Guild.Id)
                     {
                         var logEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("32nd Regiment - Recruit Log")
+                            .WithTitle("12° Regiment - Recruit Log")
                             .WithDescription("Registro de alistamento realizado com sucesso.")
                             .WithColor(DiscordColor.Blurple)
                             .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
@@ -425,6 +477,7 @@ namespace CornwallUtilities.commands
                             .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
                             .AddField(new DiscordEmbedField("Badges", badgesDisplay, true))
                             .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
+                            .AddField(new DiscordEmbedField("Cargo social?", socialRole ? "Sim" : "Não", true))
                             .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
 
                         await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
@@ -446,12 +499,38 @@ namespace CornwallUtilities.commands
                 }
             }
 
+            if (config.enlistWelcomeChannelId.HasValue && config.enlistWelcomeChannelId.Value != 0)
+            {
+                try
+                {
+                    var welcomeChannel = await ctx.Client.GetChannelAsync(config.enlistWelcomeChannelId.Value);
+                    if (welcomeChannel is not null && welcomeChannel.GuildId == ctx.Guild.Id)
+                    {
+                        await welcomeChannel.SendMessageAsync($"Bem-vindo ao 12°, {targetMember.Mention}!");
+                    }
+                    else if (welcomeChannel is null)
+                    {
+                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de boas-vindas (ID inválido ou canal de outro servidor?). Verifique o `enlistWelcomeChannelId` no config.json.");
+                    }
+                    else
+                    {
+                        await ctx.Channel.SendMessageAsync("O canal de boas-vindas configurado pertence a outro servidor. Verifique o `enlistWelcomeChannelId` no config.json.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    var err = ex.Message ?? "";
+                    if (err.Length > 150) err = err[..147] + "...";
+                    await ctx.Channel.SendMessageAsync($"Erro ao enviar boas-vindas no canal geral: **{err}**. Verifique se o ID do canal está correto e se o bot tem permissão **Ver canal** e **Enviar mensagens** nesse canal.");
+                }
+            }
+
             var successDescription = badgesAvailable
-                ? "Bem vindo ao 32nd!"
-                : "Bem vindo ao 32nd! (Badges indisponíveis no momento.)";
+                ? "Bem vindo ao 12°!"
+                : "Bem vindo ao 12°! (Badges indisponíveis no momento.)";
 
             var successEmbed = new DiscordEmbedBuilder()
-                .WithTitle("32nd - Usuário alistado com sucesso")
+                .WithTitle("12° - Usuário alistado com sucesso")
                 .WithDescription(successDescription)
                 .WithColor(DiscordColor.Green)
                 .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
