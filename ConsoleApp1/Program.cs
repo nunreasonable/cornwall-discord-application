@@ -120,12 +120,14 @@ namespace CornwallUtilities
             if (jsonReader.messageBlacklist?.enabled == true)
             {
                 MessageBlacklist = new MessageBlacklistService(
+                    Client,
                     jsonReader.messageBlacklist.blacklistedTerms ?? Array.Empty<string>(),
                     jsonReader.messageBlacklist.responseMessage ?? string.Empty,
                     jsonReader.messageBlacklist.responseMessage2Terms ?? (string.IsNullOrWhiteSpace(jsonReader.messageBlacklist.responseMessage2Term)
                         ? Array.Empty<string>()
                         : new[] { jsonReader.messageBlacklist.responseMessage2Term }),
-                    jsonReader.messageBlacklist.responseMessage2
+                    jsonReader.messageBlacklist.responseMessage2,
+                    jsonReader.messageBlacklist.notifyUserIds
                 );
                 Console.WriteLine("Message blacklist service initialized.");
             }
@@ -178,6 +180,14 @@ namespace CornwallUtilities
 
         private static async Task HandleMessageCreated(DiscordClient sender, MessageCreateEventArgs e)
         {
+            if (!e.Author.IsBot && e.Author.IsSystem != true
+                && string.Equals(e.Message.Content?.Trim(), "oi voce quer ir pra LLL", StringComparison.OrdinalIgnoreCase))
+            {
+                await e.Message.Channel.SendMessageAsync(new DiscordMessageBuilder()
+                    .WithContent("sai maluco todo dia isso si fude")
+                    .WithReply(e.Message.Id));
+            }
+
             // Store message if the service is enabled
             if (MessageStorage != null)
             {

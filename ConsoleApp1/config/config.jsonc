@@ -53,8 +53,8 @@
     "messageBlacklist": {
         "enabled": true,
         "blacklistedTerms": ["desgraçado", "filho da puta", "retardado", "vai se fuder", "traveco", "trany", "assediar", "assediado", "assediei" ,"estuprei", "estuprar", "estuprado", "nazi", "nazista", "fascista", "gozei na sua boca", "nazistinha", "fascistinha" ],
-        "responseMessage": "ou vai com calma ae",
+        "responseMessage": "Vai com calma, nao vou hesitar em te punir.",
         "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call", "Rafael Gordo"],
-        "responseMessage2": "Ta se achando aí, né?" 
+        "responseMessage2": "Meu advogado disse pra nao falar uma certa palavra pra vc por motivos de ética....." 
     }
 }
