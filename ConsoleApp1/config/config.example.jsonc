@@ -62,5 +62,29 @@
         // Janela de silencio entre DMs. Infracoes que caem dentro dela sao
         // acumuladas e enviadas juntas em uma unica DM quando a janela fecha.
         "dmAlertCooldownMinutes": 5
+    },
+
+    "audit": {
+        // Credencial do GitHub. Deixe VAZIO para reaproveitar o login do `gh` CLI
+        // da maquina onde o bot roda (`gh auth login`) - assim nao e preciso criar
+        // nenhum token novo. A ordem de busca e:
+        //   1) este campo  2) GH_TOKEN / GITHUB_TOKEN  3) `gh auth token`
+        // Preencha apenas num deploy onde o `gh` nao esteja logado.
+        // NAO comitar este arquivo - ele esta no .gitignore.
+        "githubToken": "",
+        "githubOwner": "nunreasonable",
+        "githubRepo": "cornwall-discord-application",
+        // Branch dedicada aos dados da auditoria. Criada automaticamente no primeiro /audit-push.
+        "githubBranch": "audit-data",
+        "auditFilePath": "audit.json",
+        "archiveDirectory": "audits",
+
+        // Aba Roster da planilha, usada apenas por /audit-import.
+        "auditCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
+        // Indices das colunas (comecando em 0). Na aba Roster o cabecalho ocupa as
+        // 4 primeiras linhas e os dados comecam na linha 5:
+        //   D=USERNAME(3)  F=RANK(5)  H=BATTLES(7)  J=KILLS(9)  K=DEATHS(10)  L=ASSISTS(11)
+        "csvColumns": { "username": 3, "rank": 5, "battles": 7, "kills": 9, "deaths": 10, "assists": 11 },
+        "csvHeaderRows": 4
     }
 }

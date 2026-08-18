@@ -49,7 +49,8 @@ namespace CornwallUtilities.Services
             // Only store messages from the target channel
             if (message.ChannelId != _targetChannelId)
             {
-                Console.WriteLine($"Skipping message from channel {message.ChannelId} (only logging from target channel {_targetChannelId})");
+                // Sem log aqui: isso rodava para toda mensagem de todo canal e
+                // Console.WriteLine e sincronizado por lock global.
                 return;
             }
 
@@ -202,13 +203,11 @@ namespace CornwallUtilities.Services
             // Store the message
             _messageQueue.Enqueue(storedMessage);
             
-            // Log with detailed information
-            LogStoredMessage(storedMessage);
-
-            // Keep only messages from last 24 hours (rough limit to prevent memory issues)
-            if (_messageQueue.Count > 1000)
+            // Corte barato e limitado. O CleanupOldMessages completo (que drena e
+            // reenfileira a fila inteira) roda no timer horario, nunca aqui - isso
+            // ficava no caminho do despacho de eventos do gateway.
+            while (_messageQueue.Count > 1000 && _messageQueue.TryDequeue(out _))
             {
-                CleanupOldMessages(null!);
             }
         }
 
@@ -236,69 +235,37 @@ namespace CornwallUtilities.Services
             return MessageType.MixedContent;
         }
 
-        private void LogStoredMessage(StoredMessage message)
-        {
-            var logParts = new List<string>();
-            
-            // Basic info
-            logParts.Add($"Stored message from {message.AuthorUsername}");
-            
-            // Message type
-            logParts.Add($"Type: {message.MessageType}");
-            
-            // Content preview
-            if (!string.IsNullOrWhiteSpace(message.Content))
-            {
-                var preview = message.Content.Length > 50 ? message.Content.Substring(0, 47) + "..." : message.Content;
-                logParts.Add($"Text: \"{preview}\"");
-            }
-            
-            // Attachments
-            if (message.Attachments.Count > 0)
-            {
-                var imageCount = message.Attachments.Count(a => a.IsImage);
-                var otherCount = message.Attachments.Count - imageCount;
-                var attachmentInfo = new List<string>();
-                if (imageCount > 0) attachmentInfo.Add($"{imageCount} image(s)");
-                if (otherCount > 0) attachmentInfo.Add($"{otherCount} other file(s)");
-                logParts.Add($"Attachments: {string.Join(", ", attachmentInfo)}");
-            }
-            
-            // Embeds
-            if (message.Embeds.Count > 0)
-            {
-                logParts.Add($"Embeds: {message.Embeds.Count}");
-            }
-            
-            // Stickers
-            if (message.Stickers.Count > 0)
-            {
-                logParts.Add($"Stickers: {message.Stickers.Count} ({string.Join(", ", message.Stickers.Select(s => s.Name))})");
-            }
-            
-            // Reactions
-            if (message.Reactions.Count > 0)
-            {
-                logParts.Add($"Reactions: {message.Reactions.Count}");
-            }
-            
-            // Mentions
-            if (message.HasMentions)
-            {
-                logParts.Add("Has mentions");
-            }
-            
-            logParts.Add($"Total messages: {_messageQueue.Count}");
-            
-            Console.WriteLine(string.Join(" | ", logParts));
-        }
-
         private void ScheduleNextRepost()
         {
             // Random interval between 2 hours and 4 hours to ensure minimum 2 hour gap
             var nextInterval = _random.Next(120, 241);
-            _repostTimer?.Dispose();
-            _repostTimer = new Timer(async _ => await TryRepostRandomMessage(), null!, TimeSpan.FromMinutes(nextInterval), Timeout.InfiniteTimeSpan);
+            var due = TimeSpan.FromMinutes(nextInterval);
+
+            // Um unico timer reaproveitado via Change(). Antes o timer era
+            // descartado e recriado de dentro do proprio callback, e o lambda
+            // `async _ => await ...` era um `async void`: qualquer excecao que
+            // escapasse derrubava o processo inteiro.
+            if (_repostTimer is null)
+                _repostTimer = new Timer(static state => _ = ((MessageStorageService)state!).RunRepostSafeAsync(), this, due, Timeout.InfiniteTimeSpan);
+            else
+                _repostTimer.Change(due, Timeout.InfiniteTimeSpan);
+        }
+
+        /// <summary>
+        /// Envolve TryRepostRandomMessage para que nenhuma excecao escape do
+        /// callback do timer (o que mataria o processo).
+        /// </summary>
+        private async Task RunRepostSafeAsync()
+        {
+            try
+            {
+                await TryRepostRandomMessage();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[repost] erro nao tratado: {ex}");
+                try { ScheduleNextRepost(); } catch { /* servico descartado */ }
+            }
         }
 
         private async Task TryRepostRandomMessage()

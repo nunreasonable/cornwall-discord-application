@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
+using CornwallUtilities.Services;
 using DisCatSharp.Entities;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
@@ -38,28 +39,26 @@ namespace CornwallUtilities.commands
 
             try
             {
-                using var http = new HttpClient();
-                var csvText = await http.GetStringAsync(url);
+                var csvText = await HttpClientProvider.Shared.GetStringAsync(url);
 
-                var lines = csvText
-                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                    .ToList();
+                // ParseCsv le o documento inteiro: quebrar por linha antes corrompia
+                // os registros cujos campos entre aspas contem quebra de linha.
+                var records = CsvUtil.ParseCsv(csvText);
 
-                if (lines.Count == 0)
+                if (records.Count == 0)
                 {
                     throw new Exception("A planilha retornou um CSV vazio.");
                 }
 
-                var headers = ParseCsvLine(lines[0]);
+                var headers = records[0];
 
                 // Row 4 (index 3) contains the display labels for columns; data starts below it
                 const int labelRowIndex = 3;
-                var labels = lines.Count > labelRowIndex
-                    ? ParseCsvLine(lines[labelRowIndex])
+                var labels = records.Count > labelRowIndex
+                    ? records[labelRowIndex]
                     : headers;
 
-                var rows = lines.Skip(labelRowIndex + 1)
-                    .Select(ParseCsvLine)
+                var rows = records.Skip(labelRowIndex + 1)
                     .Where(r => r.Count > 0)
                     .ToList();
 
@@ -154,45 +153,5 @@ namespace CornwallUtilities.commands
             }
         }
 
-        private static List<string> ParseCsvLine(string line)
-        {
-            var result = new List<string>();
-            if (string.IsNullOrEmpty(line))
-                return result;
-
-            var sb = new StringBuilder();
-            var inQuotes = false;
-
-            for (var i = 0; i < line.Length; i++)
-            {
-                var ch = line[i];
-
-                if (ch == '"')
-                {
-                    // If this is a double quote inside a quoted field, consume it and add a quote
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        sb.Append('"');
-                        i++;
-                        continue;
-                    }
-
-                    inQuotes = !inQuotes;
-                    continue;
-                }
-
-                if (ch == ',' && !inQuotes)
-                {
-                    result.Add(sb.ToString());
-                    sb.Clear();
-                    continue;
-                }
-
-                sb.Append(ch);
-            }
-
-            result.Add(sb.ToString());
-            return result;
-        }
     }
 }

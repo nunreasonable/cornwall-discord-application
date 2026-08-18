@@ -48,6 +48,9 @@ namespace CornwallUtilities.config
         // Config used by message blacklist detection
         public MessageBlacklistConfig? messageBlacklist { get; private set; }
 
+        // Config used by the audit commands (/audit-*)
+        public AuditConfig? audit { get; private set; }
+
         public async Task ReadJSON()
         {
             using var sr = new StreamReader("config/config.jsonc");
@@ -89,6 +92,7 @@ namespace CornwallUtilities.config
             messageRepostingExcludedChannelIds = data?.messageReposting?.excludedChannelIds;
 
             messageBlacklist = data?.messageBlacklist;
+            audit = data?.audit;
         }
     }
 
@@ -129,6 +133,9 @@ namespace CornwallUtilities.config
 
         // Config for message blacklist detection
         public MessageBlacklistConfig? messageBlacklist { get; set; }
+
+        // Config for the audit commands
+        public AuditConfig? audit { get; set; }
     }
 
     internal sealed class MessageRepostingConfig
@@ -151,5 +158,33 @@ namespace CornwallUtilities.config
         public string? responseMessage2 { get; set; }
         public ulong[]? notifyUserIds { get; set; }
         public int? dmAlertCooldownMinutes { get; set; }
+    }
+
+    internal sealed class AuditConfig
+    {
+        /// <summary>Personal Access Token do GitHub com permissao de escrita no repositorio.</summary>
+        public string? githubToken { get; set; }
+        public string? githubOwner { get; set; }
+        public string? githubRepo { get; set; }
+        /// <summary>Branch dedicada aos dados da auditoria.</summary>
+        public string? githubBranch { get; set; }
+        /// <summary>Caminho do arquivo consolidado dentro da branch.</summary>
+        public string? auditFilePath { get; set; }
+        /// <summary>Pasta onde cada lote bruto e arquivado.</summary>
+        public string? archiveDirectory { get; set; }
+        /// <summary>URL de export CSV da aba da planilha com a auditoria atual.</summary>
+        public string? auditCsvUrl { get; set; }
+        public AuditCsvColumns? csvColumns { get; set; }
+        public int csvHeaderRows { get; set; } = 1;
+    }
+
+    internal sealed class AuditCsvColumns
+    {
+        public int username { get; set; } = 3;
+        public int rank { get; set; } = 5;
+        public int battles { get; set; } = 7;
+        public int kills { get; set; } = 9;
+        public int deaths { get; set; } = 10;
+        public int assists { get; set; } = 11;
     }
 }

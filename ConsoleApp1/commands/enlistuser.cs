@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
+using CornwallUtilities.Services;
 using DisCatSharp;
 using DisCatSharp.Entities;
 using DisCatSharp.Interactivity.Extensions;
@@ -107,9 +108,11 @@ namespace CornwallUtilities.commands
             long robloxUserId;
             bool badgesAvailable = true;
 
-            using (var http = new HttpClient())
+            // Cliente compartilhado: criar um HttpClient por comando acumula
+            // sockets em TIME_WAIT. Nao alterar Timeout aqui - lanca excecao
+            // depois do primeiro request.
             {
-                http.Timeout = TimeSpan.FromSeconds(20);
+                var http = HttpClientProvider.Shared;
 
                 try
                 {

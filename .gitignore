@@ -4,3 +4,4 @@ ConsoleApp1/config/dashboard_whitelisted_users.json
 ConsoleApp1/config/dashboard_audit_log.json
 ConsoleApp1/bin/
 ConsoleApp1/obj/
+ConsoleApp1/data/
