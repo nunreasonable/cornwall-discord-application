@@ -10,13 +10,22 @@ namespace CornwallUtilities.Services
 {
     public class MessageBlacklistService
     {
-        private const int TimeoutThreshold = 5;
-        private static readonly TimeSpan TimeoutDuration = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan DefaultDmAlertCooldown = TimeSpan.FromMinutes(5);
+
+        private readonly DiscordClient _client;
         private readonly string[] _blacklistedTerms;
         private readonly string[] _responseMessage2Terms;
         private readonly string _responseMessage;
         private readonly string? _responseMessage2;
-        private readonly ConcurrentDictionary<string, int> _userTermCounts = new();
+        private readonly ulong[] _notifyUserIds;
+        private readonly TimeSpan _dmAlertCooldown;
+
+        // Guards every field below it. The DM alerts are throttled so a flood of infractions
+        // can't turn the bot into a DM spammer (which is what gets bots quarantined).
+        private readonly object _dmAlertLock = new();
+        private readonly List<BlacklistInfraction> _pendingInfractions = new();
+        private DateTimeOffset _nextAllowedDmAlert = DateTimeOffset.MinValue;
+        private bool _bulkFlushLoopRunning;
 
         public MessageBlacklistService(
             DiscordClient client,
@@ -24,7 +33,8 @@ namespace CornwallUtilities.Services
             string responseMessage,
             IEnumerable<string>? responseMessage2Terms = null,
             string? responseMessage2 = null,
-            IEnumerable<ulong>? notifyUserIds = null)
+            IEnumerable<ulong>? notifyUserIds = null,
+            int? dmAlertCooldownMinutes = null)
         {
             _client = client;
             _blacklistedTerms = blacklistedTerms
@@ -47,6 +57,9 @@ namespace CornwallUtilities.Services
                 .Distinct()
                 .Take(2)
                 .ToArray();
+            _dmAlertCooldown = dmAlertCooldownMinutes.HasValue
+                ? TimeSpan.FromMinutes(Math.Clamp(dmAlertCooldownMinutes.Value, 1, 60))
+                : DefaultDmAlertCooldown;
         }
 
         public async Task<bool> HandleMessageAsync(DiscordMessage message)
@@ -56,80 +69,70 @@ namespace CornwallUtilities.Services
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(message.Content) || _blacklistedTerms.Length == 0)
+            if (string.IsNullOrWhiteSpace(message.Content))
             {
                 return false;
             }
 
-            var matchedTerm = _blacklistedTerms.FirstOrDefault(term =>
-                message.Content.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (matchedTerm == null)
+            if (_blacklistedTerms.Length == 0 && _responseMessage2Terms.Length == 0)
             {
                 return false;
             }
 
-            var response = BuildResponse(message, matchedTerm);
-            if (string.IsNullOrWhiteSpace(response))
+            var match = FindMatch(message.Content);
+            if (match is null)
             {
                 return false;
             }
 
-            if (response.Length > 2000)
+            var (matchedTerm, useSecondary) = match.Value;
+
+            var response = BuildResponse(message, matchedTerm, useSecondary);
+            if (!string.IsNullOrWhiteSpace(response))
             {
-                response = response[..1997] + "...";
+                if (response.Length > 2000)
+                {
+                    response = response[..1997] + "...";
+                }
+
+                await message.Channel.SendMessageAsync(new DiscordMessageBuilder()
+                    .WithContent(response)
+                    .WithReply(message.Id));
             }
 
-            await message.Channel.SendMessageAsync(new DiscordMessageBuilder()
-                .WithContent(response)
-                .WithReply(message.Id));
+            // The alert fires even when there is no configured reply text, so infractions are
+            // never silently dropped just because responseMessage is blank.
+            await TryNotifyConfiguredUsersAsync(message, matchedTerm);
 
-            var timeoutApplied = await TryApplyTimeoutAsync(message, matchedTerm, violationCount);
-            if (timeoutApplied)
-            {
-                _userTermCounts.TryRemove(countKey, out _);
-            }
-
-            if (!string.IsNullOrWhiteSpace(response) || timeoutApplied)
-            {
-                Console.WriteLine($"Blacklist response handled for message {message.Id} by {message.Author.Username} (matched: {matchedTerm}).");
-                return true;
-            }
-
-            return false;
+            Console.WriteLine($"Blacklist match on message {message.Id} by {message.Author.Username} (matched: \"{matchedTerm}\").");
+            return true;
         }
 
-        private async Task<bool> TryApplyTimeoutAsync(DiscordMessage message, string matchedTerm, int violationCount)
+        /// <summary>
+        /// Looks for a hit in either term list. The secondary list wins so a phrase from it
+        /// isn't hijacked by a primary term that happens to appear in the same message.
+        /// </summary>
+        private (string Term, bool UseSecondary)? FindMatch(string content)
         {
-            if (violationCount <= TimeoutThreshold)
+            if (_responseMessage2 is not null)
             {
-                return false;
+                var secondary = _responseMessage2Terms.FirstOrDefault(term =>
+                    content.Contains(term, StringComparison.OrdinalIgnoreCase));
+                if (secondary is not null)
+                {
+                    return (secondary, true);
+                }
             }
 
-            var guild = message.Channel.Guild;
-            if (guild is null)
-            {
-                Console.WriteLine($"Blacklist timeout skipped for message {message.Id}: message was not sent in a guild.");
-                return false;
-            }
+            var primary = _blacklistedTerms.FirstOrDefault(term =>
+                content.Contains(term, StringComparison.OrdinalIgnoreCase));
 
-            try
-            {
-                var member = await guild.GetMemberAsync(message.Author.Id);
-                await member.TimeoutAsync(DateTimeOffset.UtcNow.Add(TimeoutDuration), $"Uso recorrente de termo bloqueado: {matchedTerm}");
-                Console.WriteLine($"Applied 5-minute timeout to user {message.Author.Id} for repeated blacklisted term \"{matchedTerm}\".");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to apply blacklist timeout to user {message.Author.Id}: {ex.Message}");
-                return false;
-            }
+            return primary is null ? null : (primary, false);
         }
 
-        private string BuildResponse(DiscordMessage message, string matchedTerm)
+        private string BuildResponse(DiscordMessage message, string matchedTerm, bool useSecondary)
         {
-            var response = ShouldUseSecondaryResponse(message.Content, matchedTerm)
+            var response = useSecondary
                 ? _responseMessage2 ?? _responseMessage
                 : _responseMessage;
 
@@ -139,15 +142,6 @@ namespace CornwallUtilities.Services
             response = response.Replace("{channel}", message.Channel.Mention, StringComparison.OrdinalIgnoreCase);
 
             return response;
-        }
-
-        private bool ShouldUseSecondaryResponse(string messageContent, string matchedTerm)
-        {
-            return _responseMessage2Terms.Length > 0
-                && !string.IsNullOrWhiteSpace(_responseMessage2)
-                && _responseMessage2Terms.Any(term =>
-                    string.Equals(matchedTerm, term, StringComparison.OrdinalIgnoreCase)
-                    || messageContent.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private async Task<bool> TryNotifyConfiguredUsersAsync(DiscordMessage message, string matchedTerm)
@@ -167,7 +161,7 @@ namespace CornwallUtilities.Services
                 shouldSendImmediate = now >= _nextAllowedDmAlert;
                 if (shouldSendImmediate)
                 {
-                    _nextAllowedDmAlert = now.Add(DmAlertCooldown);
+                    _nextAllowedDmAlert = now.Add(_dmAlertCooldown);
                 }
                 else
                 {
@@ -215,6 +209,10 @@ namespace CornwallUtilities.Services
             return sentAny;
         }
 
+        /// <summary>
+        /// Sleeps until the current cooldown window closes, then sends one digest covering
+        /// everything that piled up during it. Exits once a window closes with nothing pending.
+        /// </summary>
         private async Task RunBulkFlushLoopAsync()
         {
             try
@@ -244,7 +242,7 @@ namespace CornwallUtilities.Services
 
                         batch = new List<BlacklistInfraction>(_pendingInfractions);
                         _pendingInfractions.Clear();
-                        _nextAllowedDmAlert = DateTimeOffset.UtcNow.Add(DmAlertCooldown);
+                        _nextAllowedDmAlert = DateTimeOffset.UtcNow.Add(_dmAlertCooldown);
                     }
 
                     await TrySendAlertToConfiguredUsersAsync(BuildBulkAlert(batch));

@@ -25,12 +25,12 @@ Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de a
   - Parâmetro: código do jogo
   - Função: Embed com roles ping + botões de acesso
 
-- **`/dmrole`** - Envia DM para cargo/usuário (com código)
+- **`/dmdeployment`** - Envia DM para cargo/usuário (com código)
   - Requer: Cargo de permissão configurado
   - Parâmetros: cargo/usuário, código, mensagem
   - Limite: 500 membros por execução
 
-- **`/dmrolemsg`** - Envia DM para cargo/usuário (sem código)
+- **`/dmreminder`** - Envia DM para cargo/usuário (sem código)
   - Requer: Cargo de permissão configurado
   - Parâmetros: cargo/usuário, mensagem
   - Limite: 500 membros por execução
@@ -56,20 +56,34 @@ Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de a
 
 ## Configuração
 
-O bot utiliza o arquivo `config.json` para configurações de:
+O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações de:
 - IDs de canais e cargos
 - URLs de planilhas e links
 - Permissões de comandos
 - Mensagens personalizadas
 - Lista de termos bloqueados e resposta automática do blacklist
+- `notifyUserIds` / `dmAlertCooldownMinutes`: quem recebe DM quando alguém cai na blacklist,
+  e a janela de silêncio entre esses alertas (infrações dentro da janela viram uma DM única
+  de resumo, para o bot não ser sinalizado como spam)
+
+`config.jsonc` e `dashboard_auth.json` **não são versionados** (contêm token e IDs do
+servidor). Para montar um ambiente novo, copie os modelos e preencha:
+
+```bash
+cp ConsoleApp1/config/config.example.jsonc ConsoleApp1/config/config.jsonc
+cp ConsoleApp1/config/dashboard_auth.example.json ConsoleApp1/config/dashboard_auth.json
+```
+
+O caminho `config/config.jsonc` é lido em relação ao diretório de trabalho, então o bot deve
+ser executado de dentro de `ConsoleApp1/`.
 
 Observação: o bot agora usa o intent `MessageContent` para ler o texto das mensagens e detectar termos bloqueados. Esse intent também precisa estar habilitado no painel do aplicativo do Discord.
 
 ## Requisitos
 
-- .NET 8.0+
+- .NET 9.0 (o projeto tem `TargetFramework` `net9.0`; `global.json` fixa o SDK em 9.0.x)
 - DisCatSharp
-- Configuração adequada no `config.json`
+- Configuração adequada no `config.jsonc`
 - Permissões do bot no servidor Discord
 
 ## Troubleshooting de Build/Restore

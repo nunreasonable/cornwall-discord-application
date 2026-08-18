@@ -127,7 +127,8 @@ namespace CornwallUtilities
                         ? Array.Empty<string>()
                         : new[] { jsonReader.messageBlacklist.responseMessage2Term }),
                     jsonReader.messageBlacklist.responseMessage2,
-                    jsonReader.messageBlacklist.notifyUserIds
+                    jsonReader.messageBlacklist.notifyUserIds,
+                    jsonReader.messageBlacklist.dmAlertCooldownMinutes
                 );
                 Console.WriteLine("Message blacklist service initialized.");
             }

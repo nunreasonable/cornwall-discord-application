@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using DisCatSharp.CommandsNext;
 using DisCatSharp.CommandsNext.Attributes;
 using DisCatSharp.Entities;
-using Microsoft.VisualBasic;
 
 namespace CornwallUtilities.commands
 {

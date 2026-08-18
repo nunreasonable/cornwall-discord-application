@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CornwallUtilities.Services
 {
-    public class MessageStorageService
+    public class MessageStorageService : IDisposable
     {
         private readonly ConcurrentQueue<StoredMessage> _messageQueue;
         private readonly Timer _cleanupTimer;

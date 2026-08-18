@@ -272,11 +272,9 @@ namespace CornwallUtilities.commands
             // Critérios principais para NÃO ser alt
             var minAccountAge = TimeSpan.FromDays(90); // > 3 meses
             const int minFriends = 1;
-            const int minBadgesForBonus = 50; // usado apenas como bônus, não bloqueia
 
             var passesAge = accountAge >= minAccountAge;
             var passesFriends = friendsCount >= minFriends;
-            var hasBadgeBonus = badgeCount >= minBadgesForBonus;
             var badgesDisplay = badgesAvailable ? badgeCount.ToString() : "Indisponível";
 
             // A decisão de ALT usa apenas idade da conta + amigos.

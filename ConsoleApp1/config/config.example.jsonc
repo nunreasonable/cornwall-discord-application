@@ -55,6 +55,12 @@
         "blacklistedTerms": ["desgraçado", "filho da puta", "retardado", "vai se fuder", "traveco", "trany", "assediar", "assediado", "assediei" ,"estuprei", "estuprar", "estuprado", "nazi", "nazista", "fascista", "gozei na sua boca", "nazistinha", "fascistinha" ],
         "responseMessage": "Vai com calma, nao vou hesitar em te punir.",
         "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call", "Rafael Gordo"],
-        "responseMessage2": "Meu advogado disse pra nao falar uma certa palavra pra vc por motivos de ética....." 
+        "responseMessage2": "Meu advogado disse pra nao falar uma certa palavra pra vc por motivos de ética.....",
+
+        // Quem recebe DM quando alguem cai na blacklist (maximo 2 IDs).
+        "notifyUserIds": [],
+        // Janela de silencio entre DMs. Infracoes que caem dentro dela sao
+        // acumuladas e enviadas juntas em uma unica DM quando a janela fecha.
+        "dmAlertCooldownMinutes": 5
     }
 }

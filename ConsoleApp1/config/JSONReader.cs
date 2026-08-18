@@ -150,5 +150,6 @@ namespace CornwallUtilities.config
         public string[]? responseMessage2Terms { get; set; }
         public string? responseMessage2 { get; set; }
         public ulong[]? notifyUserIds { get; set; }
+        public int? dmAlertCooldownMinutes { get; set; }
     }
 }

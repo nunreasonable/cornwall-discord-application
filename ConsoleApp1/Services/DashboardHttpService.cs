@@ -387,6 +387,11 @@ namespace CornwallUtilities.Services
                 var guild = await _client.GetGuildAsync(config.guildId);
                 var member = await guild.GetMemberAsync(userId.Value);
                 var role = guild.GetRole(roleId.Value);
+                if (role is null)
+                {
+                    await WriteJsonAsync(ctx.Response, 400, new { error = $"Cargo {roleId} não existe neste servidor." });
+                    return;
+                }
 
                 if (add)
                     await member.GrantRoleAsync(role, reason);
@@ -468,7 +473,7 @@ namespace CornwallUtilities.Services
                 foreach (var roleId in config.regimentRoleIds)
                 {
                     var role = guild.GetRole(roleId);
-                    if (member.Roles.Any(r => r.Id == roleId))
+                    if (role is not null && member.Roles.Any(r => r.Id == roleId))
                     {
                         await member.RevokeRoleAsync(role, reason);
                     }
