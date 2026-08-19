@@ -118,19 +118,36 @@ namespace CornwallUtilities.commands
                     columnLines.Add($"**{label}**: {(!string.IsNullOrEmpty(value) ? value : "(vazio)")}");
                 }
 
-                // Split into multiple fields so we don't exceed Discord limits (1024 chars per field, max 25 fields)
+                // Quebra em varios fields respeitando os DOIS limites do Discord:
+                // 1024 caracteres por field e 6000 no embed inteiro. So o primeiro
+                // era conferido, entao uma linha com muitas colunas podia montar
+                // 24 fields e levar BadRequest na resposta toda.
+                const int maxTotalChars = 5500;
                 var fieldText = new StringBuilder();
                 var fieldCount = 0;
+                var totalChars = embed.Description?.Length ?? 0;
+                var truncated = false;
+
+                void Flush()
+                {
+                    var name = $"Dados (parte {fieldCount + 1})";
+                    embed.AddField(new DiscordEmbedField(name, fieldText.ToString(), false));
+                    totalChars += name.Length + fieldText.Length;
+                    fieldText.Clear();
+                    fieldCount++;
+                }
+
                 foreach (var line in columnLines)
                 {
                     if (fieldText.Length + line.Length + 1 > 900) // keep some headroom
                     {
-                        embed.AddField(new DiscordEmbedField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false));
-                        fieldText.Clear();
-                        fieldCount++;
-
-                        if (fieldCount >= 24) // keep one field for footer or summary if needed
+                        if (totalChars + fieldText.Length > maxTotalChars || fieldCount >= 24)
+                        {
+                            truncated = true;
                             break;
+                        }
+
+                        Flush();
                     }
 
                     if (fieldText.Length > 0)
@@ -138,10 +155,13 @@ namespace CornwallUtilities.commands
                     fieldText.Append(line);
                 }
 
-                if (fieldText.Length > 0 && fieldCount < 25)
-                {
-                    embed.AddField(new DiscordEmbedField($"Dados (parte {fieldCount + 1})", fieldText.ToString(), false));
-                }
+                if (fieldText.Length > 0 && fieldCount < 25 && totalChars + fieldText.Length <= maxTotalChars)
+                    Flush();
+                else if (fieldText.Length > 0)
+                    truncated = true;
+
+                if (truncated)
+                    embed.WithFooter("Parte das colunas foi omitida: a linha não cabe no limite de uma mensagem do Discord.");
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
             }

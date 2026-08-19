@@ -26,6 +26,10 @@ namespace CornwallUtilities.Services
         private readonly List<BlacklistInfraction> _pendingInfractions = new();
         private DateTimeOffset _nextAllowedDmAlert = DateTimeOffset.MinValue;
         private bool _bulkFlushLoopRunning;
+        private int _droppedInfractions;
+
+        /// <summary>Quantas infracoes cabem na fila de resumo de uma janela.</summary>
+        private const int MaxPendingInfractions = 500;
 
         public MessageBlacklistService(
             DiscordClient client,
@@ -163,9 +167,15 @@ namespace CornwallUtilities.Services
                 {
                     _nextAllowedDmAlert = now.Add(_dmAlertCooldown);
                 }
-                else
+                else if (_pendingInfractions.Count < MaxPendingInfractions)
                 {
                     _pendingInfractions.Add(infraction);
+                }
+                else
+                {
+                    // Teto de memoria: num flood, o resumo ja vai truncado de
+                    // qualquer jeito - guardar mais nao acrescenta nada.
+                    _droppedInfractions++;
                 }
 
                 shouldStartFlushLoop = !_bulkFlushLoopRunning;
@@ -193,6 +203,11 @@ namespace CornwallUtilities.Services
             var sentAny = false;
             foreach (var userId in _notifyUserIds)
             {
+                // Mesmo limitador global dos comandos de DM: o cooldown daqui
+                // espaca os ALERTAS, mas dois alertas seguidos para dois
+                // destinatarios ainda saiam em rajada.
+                await DmRateLimiter.WaitForSlotAsync();
+
                 try
                 {
                     var user = await _client.GetUserAsync(userId);
@@ -232,6 +247,7 @@ namespace CornwallUtilities.Services
                     }
 
                     List<BlacklistInfraction> batch;
+                    int dropped;
                     lock (_dmAlertLock)
                     {
                         if (_pendingInfractions.Count == 0)
@@ -241,11 +257,13 @@ namespace CornwallUtilities.Services
                         }
 
                         batch = new List<BlacklistInfraction>(_pendingInfractions);
+                        dropped = _droppedInfractions;
                         _pendingInfractions.Clear();
+                        _droppedInfractions = 0;
                         _nextAllowedDmAlert = DateTimeOffset.UtcNow.Add(_dmAlertCooldown);
                     }
 
-                    await TrySendAlertToConfiguredUsersAsync(BuildBulkAlert(batch));
+                    await TrySendAlertToConfiguredUsersAsync(BuildBulkAlert(batch, dropped));
                 }
             }
             catch (Exception ex)
@@ -285,10 +303,10 @@ namespace CornwallUtilities.Services
                 $"Mensagem: {infraction.Content}";
         }
 
-        private static string BuildBulkAlert(IReadOnlyList<BlacklistInfraction> infractions)
+        private static string BuildBulkAlert(IReadOnlyList<BlacklistInfraction> infractions, int dropped)
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"⚠️ Aviso: {infractions.Count} novas infrações durante o cooldown.");
+            sb.AppendLine($"⚠️ Aviso: {infractions.Count + dropped} novas infrações durante o cooldown.");
             sb.AppendLine("Resumo:");
 
             var included = 0;
@@ -305,9 +323,10 @@ namespace CornwallUtilities.Services
                 included++;
             }
 
-            if (included < infractions.Count)
+            var omitted = infractions.Count - included + dropped;
+            if (omitted > 0)
             {
-                sb.AppendLine($"... e mais {infractions.Count - included} infrações.");
+                sb.AppendLine($"... e mais {omitted} infrações.");
             }
 
             return sb.ToString();

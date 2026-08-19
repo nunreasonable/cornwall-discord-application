@@ -118,9 +118,24 @@ namespace CornwallUtilities.commands
                     var consumed = pending.batches.Select(b => b.batchId).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     await AuditStore.Instance.UpdateAsync((storedAudit, storedPending) =>
                     {
+                        // Reaplica a consolidacao sobre o que esta gravado AGORA, em
+                        // vez de sobrescrever com a copia de memoria. Entre a leitura
+                        // la em cima e este ponto houve uma ida ao GitHub (segundos):
+                        // um /audit-edit ou /audit-setranks que tenha rodado nesse
+                        // intervalo era descartado sem aviso. O appliedBatchIds
+                        // garante que reaplicar aqui nao conta batalha em dobro.
+                        //
+                        // Se houve mesmo alteracao concorrente, o arquivo local fica
+                        // a frente do que acabou de ir para o GitHub - o proximo
+                        // /audit-push (sem lote pendente) detecta a diferenca e
+                        // publica, entao isso se resolve sozinho.
+                        var toApply = new PendingFile
+                        {
+                            batches = storedPending.batches.Where(b => consumed.Contains(b.batchId)).ToList()
+                        };
+
+                        AuditMerger.MergePendingIntoAudit(storedAudit, toApply);
                         storedAudit.version = merged.version;
-                        storedAudit.entries = merged.entries;
-                        storedAudit.appliedBatchIds = merged.appliedBatchIds;
                         storedPending.batches.RemoveAll(b => consumed.Contains(b.batchId));
                         return true;
                     });
@@ -218,7 +233,7 @@ namespace CornwallUtilities.commands
             if (dryRun)
                 embed.WithFooter($"{pending.batches.Count} lote(s) pendente(s)");
 
-            return embed.Build();
+            return AuditEmbeds.Fit(embed).Build();
         }
     }
 }

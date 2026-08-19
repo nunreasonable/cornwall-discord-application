@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +23,21 @@ namespace CornwallUtilities.Services
         private readonly HttpListener _listener = new();
         private readonly ConcurrentDictionary<string, PendingLinkCode> _pendingCodes = new();
         private readonly ConcurrentDictionary<string, DashboardSession> _sessions = new();
+
+        // Tentativas de login por origem. O codigo de acesso e curto por
+        // necessidade (alguem digita ele), entao o que impede a forca bruta e
+        // esta janela - sem ela daria para varrer o espaco inteiro de codigos
+        // enquanto um deles esta valido.
+        private readonly ConcurrentDictionary<string, LoginAttempts> _loginAttempts = new();
+
+        /// <summary>Alfabeto sem caracteres ambiguos (0/O, 1/I/L) - o codigo e digitado a mao.</summary>
+        private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+        private const int MaxLoginAttemptsPerWindow = 10;
+        private static readonly TimeSpan LoginAttemptWindow = TimeSpan.FromMinutes(5);
+
+        /// <summary>De quanto em quanto tempo a permissao de uma sessao viva e reconferida no Discord.</summary>
+        private static readonly TimeSpan PermissionRefreshInterval = TimeSpan.FromMinutes(5);
         private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
 
         private CancellationTokenSource? _cts;
@@ -75,19 +91,54 @@ namespace CornwallUtilities.Services
         public async Task<(string code, DateTimeOffset expiresAt)> GenerateLinkCodeAsync(DiscordUser user)
         {
             var cfg = await _auth.GetConfigAsync();
-            var code = $"CORN-{Random.Shared.Next(100000, 999999)}";
             var expiresAt = DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(cfg.linkCodeLifetimeMinutes, 1, 30));
 
-            _pendingCodes[code] = new PendingLinkCode
+            CleanupExpiredCodes();
+
+            // Um codigo por pessoa: pedir um novo invalida o anterior, entao um
+            // codigo esquecido num chat nao continua valendo.
+            foreach (var kv in _pendingCodes)
+                if (kv.Value.UserId == user.Id)
+                    _pendingCodes.TryRemove(kv.Key, out _);
+
+            // TryAdd (e nao indexador) porque duas pessoas podem sortear o mesmo
+            // codigo: sobrescrever faria o codigo da primeira logar como a
+            // segunda. Na colisao, sorteia de novo.
+            string code;
+            var pending = new PendingLinkCode
             {
-                Code = code,
                 UserId = user.Id,
                 Username = user.Username,
                 AvatarUrl = user.AvatarUrl,
                 ExpiresAt = expiresAt
             };
 
+            do
+            {
+                code = GenerateCode();
+                pending.Code = code;
+            }
+            while (!_pendingCodes.TryAdd(code, pending));
+
             return (code, expiresAt);
+        }
+
+        /// <summary>
+        /// Codigo de acesso ao dashboard.
+        ///
+        /// Usa RandomNumberGenerator, nao Random: quem alcanca a porta do
+        /// dashboard consegue tentar codigos, e um gerador previsivel de 6
+        /// digitos deixava esse chute barato demais. Sao 10 caracteres de um
+        /// alfabeto de 31 (~49 bits), o que torna a busca inviavel dentro dos
+        /// poucos minutos de vida do codigo.
+        /// </summary>
+        private static string GenerateCode()
+        {
+            var chars = new char[10];
+            for (var i = 0; i < chars.Length; i++)
+                chars[i] = CodeAlphabet[RandomNumberGenerator.GetInt32(CodeAlphabet.Length)];
+
+            return $"CORN-{new string(chars, 0, 5)}-{new string(chars, 5, 5)}";
         }
 
         private async Task AcceptLoopAsync(CancellationToken ct)
@@ -99,10 +150,15 @@ namespace CornwallUtilities.Services
                 {
                     ctx = await _listener.GetContextAsync();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    if (ct.IsCancellationRequested)
+                    if (ct.IsCancellationRequested || !_listener.IsListening)
                         break;
+
+                    // Sem esta pausa, um listener que falha sem parar de escutar
+                    // punha o laco a girar sozinho consumindo uma CPU inteira.
+                    Console.WriteLine($"[dashboard] falha ao aceitar conexao: {ex.Message}");
+                    await Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None);
                     continue;
                 }
 
@@ -188,15 +244,42 @@ namespace CornwallUtilities.Services
 
                 await WriteJsonAsync(ctx.Response, 404, new { error = "Rota não encontrada." });
             }
+            catch (JsonException)
+            {
+                await TryWriteJsonAsync(ctx.Response, 400, new { error = "Corpo da requisição não é um JSON válido." });
+            }
             catch (Exception ex)
             {
-                await WriteJsonAsync(ctx.Response, 500, new { error = "Erro interno no dashboard.", details = ex.Message });
+                // O detalhe fica no log do bot, nao na resposta: mensagem de
+                // excecao vazando para o cliente e superficie de informacao de
+                // graca para quem estiver sondando a API.
+                Console.WriteLine($"[dashboard] erro em {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await TryWriteJsonAsync(ctx.Response, 500, new { error = "Erro interno no dashboard." });
             }
         }
 
         private async Task HandleLoginAsync(HttpListenerContext ctx)
         {
-            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            // A trava vem antes de qualquer trabalho: e ela que impede varrer
+            // codigos, e nao adianta pagar leitura de config para uma tentativa
+            // que ja passou do limite.
+            if (!RegisterLoginAttempt(ctx.Request))
+            {
+                await WriteJsonAsync(ctx.Response, 429, new { error = "Tentativas demais. Espere alguns minutos e tente de novo." });
+                return;
+            }
+
+            JObject? body;
+            try
+            {
+                body = await ReadBodyAsJsonAsync(ctx.Request);
+            }
+            catch (JsonException)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Corpo da requisição não é um JSON válido." });
+                return;
+            }
+
             var code = (string?)body?["linkCode"];
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -206,11 +289,14 @@ namespace CornwallUtilities.Services
 
             CleanupExpiredCodes();
 
-            if (!_pendingCodes.TryRemove(code.Trim(), out var pending) || pending.ExpiresAt <= DateTimeOffset.UtcNow)
+            if (!_pendingCodes.TryRemove(code.Trim().ToUpperInvariant(), out var pending) || pending.ExpiresAt <= DateTimeOffset.UtcNow)
             {
                 await WriteJsonAsync(ctx.Response, 401, new { error = "Código inválido ou expirado. Gere um novo com /dashboardlink." });
                 return;
             }
+
+            // Codigo valido: a origem deixa de estar sob suspeita.
+            ClearLoginAttempts(ctx.Request);
 
             var permissionResult = await _auth.ResolvePermissionLevelAsync(_client, pending.UserId);
             if (permissionResult.PermissionLevel <= 0)
@@ -237,7 +323,8 @@ namespace CornwallUtilities.Services
                 Username = pending.Username,
                 AvatarUrl = pending.AvatarUrl,
                 PermissionLevel = permissionResult.PermissionLevel,
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(sessionLifetime)
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(sessionLifetime),
+                PermissionCheckedAt = DateTimeOffset.UtcNow
             };
 
             _sessions[token] = session;
@@ -315,7 +402,7 @@ namespace CornwallUtilities.Services
 
         private async Task HandleSendMessageAsync(HttpListenerContext ctx)
         {
-            var session = RequirePermission(ctx.Request, 1);
+            var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
                 await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
@@ -334,6 +421,17 @@ namespace CornwallUtilities.Services
             try
             {
                 var channel = await _client.GetChannelAsync(channelId.Value);
+
+                // O canal precisa ser do servidor configurado. Sem esta checagem,
+                // um nivel 1 podia mandar o bot escrever em QUALQUER canal de
+                // qualquer servidor onde ele esteja, bastando saber o id.
+                var config = await _auth.GetConfigAsync();
+                if (channel is null || channel.GuildId != config.guildId)
+                {
+                    await WriteJsonAsync(ctx.Response, 400, new { error = "Canal não pertence ao servidor do regimento." });
+                    return;
+                }
+
                 var chunkCount = 0;
                 foreach (var chunk in SplitMessageForDiscord(message))
                 {
@@ -363,7 +461,7 @@ namespace CornwallUtilities.Services
 
         private async Task HandleRoleChangeAsync(HttpListenerContext ctx, bool add)
         {
-            var session = RequirePermission(ctx.Request, 3);
+            var session = await RequirePermissionAsync(ctx.Request, 3);
             if (session is null)
             {
                 await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para gerenciar cargos." });
@@ -409,7 +507,7 @@ namespace CornwallUtilities.Services
 
         private async Task HandleTimeoutAsync(HttpListenerContext ctx)
         {
-            var session = RequirePermission(ctx.Request, 2);
+            var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
                 await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para timeout." });
@@ -447,7 +545,7 @@ namespace CornwallUtilities.Services
 
         private async Task HandleRemoveFromRegimentAsync(HttpListenerContext ctx)
         {
-            var session = RequirePermission(ctx.Request, 2);
+            var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
                 await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para remover do regimento." });
@@ -538,14 +636,69 @@ namespace CornwallUtilities.Services
             return session;
         }
 
-        private DashboardSession? RequirePermission(HttpListenerRequest request, int minLevel)
+        /// <summary>
+        /// Sessao valida E com nivel suficiente para a acao.
+        ///
+        /// Reconfere o nivel no Discord quando a ultima checagem esta velha: sem
+        /// isso, quem perdesse o cargo continuaria mandando no dashboard ate a
+        /// sessao expirar (podia dar horas). Se o Discord nao responder, o nivel
+        /// conhecido e mantido - derrubar todo mundo numa instabilidade do
+        /// Discord seria pior que o risco que isso cobre.
+        /// </summary>
+        private async Task<DashboardSession?> RequirePermissionAsync(HttpListenerRequest request, int minLevel)
         {
             var session = TryGetSession(request);
             if (session is null)
                 return null;
 
+            if (DateTimeOffset.UtcNow - session.PermissionCheckedAt >= PermissionRefreshInterval)
+            {
+                var current = await _auth.ResolvePermissionLevelAsync(_client, session.UserId);
+                if (!current.HadLookupFailure)
+                {
+                    session.PermissionLevel = current.PermissionLevel;
+                    session.PermissionCheckedAt = DateTimeOffset.UtcNow;
+
+                    if (current.PermissionLevel <= 0)
+                    {
+                        _sessions.TryRemove(session.Token, out _);
+                        return null;
+                    }
+                }
+            }
+
             return session.PermissionLevel >= minLevel ? session : null;
         }
+
+        /// <summary>
+        /// Conta a tentativa de login da origem. Devolve false quando a janela
+        /// ja estourou o limite.
+        /// </summary>
+        private bool RegisterLoginAttempt(HttpListenerRequest request)
+        {
+            var key = ClientKey(request);
+            var now = DateTimeOffset.UtcNow;
+
+            var attempts = _loginAttempts.GetOrAdd(key, _ => new LoginAttempts { WindowStart = now });
+
+            lock (attempts)
+            {
+                if (now - attempts.WindowStart >= LoginAttemptWindow)
+                {
+                    attempts.WindowStart = now;
+                    attempts.Count = 0;
+                }
+
+                attempts.Count++;
+                return attempts.Count <= MaxLoginAttemptsPerWindow;
+            }
+        }
+
+        private void ClearLoginAttempts(HttpListenerRequest request) =>
+            _loginAttempts.TryRemove(ClientKey(request), out _);
+
+        private static string ClientKey(HttpListenerRequest request) =>
+            request.RemoteEndPoint?.Address?.ToString() ?? "desconhecido";
 
         private static async Task<JObject?> ReadBodyAsJsonAsync(HttpListenerRequest request)
         {
@@ -558,6 +711,23 @@ namespace CornwallUtilities.Services
                 return null;
 
             return JObject.Parse(raw);
+        }
+
+        /// <summary>
+        /// Escreve sem estourar de novo. Usado no tratador de erro: se a falha
+        /// aconteceu DEPOIS de a resposta ter sido fechada, tentar escrever ali
+        /// lancaria uma segunda excecao, essa sem ninguem para pegar.
+        /// </summary>
+        private static async Task TryWriteJsonAsync(HttpListenerResponse response, int statusCode, object payload)
+        {
+            try
+            {
+                await WriteJsonAsync(response, statusCode, payload);
+            }
+            catch
+            {
+                // resposta ja enviada ou conexao caiu
+            }
         }
 
         private static async Task WriteJsonAsync(HttpListenerResponse response, int statusCode, object payload)
@@ -638,6 +808,14 @@ namespace CornwallUtilities.Services
                 if (kv.Value.ExpiresAt <= now)
                     _sessions.TryRemove(kv.Key, out _);
             }
+
+            // A janela de tentativas tambem precisa de poda: sem isso o
+            // dicionario cresceria um item por endereco que ja tentou logar.
+            foreach (var kv in _loginAttempts)
+            {
+                if (now - kv.Value.WindowStart >= LoginAttemptWindow)
+                    _loginAttempts.TryRemove(kv.Key, out _);
+            }
         }
 
         private sealed class PendingLinkCode
@@ -657,6 +835,15 @@ namespace CornwallUtilities.Services
             public string AvatarUrl { get; set; } = string.Empty;
             public int PermissionLevel { get; set; }
             public DateTimeOffset ExpiresAt { get; set; }
+
+            /// <summary>Quando o nivel desta sessao foi conferido no Discord pela ultima vez.</summary>
+            public DateTimeOffset PermissionCheckedAt { get; set; }
+        }
+
+        private sealed class LoginAttempts
+        {
+            public int Count;
+            public DateTimeOffset WindowStart;
         }
     }
 }

@@ -138,10 +138,22 @@ namespace CornwallUtilities.config
             return data ?? defaultValue;
         }
 
+        /// <summary>
+        /// Escrita atomica (.tmp + File.Move), igual a do AuditStore. Uma queda no
+        /// meio de um WriteAllText truncava o arquivo - e aqui estao a whitelist e
+        /// o log de auditoria do dashboard.
+        /// </summary>
         private static async Task WriteJsonAsync<T>(string path, T data)
         {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
             var json = JsonConvert.SerializeObject(data, Formatting.Indented);
-            await File.WriteAllTextAsync(path, json);
+            var tmp = path + ".tmp";
+
+            await File.WriteAllTextAsync(tmp, json);
+            File.Move(tmp, path, overwrite: true);
         }
     }
 

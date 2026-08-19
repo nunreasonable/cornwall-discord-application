@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -51,11 +52,22 @@ namespace CornwallUtilities.config
         // Config used by the audit commands (/audit-*)
         public AuditConfig? audit { get; private set; }
 
+        private const string ConfigPath = "config/config.jsonc";
+
+        // Cache do arquivo lido, invalidado pela data de modificacao.
+        //
+        // Cada comando cria um leitor novo e chamava ReadJSON, o que significava
+        // ler e desserializar o config inteiro do disco a cada interacao - dentro
+        // do caminho que precisa responder ao Discord em 3 segundos. Editar o
+        // config continua valendo na hora: o carimbo de modificacao muda e a
+        // proxima leitura recarrega, sem precisar reiniciar o bot.
+        private static readonly SemaphoreSlim s_cacheLock = new(1, 1);
+        private static JSONStructure? s_cache;
+        private static DateTime s_cacheStamp;
+
         public async Task ReadJSON()
         {
-            using var sr = new StreamReader("config/config.jsonc");
-            var json = await sr.ReadToEndAsync();
-            var data = JsonConvert.DeserializeObject<JSONStructure>(json);
+            var data = await LoadAsync();
 
             token = data?.token;
             prefix = data?.prefix;
@@ -93,6 +105,37 @@ namespace CornwallUtilities.config
 
             messageBlacklist = data?.messageBlacklist;
             audit = data?.audit;
+        }
+
+        /// <summary>
+        /// Devolve o config desserializado, relendo do disco apenas quando o
+        /// arquivo mudou. O objeto e compartilhado entre os leitores - ninguem
+        /// escreve nele, e por isso os campos aqui sao todos `private set`.
+        /// </summary>
+        private static async Task<JSONStructure?> LoadAsync()
+        {
+            var stamp = File.GetLastWriteTimeUtc(ConfigPath);
+            if (s_cache is not null && stamp == s_cacheStamp)
+                return s_cache;
+
+            await s_cacheLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                // Confere de novo: outra chamada pode ter recarregado enquanto
+                // esta esperava o lock.
+                stamp = File.GetLastWriteTimeUtc(ConfigPath);
+                if (s_cache is not null && stamp == s_cacheStamp)
+                    return s_cache;
+
+                var json = await File.ReadAllTextAsync(ConfigPath).ConfigureAwait(false);
+                s_cache = JsonConvert.DeserializeObject<JSONStructure>(json);
+                s_cacheStamp = stamp;
+                return s_cache;
+            }
+            finally
+            {
+                s_cacheLock.Release();
+            }
         }
     }
 

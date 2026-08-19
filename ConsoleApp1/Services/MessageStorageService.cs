@@ -14,7 +14,6 @@ namespace CornwallUtilities.Services
         private readonly ConcurrentQueue<StoredMessage> _messageQueue;
         private readonly Timer _cleanupTimer;
         private Timer? _repostTimer;
-        private readonly Random _random;
         private readonly DiscordClient _client;
         private readonly ulong _targetChannelId;
         private readonly int _repostIntervalMinutes;
@@ -30,7 +29,6 @@ namespace CornwallUtilities.Services
             _messageRetentionHours = messageRetentionHours;
             _minimumMessagesForRepost = minimumMessagesForRepost;
             _messageQueue = new ConcurrentQueue<StoredMessage>();
-            _random = new Random();
             _nextRepostTime = DateTime.UtcNow;
 
             // Start cleanup timer (runs every hour)
@@ -238,7 +236,7 @@ namespace CornwallUtilities.Services
         private void ScheduleNextRepost()
         {
             // Random interval between 2 hours and 4 hours to ensure minimum 2 hour gap
-            var nextInterval = _random.Next(120, 241);
+            var nextInterval = Random.Shared.Next(120, 241);
             var due = TimeSpan.FromMinutes(nextInterval);
 
             // Um unico timer reaproveitado via Change(). Antes o timer era
@@ -301,7 +299,7 @@ namespace CornwallUtilities.Services
                     return;
                 }
 
-                var randomMessage = repostableMessages[_random.Next(repostableMessages.Length)];
+                var randomMessage = repostableMessages[Random.Shared.Next(repostableMessages.Length)];
 
                 // Get the target channel
                 var channel = await _client.GetChannelAsync(_targetChannelId);
@@ -364,7 +362,7 @@ namespace CornwallUtilities.Services
             var messages = _messageQueue.ToArray();
             if (messages.Length == 0) return null;
             
-            return messages[_random.Next(messages.Length)];
+            return messages[Random.Shared.Next(messages.Length)];
         }
 
         public async Task<bool> ManualRepostAsync()
@@ -388,7 +386,7 @@ namespace CornwallUtilities.Services
                     return false;
                 }
 
-                var randomMessage = repostableMessages[_random.Next(repostableMessages.Length)];
+                var randomMessage = repostableMessages[Random.Shared.Next(repostableMessages.Length)];
                 if (randomMessage is null) return false;
 
                 var channel = await _client.GetChannelAsync(_targetChannelId);
@@ -425,6 +423,12 @@ namespace CornwallUtilities.Services
 
         private async Task<bool> RepostExactMessage(DiscordChannel channel, StoredMessage message)
         {
+            // Uma mensagem guardada de quem tem Nitro pode passar dos 2000
+            // caracteres que o bot consegue enviar; cortar aqui evita um 400 que
+            // derrubaria o repost inteiro.
+            if (message.Content.Length > 2000)
+                message.Content = message.Content[..1997] + "...";
+
             var hasText = !string.IsNullOrWhiteSpace(message.Content);
             var attachmentUrls = message.Attachments
                 .Select(a => a.Url)
@@ -438,15 +442,23 @@ namespace CornwallUtilities.Services
             }
 
             // Send original text exactly as stored so Discord markdown/rich formatting is preserved.
+            //
+            // Mentions.None e obrigatorio aqui: o texto e reenviado tal e qual, e
+            // sem isso um @everyone, cargo ou usuario citado na mensagem original
+            // seria pingado de novo a cada repost.
             if (hasText)
             {
-                await channel.SendMessageAsync(message.Content);
+                await channel.SendMessageAsync(new DiscordMessageBuilder()
+                    .WithContent(message.Content)
+                    .WithAllowedMentions(Mentions.None));
             }
 
             // Send attachment URLs so Discord can render image previews/rich embeds from CDN links.
             foreach (var url in attachmentUrls)
             {
-                await channel.SendMessageAsync(url);
+                await channel.SendMessageAsync(new DiscordMessageBuilder()
+                    .WithContent(url)
+                    .WithAllowedMentions(Mentions.None));
             }
 
             return true;

@@ -110,6 +110,11 @@ namespace CornwallUtilities.commands
             }
             await ctx.EditResponseAsync(new DiscordWebhookBuilder()
                 .WithContent("Enviei o formulário por DM. Responda às perguntas por lá."));
+            // Daqui para baixo a resposta pode chegar depois dos 15 minutos de
+            // vida do token da interacao: o formulario por DM tem 5 perguntas de
+            // 2 minutos cada, mais as consultas ao ROBLOX. SafeEditAsync cai para
+            // uma mensagem no canal quando o token ja venceu.
+
 
             async Task<string?> AskDmQuestionAsync(string title, string description, TimeSpan timeout)
             {
@@ -155,7 +160,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutName));
+                await InteractionReply.SafeEditAsync(ctx, timeoutName.Build());
                 return;
             }
 
@@ -172,7 +177,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Nacionalidade não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutLang));
+                await InteractionReply.SafeEditAsync(ctx, timeoutLang.Build());
                 return;
             }
 
@@ -194,7 +199,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Nacionalidade inválida. Execute o comando novamente e responda com `português` ou `brasileiro`.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidLang));
+                await InteractionReply.SafeEditAsync(ctx, invalidLang.Build());
                 return;
             }
 
@@ -211,7 +216,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Resposta sobre grupos não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutGroups));
+                await InteractionReply.SafeEditAsync(ctx, timeoutGroups.Build());
                 return;
             }
 
@@ -224,7 +229,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Resposta sobre grupos inválida. Execute o comando novamente e responda com `sim` ou `não`.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidGroups));
+                await InteractionReply.SafeEditAsync(ctx, invalidGroups.Build());
                 return;
             }
 
@@ -259,7 +264,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Resposta sobre cargo social não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutSocial));
+                await InteractionReply.SafeEditAsync(ctx, timeoutSocial.Build());
                 return;
             }
 
@@ -272,7 +277,7 @@ namespace CornwallUtilities.commands
                     .WithDescription("Resposta sobre cargo social inválida. Execute o comando novamente e responda com `sim` ou `não`.")
                     .WithColor(DiscordColor.IndianRed);
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidSocial));
+                await InteractionReply.SafeEditAsync(ctx, invalidSocial.Build());
                 return;
             }
 
@@ -324,7 +329,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Não foi possível encontrar uma conta ROBLOX com esse nome. Verifique se o nome foi digitado corretamente.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errLookup));
+                            await InteractionReply.SafeEditAsync(ctx, errLookup.Build());
                             return;
                         }
 
@@ -337,7 +342,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Nenhuma conta ROBLOX foi encontrada com o nome informado.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(notFound));
+                            await InteractionReply.SafeEditAsync(ctx, notFound.Build());
                             return;
                         }
 
@@ -349,7 +354,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Não foi possível determinar o ID da conta ROBLOX a partir do nome informado.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(invalidLookup));
+                            await InteractionReply.SafeEditAsync(ctx, invalidLookup.Build());
                             return;
                         }
                     }
@@ -363,7 +368,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível obter as informações da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
                         return;
                     }
 
@@ -378,7 +383,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível determinar a data de criação da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
                         return;
                     }
 
@@ -393,7 +398,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível obter a quantidade de amigos da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(errEmbed));
+                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
                         return;
                     }
 
@@ -428,7 +433,7 @@ namespace CornwallUtilities.commands
                         .WithDescription("A consulta à API do ROBLOX demorou demais. Tente novamente em instantes.")
                         .WithColor(DiscordColor.IndianRed);
 
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(timeoutEmbed));
+                    await InteractionReply.SafeEditAsync(ctx, timeoutEmbed.Build());
                     return;
                 }
                 catch (Exception ex)
@@ -442,7 +447,7 @@ namespace CornwallUtilities.commands
                         .WithDescription($"Ocorreu um erro inesperado ao consultar a conta ROBLOX: `{err}`")
                         .WithColor(DiscordColor.IndianRed);
 
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(genericEmbed));
+                    await InteractionReply.SafeEditAsync(ctx, genericEmbed.Build());
                     return;
                 }
             }
@@ -469,7 +474,7 @@ namespace CornwallUtilities.commands
                     .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
                     .AddField(new DiscordEmbedField("Badges (bônus)", badgesDisplay, true));
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(deniedEmbed));
+                await InteractionReply.SafeEditAsync(ctx, deniedEmbed.Build());
                 return;
             }
 
@@ -524,10 +529,11 @@ namespace CornwallUtilities.commands
 
             // Atualiza nickname adicionando o prefixo [12°] se ainda não existir
             var currentNick = targetMember.Nickname ?? targetMember.Username;
-            const string prefix = "[12°]";
-            if (!currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!NicknameUtil.HasPrefix(currentNick))
             {
-                var newNick = $"{prefix} {currentNick}";
+                // WithPrefix corta o nome quando necessario: o Discord recusa
+                // apelido com mais de 32 caracteres.
+                var newNick = NicknameUtil.WithPrefix(currentNick);
                 try
                 {
                     await targetMember.ModifyAsync(m => m.Nickname = newNick);
@@ -604,7 +610,7 @@ namespace CornwallUtilities.commands
                 .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 12°.")
                 .WithColor(DiscordColor.Green);
 
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(successEmbed));
+            await InteractionReply.SafeEditAsync(ctx, successEmbed.Build());
         }
     }
 }

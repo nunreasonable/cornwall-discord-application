@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CornwallUtilities;
 using CornwallUtilities.config;
+using CornwallUtilities.Services;
 using DisCatSharp;
 using DisCatSharp.Entities;
 using DisCatSharp.ApplicationCommands;
@@ -194,7 +195,10 @@ namespace CornwallUtilities.commands
                 summary.WithDescription($"Falha ao enviar para {failed} usuário(s). Exemplo: {failedList}{(failed > 10 ? "..." : "")}.{hint}");
             }
 
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(summary));
+            // O envio pode passar dos 15 minutos de vida do token da interacao
+            // (3s por DM, ate 500 pessoas): sem este cuidado o resumo final
+            // simplesmente nao aparecia.
+            await InteractionReply.SafeEditAsync(ctx, summary.Build());
         }
     }
 }

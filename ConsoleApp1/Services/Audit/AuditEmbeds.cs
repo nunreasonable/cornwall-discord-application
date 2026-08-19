@@ -82,6 +82,45 @@ namespace CornwallUtilities.Services.Audit
             return pages;
         }
 
+        /// <summary>
+        /// Garante que o embed cabe no teto de 6000 caracteres que o Discord
+        /// aplica ao conjunto (titulo + descricao + fields + footer).
+        ///
+        /// Cada peca sozinha ja respeita o proprio limite, mas a SOMA nao era
+        /// conferida em lugar nenhum: uma auditoria com muitos jogadores novos
+        /// gerava descricao de 3500 mais varios fields de 1024 e o Discord
+        /// recusava a resposta inteira com BadRequest. Aqui os fields do fim vao
+        /// saindo ate caber, e um aviso entra no lugar deles.
+        /// </summary>
+        public static DiscordEmbedBuilder Fit(DiscordEmbedBuilder embed, int max = 5800)
+        {
+            static int Size(DiscordEmbedBuilder e) =>
+                (e.Title?.Length ?? 0) +
+                (e.Description?.Length ?? 0) +
+                (e.Footer?.Text?.Length ?? 0) +
+                (e.Author?.Name?.Length ?? 0) +
+                (e.Fields?.Sum(f => f.Name.Length + f.Value.Length) ?? 0);
+
+            if (Size(embed) <= max)
+                return embed;
+
+            var dropped = 0;
+            while (embed.Fields is { Count: > 0 } && Size(embed) > max)
+            {
+                embed.RemoveFieldAt(embed.Fields.Count - 1);
+                dropped++;
+            }
+
+            if (dropped > 0 && Size(embed) + 80 <= max)
+                embed.AddField(new DiscordEmbedField("…", $"{dropped} bloco(s) omitido(s): a resposta não cabe no limite do Discord.", false));
+
+            // Ultimo recurso: nem o titulo mais a descricao cabem.
+            if (Size(embed) > max && embed.Description is not null)
+                embed.WithDescription(Trim(embed.Description, Math.Max(0, max - (embed.Title?.Length ?? 0) - 200)));
+
+            return embed;
+        }
+
         public static string Trim(string? value, int max)
         {
             value ??= string.Empty;

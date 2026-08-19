@@ -297,7 +297,7 @@ namespace CornwallUtilities
         /// </summary>
         private static Task HandleComponentInteraction(DiscordClient sender, ComponentInteractionCreateEventArgs e)
         {
-            if (e.Interaction.Type == InteractionType.ModalSubmit)
+            if (e.Interaction.Type == InteractionType.ModalSubmit || e.Message is null)
                 return Task.CompletedTask;
 
             Console.WriteLine($"[component] interacao recebida: {e.Interaction.Data?.CustomId}");

@@ -154,7 +154,7 @@ namespace CornwallUtilities.commands
                 string.Join(", ", batch.entries.Take(15).Select(e => e.username)) +
                 (batch.entries.Count > 15 ? $" e mais {batch.entries.Count - 15}" : string.Empty));
 
-            await modalInteraction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
+            await modalInteraction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(AuditEmbeds.Fit(embed)));
         }
     }
 }

@@ -98,7 +98,7 @@ namespace CornwallUtilities.commands
                       "acumulados só pelo `/audit-add`, então a importação não toca neles. Jogadores que já existem no arquivo não são " +
                       "alterados: o `audit.json` é a fonte da verdade e já inclui tudo que foi consolidado depois da planilha.", false));
 
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(AuditEmbeds.Fit(embed)));
             }
             catch (OperationCanceledException)
             {

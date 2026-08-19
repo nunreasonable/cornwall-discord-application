@@ -86,10 +86,6 @@ namespace CornwallUtilities.commands
 
             var robloxName = robloxUsername?.Trim() ?? string.Empty;
 
-            // Debug: mostrar o username recebido
-            Console.WriteLine($"[DEBUG] Username recebido: '{robloxUsername}'");
-            Console.WriteLine($"[DEBUG] Username após trim: '{robloxName}'");
-            Console.WriteLine($"[DEBUG] Username length: {robloxName.Length}");
 
             if (string.IsNullOrWhiteSpace(robloxName))
             {
@@ -138,9 +134,7 @@ namespace CornwallUtilities.commands
                         }
 
                         var usernameJson = JObject.Parse(await usernameResponse.Content.ReadAsStringAsync());
-                        Console.WriteLine($"[DEBUG] ROBLOX API Response: {usernameJson.ToString()}");
                         var dataArrayLookup = usernameJson["data"] as JArray;
-                        Console.WriteLine($"[DEBUG] Data array count: {dataArrayLookup?.Count ?? 0}");
                         if (dataArrayLookup == null || dataArrayLookup.Count == 0)
                         {
                             var notFound = new DiscordEmbedBuilder()
@@ -302,12 +296,10 @@ namespace CornwallUtilities.commands
             var addedRoles = new List<DiscordRole>();
             if (config.enlistTargetRoleIds != null && config.enlistTargetRoleIds.Length > 0)
             {
-                Console.WriteLine($"[DEBUG] Tentando adicionar {config.enlistTargetRoleIds.Length} cargos ao usuário {targetMember.Username}");
                 
                 // Verifica se o bot tem permissão para gerenciar cargos
                 var botMember = await ctx.Guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
                 var botCanManageRoles = botMember?.PermissionsIn(ctx.Channel).HasPermission(Permissions.ManageRoles) ?? false;
-                Console.WriteLine($"[DEBUG] Bot pode gerenciar cargos: {botCanManageRoles}");
                 
                 if (!botCanManageRoles)
                 {
@@ -317,7 +309,6 @@ namespace CornwallUtilities.commands
                 
                 foreach (var roleId in config.enlistTargetRoleIds)
                 {
-                    Console.WriteLine($"[DEBUG] Processando cargo ID: {roleId}");
                     
                     if (!ctx.Guild.Roles.TryGetValue(roleId, out var role))
                     {
@@ -325,12 +316,10 @@ namespace CornwallUtilities.commands
                         continue;
                     }
 
-                    Console.WriteLine($"[DEBUG] Cargo encontrado: {role.Name} (ID: {role.Id})");
 
                     // Ignora cargos que o membro já possui
                     if (targetMember.Roles.Any(r => r.Id == roleId))
                     {
-                        Console.WriteLine($"[DEBUG] Usuário já possui o cargo {role.Name}");
                         continue;
                     }
 
@@ -344,7 +333,6 @@ namespace CornwallUtilities.commands
 
                     try
                     {
-                        Console.WriteLine($"[DEBUG] Tentando adicionar cargo {role.Name} ao usuário {targetMember.Username}");
                         await targetMember.GrantRoleAsync(role, "Alistamento via comando");
                         addedRoles.Add(role);
                         Console.WriteLine($"[SUCCESS] Cargo {role.Name} adicionado com sucesso");
@@ -356,11 +344,9 @@ namespace CornwallUtilities.commands
                     }
                 }
                 
-                Console.WriteLine($"[DEBUG] Total de cargos adicionados: {addedRoles.Count}/{config.enlistTargetRoleIds.Length}");
             }
             else
             {
-                Console.WriteLine("[DEBUG] Nenhum cargo configurado para alistamento (enlistTargetRoleIds está vazio)");
             }
 
             if (socialRole)
@@ -377,7 +363,6 @@ namespace CornwallUtilities.commands
                 }
                 else if (targetMember.Roles.Any(r => r.Id == socialRoleEntity.Id))
                 {
-                    Console.WriteLine("[DEBUG] Usuário já possui o cargo social");
                 }
                 else
                 {
@@ -416,19 +401,16 @@ namespace CornwallUtilities.commands
 
             // Atualiza nickname adicionando o prefixo [12°] se ainda não existir
             var currentNick = targetMember.Nickname ?? targetMember.Username;
-            const string prefix = "[12°]";
-            Console.WriteLine($"[DEBUG] Nickname atual: '{currentNick}'");
-            Console.WriteLine($"[DEBUG] Verificando se já tem prefixo '{prefix}'");
             
-            if (!currentNick.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!NicknameUtil.HasPrefix(currentNick))
             {
-                var newNick = $"{prefix} {currentNick}";
-                Console.WriteLine($"[DEBUG] Novo nickname será: '{newNick}'");
+                // WithPrefix corta o nome quando necessario: o Discord recusa
+                // apelido com mais de 32 caracteres.
+                var newNick = NicknameUtil.WithPrefix(currentNick);
                 
                 // Verifica se o bot tem permissão para gerenciar nicknames
                 var botMember = await ctx.Guild.GetMemberAsync(ctx.Client.CurrentUser.Id);
                 var botCanManageNicknames = botMember?.PermissionsIn(ctx.Channel).HasPermission(Permissions.ManageNicknames) ?? false;
-                Console.WriteLine($"[DEBUG] Bot pode gerenciar nicknames: {botCanManageNicknames}");
                 
                 if (!botCanManageNicknames)
                 {
@@ -439,7 +421,6 @@ namespace CornwallUtilities.commands
                 {
                     try
                     {
-                        Console.WriteLine($"[DEBUG] Tentando alterar nickname de '{currentNick}' para '{newNick}'");
                         await targetMember.ModifyAsync(m => m.Nickname = newNick);
                         Console.WriteLine("[SUCCESS] Nickname alterado com sucesso");
                     }
@@ -452,7 +433,6 @@ namespace CornwallUtilities.commands
             }
             else
             {
-                Console.WriteLine("[DEBUG] Usuário já possui o prefixo [12°] no nickname");
             }
 
             // Envia log para canal específico (busca o canal na API do Discord para não depender do cache)

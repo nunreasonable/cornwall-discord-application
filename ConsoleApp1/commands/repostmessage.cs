@@ -3,6 +3,8 @@ using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
+using CornwallUtilities.commands;
+using CornwallUtilities.config;
 using CornwallUtilities.Services;
 using System;
 using System.Collections.Generic;
@@ -16,6 +18,20 @@ namespace CornwallUtilities.commands
         [SlashCommand("repost", "Reposts a random stored message")]
         public async Task ExecuteRepost(InteractionContext ctx)
         {
+            // Este e um comando GLOBAL: sem esta checagem, qualquer pessoa de
+            // qualquer servidor onde o bot esteja podia disparar um repost no
+            // canal configurado.
+            var config = new JSONReader();
+            await config.ReadJSON();
+
+            var denied = AuditPermissions.CheckStaff(ctx, config);
+            if (denied is not null)
+            {
+                await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                    new DiscordInteractionResponseBuilder().AddEmbed(denied).AsEphemeral());
+                return;
+            }
+
             // Get the message storage service
             var messageStorage = Program.MessageStorage;
 

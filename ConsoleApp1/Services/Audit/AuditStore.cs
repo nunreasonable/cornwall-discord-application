@@ -86,11 +86,26 @@ namespace CornwallUtilities.Services.Audit
                 var audit = await ReadJsonAsync(_auditPath, () => new AuditFile()).ConfigureAwait(false);
                 var pending = await ReadJsonAsync(_pendingPath, () => new PendingFile()).ConfigureAwait(false);
 
+                // Retrato de antes, para so gravar o que realmente mudou: sem isso
+                // toda leitura-com-mutacao-vazia (uma edicao cancelada, por exemplo)
+                // reescrevia os dois arquivos e mexia no lastUpdatedUtc, fazendo o
+                // /audit-push achar que havia novidade para publicar.
+                var auditBefore = JsonConvert.SerializeObject(audit);
+                var pendingBefore = JsonConvert.SerializeObject(pending);
+
                 var result = mutate(audit, pending);
 
-                audit.lastUpdatedUtc = DateTimeOffset.UtcNow;
-                await WriteJsonAsync(_auditPath, audit).ConfigureAwait(false);
-                await WriteJsonAsync(_pendingPath, pending).ConfigureAwait(false);
+                var pendingChanged = JsonConvert.SerializeObject(pending) != pendingBefore;
+                var auditChanged = JsonConvert.SerializeObject(audit) != auditBefore;
+
+                if (auditChanged)
+                {
+                    audit.lastUpdatedUtc = DateTimeOffset.UtcNow;
+                    await WriteJsonAsync(_auditPath, audit).ConfigureAwait(false);
+                }
+
+                if (pendingChanged)
+                    await WriteJsonAsync(_pendingPath, pending).ConfigureAwait(false);
 
                 return result;
             }
