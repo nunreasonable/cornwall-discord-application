@@ -14,7 +14,7 @@ namespace CornwallUtilities.commands
 {
     internal class AuditPush : ApplicationCommandsModule
     {
-        [SlashCommand("audit-push", "Consolida os lotes pendentes e publica a auditoria no GitHub")]
+        [SlashCommand("audit-push", "Publica a auditoria no GitHub, consolidando os lotes pendentes se houver")]
         public async Task AuditPushCommand(
             InteractionContext ctx,
             [Option("dry_run", "Só mostra o que seria consolidado, sem tocar no GitHub")] bool dryRun = false)
@@ -33,24 +33,23 @@ namespace CornwallUtilities.commands
 
             var (audit, pending) = await AuditStore.Instance.ReadBothAsync();
 
-            if (pending.batches.Count == 0)
-            {
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
-                    .WithTitle("Nada pendente")
-                    .WithDescription("Não há nenhum lote aguardando consolidação. Use `/audit-add` primeiro.")
-                    .WithColor(DiscordColor.Orange)));
-                return;
-            }
+            // Sem lote pendente o comando ainda tem trabalho: /audit-import,
+            // /audit-edit e /audit-setranks mexem direto no arquivo consolidado, e
+            // essas mudancas so chegam ao GitHub por aqui. Antes o comando parava
+            // com "Nada pendente" e elas ficavam presas na maquina do bot.
+            var hasPending = pending.batches.Count > 0;
 
             // A consolidacao acontece primeiro em memoria, sobre uma copia: nada e
             // gravado nem publicado enquanto o resultado nao estiver pronto.
             var merged = audit.Clone();
-            var report = AuditMerger.MergePendingIntoAudit(merged, pending);
+            var report = hasPending
+                ? AuditMerger.MergePendingIntoAudit(merged, pending)
+                : new MergeReport();
 
             if (dryRun)
             {
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(
-                    BuildReportEmbed(report, pending, merged, null, null, null, dryRun: true)));
+                    BuildReportEmbed(report, pending, merged, hasPending, null, null, null, dryRun: true)));
                 return;
             }
 
@@ -65,39 +64,71 @@ namespace CornwallUtilities.commands
                 step = "verificação da branch";
                 await github.EnsureBranchExistsAsync();
 
-                step = "resolução do arquivo de arquivamento";
-                var archivePath = await github.ResolveArchivePathAsync(archiveDir, DateTimeOffset.UtcNow);
+                string? archivePath = null;
+                string? archiveSha = null;
 
-                // O arquivamento vai PRIMEIRO: e o registro bruto e imutavel do
-                // lote. Se o passo seguinte falhar, o lote ja esta salvo na branch
-                // e pode ser reprocessado.
-                step = "publicação do arquivamento";
-                var archiveSha = await github.PutFileAsync(
-                    archivePath,
-                    AuditStore.Serialize(pending),
-                    $"audit: arquivo de lote {DateTimeOffset.UtcNow:yyyy-MM-dd} ({pending.batches.Count} lote(s), {report.PlayersUpdated} jogador(es))");
+                if (hasPending)
+                {
+                    // O arquivamento vai PRIMEIRO: e o registro bruto e imutavel do
+                    // lote. Se o passo seguinte falhar, o lote ja esta salvo na branch
+                    // e pode ser reprocessado.
+                    step = "resolução do arquivo de arquivamento";
+                    archivePath = await github.ResolveArchivePathAsync(archiveDir, DateTimeOffset.UtcNow);
+
+                    step = "publicação do arquivamento";
+                    archiveSha = await github.PutFileAsync(
+                        archivePath,
+                        AuditStore.Serialize(pending),
+                        $"audit: arquivo de lote {DateTimeOffset.UtcNow:yyyy-MM-dd} ({pending.batches.Count} lote(s), {report.PlayersUpdated} jogador(es))");
+                }
+                else
+                {
+                    // Sem lote para arquivar, publicar so faz sentido se o GitHub
+                    // estiver mesmo atrasado - senao geraria um commit vazio a cada
+                    // execucao do comando.
+                    step = "comparação com o GitHub";
+                    var publishedJson = await github.TryGetFileContentAsync(auditPath);
+                    var published = publishedJson is null ? null : AuditStore.Deserialize<AuditFile>(publishedJson);
+
+                    if (published is not null && SameData(published, merged))
+                    {
+                        await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
+                            .WithTitle("Nada a publicar")
+                            .WithDescription("Não há lote pendente e o GitHub já está igual ao arquivo local. " +
+                                             "Use `/audit-add` para registrar uma batalha.")
+                            .WithColor(DiscordColor.Orange)
+                            .AddField(new DiscordEmbedField("Total no efetivo", merged.entries.Count.ToString(), true))));
+                        return;
+                    }
+                }
 
                 step = "publicação da auditoria consolidada";
                 var auditSha = await github.PutFileAsync(
                     auditPath,
                     AuditStore.Serialize(merged),
-                    $"audit: consolidação {DateTimeOffset.UtcNow:yyyy-MM-dd} (+{report.BattlesAdded} batalha(s))");
+                    hasPending
+                        ? $"audit: consolidação {DateTimeOffset.UtcNow:yyyy-MM-dd} (+{report.BattlesAdded} batalha(s))"
+                        : $"audit: sincronização do arquivo local {DateTimeOffset.UtcNow:yyyy-MM-dd} ({merged.entries.Count} jogador(es))");
 
-                // So depois dos dois envios: grava o consolidado localmente e limpa
-                // o pendente, na mesma operacao, para nunca ficarem divergentes.
-                step = "gravação local";
-                var consumed = pending.batches.Select(b => b.batchId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                await AuditStore.Instance.UpdateAsync((storedAudit, storedPending) =>
+                if (hasPending)
                 {
-                    storedAudit.version = merged.version;
-                    storedAudit.entries = merged.entries;
-                    storedAudit.appliedBatchIds = merged.appliedBatchIds;
-                    storedPending.batches.RemoveAll(b => consumed.Contains(b.batchId));
-                    return true;
-                });
+                    // So depois dos dois envios: grava o consolidado localmente e limpa
+                    // o pendente, na mesma operacao, para nunca ficarem divergentes.
+                    step = "gravação local";
+                    var consumed = pending.batches.Select(b => b.batchId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    await AuditStore.Instance.UpdateAsync((storedAudit, storedPending) =>
+                    {
+                        storedAudit.version = merged.version;
+                        storedAudit.entries = merged.entries;
+                        storedAudit.appliedBatchIds = merged.appliedBatchIds;
+                        storedPending.batches.RemoveAll(b => consumed.Contains(b.batchId));
+                        return true;
+                    });
+                }
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(
-                    BuildReportEmbed(report, pending, merged, github.CommitUrl(auditSha), github.CommitUrl(archiveSha), archivePath, dryRun: false)));
+                    BuildReportEmbed(report, pending, merged, hasPending, github.CommitUrl(auditSha),
+                        archiveSha is null ? null : github.CommitUrl(archiveSha), archivePath, dryRun: false)));
             }
             catch (Exception ex)
             {
@@ -114,20 +145,43 @@ namespace CornwallUtilities.commands
             }
         }
 
+        /// <summary>
+        /// Compara os dados de duas versoes do arquivo consolidado ignorando
+        /// lastUpdatedUtc: esse carimbo muda a cada gravacao local e sozinho nao
+        /// justifica um commit.
+        /// </summary>
+        private static bool SameData(AuditFile a, AuditFile b)
+        {
+            var left = a.Clone();
+            var right = b.Clone();
+            left.lastUpdatedUtc = default;
+            right.lastUpdatedUtc = default;
+
+            return string.Equals(AuditStore.Serialize(left), AuditStore.Serialize(right), StringComparison.Ordinal);
+        }
+
         private static DiscordEmbed BuildReportEmbed(
             MergeReport report,
             PendingFile pending,
             AuditFile merged,
+            bool hasPending,
             string? auditCommitUrl,
             string? archiveCommitUrl,
             string? archivePath,
             bool dryRun)
         {
+            var description = (dryRun, hasPending) switch
+            {
+                (true, true) => "Nada foi gravado nem enviado ao GitHub. Rode sem `dry_run` para publicar.",
+                (true, false) => "Não há lote pendente. Rodar sem `dry_run` publica o estado atual do arquivo local " +
+                                 "(mudanças de `/audit-import`, `/audit-edit` ou `/audit-setranks`), se o GitHub estiver desatualizado.",
+                (false, true) => "Os lotes pendentes foram consolidados e enviados ao GitHub.",
+                (false, false) => "Não havia lote pendente: o estado atual do arquivo local foi enviado ao GitHub."
+            };
+
             var embed = new DiscordEmbedBuilder()
                 .WithTitle(dryRun ? "Prévia da consolidação (dry run)" : "Auditoria publicada")
-                .WithDescription(dryRun
-                    ? "Nada foi gravado nem enviado ao GitHub. Rode sem `dry_run` para publicar."
-                    : "Os lotes pendentes foram consolidados e enviados ao GitHub.")
+                .WithDescription(description)
                 .WithColor(dryRun ? DiscordColor.Blurple : DiscordColor.Green)
                 .WithTimestamp(DateTimeOffset.UtcNow)
                 .AddField(new DiscordEmbedField("Lotes consolidados", report.BatchesApplied.ToString(), true))

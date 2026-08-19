@@ -52,6 +52,8 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 - **`/audit-push`** - Publica a fila
   - Parâmetro opcional: `dry_run` (simula sem gravar nem publicar)
   - Função: consolida os totais, publica na branch de dados e arquiva cada lote por data
+  - Sem lotes na fila, publica as mudanças feitas direto no arquivo (`/audit-import`,
+    `/audit-edit`, `/audit-setranks`); se o GitHub já estiver igual, não cria commit
   - Em caso de erro a fila **não** é limpa; republicar não conta em dobro
 
 - **`/audit-check`** - Consulta a auditoria

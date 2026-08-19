@@ -131,5 +131,22 @@ namespace CornwallUtilities.Services.Audit
 
         /// <summary>Serializa o arquivo consolidado do jeito que vai para o GitHub.</summary>
         public static string Serialize<T>(T value) => JsonConvert.SerializeObject(value, Formatting.Indented);
+
+        /// <summary>
+        /// Le de volta um arquivo serializado (por exemplo o que esta publicado no
+        /// GitHub). Devolve null se o conteudo estiver corrompido: quem chama trata
+        /// isso como "diferente do local" em vez de quebrar.
+        /// </summary>
+        public static T? Deserialize<T>(string json) where T : class
+        {
+            try
+            {
+                return JsonConvert.DeserializeObject<T>(json);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
     }
 }

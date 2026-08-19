@@ -112,6 +112,26 @@ namespace CornwallUtilities.Services.Audit
         }
 
         /// <summary>
+        /// Conteudo do arquivo na branch, ou null se ele ainda nao existe. Serve
+        /// para comparar o que esta publicado com o arquivo local antes de gerar
+        /// um commit que nao muda nada.
+        /// </summary>
+        public async Task<string?> TryGetFileContentAsync(string path)
+        {
+            try
+            {
+                var contents = await _client.Repository.Content
+                    .GetAllContentsByRef(_owner, _repo, path, _branch)
+                    .ConfigureAwait(false);
+                return contents.FirstOrDefault()?.Content;
+            }
+            catch (NotFoundException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Cria ou atualiza um arquivo na branch. Refaz a busca do sha a cada
         /// tentativa: um sha velho devolve 409/422 e a nova tentativa resolve.
         /// </summary>

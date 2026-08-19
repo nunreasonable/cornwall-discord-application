@@ -108,6 +108,11 @@ quantas pessoas mudam, quantas batalhas entram. Serve para conferir antes.
 
 O bot soma tudo, publica e mostra um resumo com links. A fila fica vazia de novo.
 
+> 💡 **Sem fila também vale.** `/audit-push` publica igualmente as mudanças feitas direto no
+> arquivo por `/audit-import`, `/audit-edit` e `/audit-setranks` — é assim que elas chegam ao
+> GitHub. Se não houver nada na fila **e** o GitHub já estiver igual ao arquivo local, o bot
+> responde "Nada a publicar" e não cria commit nenhum.
+
 ### Se der erro
 
 Não entre em pânico — **a fila não é apagada quando dá erro**. O bot inclusive avisa isso
@@ -188,7 +193,8 @@ Mostra o que seria importado sem gravar nada. Deve aparecer **107 jogadores**.
 /audit-import dry_run:false
 ```
 
-Agora sim, grava. Depois, publique com `/audit-push`.
+Agora sim, grava — no arquivo local. Depois rode `/audit-push` para publicar isso no GitHub
+(mesmo sem nenhuma batalha na fila).
 
 > ✅ **A importação não zera nada.** Ela traz nome, cargo, batalhas e K/D/A da planilha
 > exatamente como estão.
@@ -229,7 +235,7 @@ Ela expira depois de 10 minutos. É só rodar o comando de novo — nada foi per
 | Comando | Para quê |
 |---|---|
 | `/audit-add` | Registrar a auditoria de uma batalha (vai para a fila) |
-| `/audit-push` | Publicar tudo que está na fila |
+| `/audit-push` | Publicar a fila e qualquer mudança feita no arquivo |
 | `/audit-check` | Ver a auditoria, completa ou de uma pessoa |
 | `/audit-edit` | Corrigir, renomear ou remover alguém |
 | `/audit-setranks` | Definir o cargo de cada jogador |
