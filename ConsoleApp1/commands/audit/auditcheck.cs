@@ -58,7 +58,14 @@ namespace CornwallUtilities.commands
             }
 
             var paginated = pages.Select(p => new Page(string.Empty, p)).ToList();
-            await ctx.Interaction.SendPaginatedResponseAsync(privado, true, ctx.User, paginated);
+
+            // Ordem dos parametros: (deferred, ephemeral). Estavam trocados, entao
+            // com "privado: false" a interatividade achava que a interacao ainda
+            // nao tinha sido respondida e tentava um CreateResponse por cima do
+            // defer da linha 35 - o Discord recusava com BadRequest e o comando
+            // morria. Aqui o defer ja aconteceu, entao deferred e sempre true e o
+            // ephemeral acompanha a opcao "privado" usada no defer.
+            await ctx.Interaction.SendPaginatedResponseAsync(true, privado, ctx.User, paginated);
         }
 
         private static async Task ShowSinglePlayerAsync(InteractionContext ctx, AuditFile audit, PendingFile pending, string jogador)
