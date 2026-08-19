@@ -39,7 +39,8 @@ Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de a
 > 📖 **Guia passo a passo para quem vai usar:** [`markdownspam/audit_usage.md`](markdownspam/audit_usage.md)
 > — escrito em linguagem simples, sem exigir conhecimento técnico.
 
-Registra kills, deaths, assists, batalhas e cargo de cada integrante. Funciona em duas
+Registra kills, deaths, assists, batalhas e cargo de cada integrante, e guarda um histórico
+de quem fez cada alteração (`/audit-logs`). Funciona em duas
 etapas: primeiro as auditorias entram numa fila (`/audit-add`), depois são publicadas de
 uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 
@@ -67,9 +68,16 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 - **`/audit-setranks`** - Define os cargos manualmente
   - Função: lista paginada, até 5 jogadores por vez; cargo é texto livre e campo em branco remove
 
-- **`/audit-import`** - Importa a auditoria atual da planilha
+- **`/audit-import`** - Importa o efetivo atual da planilha
   - Parâmetros: `dry_run` (padrão `true`), `sobrescrever` (padrão `false`)
-  - Função: semeia o sistema preservando nome, cargo, batalhas e K/D/A; não altera quem já existe
+  - Função: semeia o sistema com nome, patente e batalhas da planilha; não altera quem já existe
+  - A planilha **não** tem kills/deaths/assists: esses números vêm só do `/audit-add` e a
+    importação nunca encosta neles
+
+- **`/audit-logs`** - Mostra quem mexeu na auditoria e o que foi feito
+  - Parâmetros opcionais: `usuario`, `acao`, `privado` (padrão `true`)
+  - Função: histórico paginado, do mais recente para o mais antigo, com data, autor e detalhe
+    de cada `/audit-add`, `/audit-edit`, `/audit-setranks`, `/audit-import` e `/audit-push`
 
 ### Sistema de Repost
 - **`/messages`** - Verifica status do armazenamento de mensagens

@@ -53,15 +53,22 @@ namespace CornwallUtilities.commands
                 {
                     // Simula sobre uma copia: nada e gravado.
                     var preview = (await AuditStore.Instance.ReadAuditAsync()).Clone();
-                    report = AuditMerger.MergeImport(preview, csv.Rows, sobrescrever);
+                    report = AuditMerger.MergeImport(preview, csv.Rows, sobrescrever, csv.HasKda);
                 }
                 else
                 {
                     report = await AuditStore.Instance.UpdateAsync((audit, _) =>
-                        AuditMerger.MergeImport(audit, csv.Rows, sobrescrever));
+                        AuditMerger.MergeImport(audit, csv.Rows, sobrescrever, csv.HasKda));
                 }
 
                 report.SkippedRows += csv.SkippedRows;
+
+                // Dry run nao muda nada, entao nao entra no historico.
+                if (!dryRun)
+                    await AuditLog.RecordAsync(ctx, AuditLog.ActionImport,
+                        $"Importou a planilha: {report.Added.Count} adicionado(s), " +
+                        $"{report.Overwritten} sobrescrito(s), {report.SkippedRows} linha(s) ignorada(s)" +
+                        (sobrescrever ? " (com sobrescrita)" : string.Empty) + ".");
 
                 var embed = new DiscordEmbedBuilder()
                     .WithTitle(dryRun ? "Prévia da importação (dry run)" : "Importação concluída")
@@ -83,10 +90,13 @@ namespace CornwallUtilities.commands
                     embed.AddField(new DiscordEmbedField($"Já existentes com números diferentes ({report.Conflicts.Count})",
                         AuditEmbeds.FieldValue(report.Conflicts.Take(15)), false));
 
-                embed.AddField(new DiscordEmbedField("Observação",
-                    "A importação traz nome, **cargo**, **batalhas** e K/D/A da aba Roster, preservando todo o histórico já acumulado. " +
-                    "Jogadores que já existem no arquivo não são alterados: o `audit.json` passa a ser a fonte da verdade e já soma " +
-                    "a planilha **mais** tudo que foi consolidado depois, então sobrescrever faria os totais voltarem atrás.", false));
+                embed.AddField(new DiscordEmbedField("Observação", csv.HasKda
+                    ? "A importação traz nome, **cargo**, **batalhas** e K/D/A da planilha. Jogadores que já existem no arquivo não são " +
+                      "alterados: o `audit.json` passa a ser a fonte da verdade e já soma a planilha **mais** tudo que foi consolidado " +
+                      "depois, então sobrescrever faria os totais voltarem atrás."
+                    : "A planilha atual traz apenas **nome**, **patente** e **batalhas** — kills, deaths e assists não existem lá e são " +
+                      "acumulados só pelo `/audit-add`, então a importação não toca neles. Jogadores que já existem no arquivo não são " +
+                      "alterados: o `audit.json` é a fonte da verdade e já inclui tudo que foi consolidado depois da planilha.", false));
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
             }

@@ -79,12 +79,15 @@
         "auditFilePath": "audit.json",
         "archiveDirectory": "audits",
 
-        // Aba Roster da planilha, usada apenas por /audit-import.
-        "auditCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
-        // Indices das colunas (comecando em 0). Na aba Roster o cabecalho ocupa as
-        // 4 primeiras linhas e os dados comecam na linha 5:
-        //   D=USERNAME(3)  F=RANK(5)  H=BATTLES(7)  J=KILLS(9)  K=DEATHS(10)  L=ASSISTS(11)
-        "csvColumns": { "username": 3, "rank": 5, "battles": 7, "kills": 9, "deaths": 10, "assists": 11 },
-        "csvHeaderRows": 4
+        // Planilha do efetivo, usada apenas por /audit-import.
+        // Aba "NOME DE USUARIO | PATENTE | BATALHAS | ULTIMO DIA ATUALIZADO".
+        "auditCsvUrl": "https://docs.google.com/spreadsheets/d/1ZPFd05P5tsy-6QgvxIgm_5ftjP7ZO6E1lDyjAnmHJxs/export?format=csv&gid=1117562202",
+        // Indices das colunas (comecando em 0), com -1 para coluna que a planilha
+        // nao tem. Esta planilha nao traz kills/deaths/assists: esses numeros vem
+        // apenas do /audit-add, e a importacao nao encosta neles.
+        //   A=USERNAME(0)  B=PATENTE(1)  C=BATALHAS(2)
+        "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 },
+        // Apenas a linha de cabecalho.
+        "csvHeaderRows": 1
     }
 }

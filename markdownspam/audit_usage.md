@@ -187,7 +187,7 @@ Isso só precisa ser feito **uma vez**, para o sistema começar já com todo o h
 /audit-import dry_run:true
 ```
 
-Mostra o que seria importado sem gravar nada. Deve aparecer **107 jogadores**.
+Mostra o que seria importado sem gravar nada. Deve aparecer **110 jogadores**.
 
 ```
 /audit-import dry_run:false
@@ -196,11 +196,35 @@ Mostra o que seria importado sem gravar nada. Deve aparecer **107 jogadores**.
 Agora sim, grava — no arquivo local. Depois rode `/audit-push` para publicar isso no GitHub
 (mesmo sem nenhuma batalha na fila).
 
-> ✅ **A importação não zera nada.** Ela traz nome, cargo, batalhas e K/D/A da planilha
+> ✅ **A importação não zera nada.** Ela traz nome, patente e batalhas da planilha
 > exatamente como estão.
 >
+> ℹ️ **A planilha não tem kills, deaths e assists.** Esses números são acumulados apenas
+> pelo `/audit-add`, e a importação nunca encosta neles — nem com `sobrescrever:true`.
+>
 > ✅ **Rodar de novo por engano não faz mal.** Quem já está no sistema não é alterado —
-> o bot só avisa se encontrar números diferentes.
+> o bot só avisa se encontrar batalhas diferentes.
+
+---
+
+## Ver quem fez o quê
+
+```
+/audit-logs
+```
+
+Mostra o histórico da auditoria, do mais recente para o mais antigo: data, quem executou e o
+que foi feito em cada `/audit-add`, `/audit-edit`, `/audit-setranks`, `/audit-import` e
+`/audit-push`.
+
+Filtros opcionais:
+
+- `usuario` — só as ações de uma pessoa
+- `acao` — só um tipo (registro de batalha, edição, remoção, cargos, importação, publicação)
+- `privado` — vem ligado por padrão; desligue para mostrar a resposta no canal
+
+> O histórico fica no arquivo local do bot e guarda as **2000** ações mais recentes.
+> Ele é independente do `audit.json`: publicar no GitHub não apaga nem sobrescreve o histórico.
 
 ---
 
@@ -240,3 +264,4 @@ Ela expira depois de 10 minutos. É só rodar o comando de novo — nada foi per
 | `/audit-edit` | Corrigir, renomear ou remover alguém |
 | `/audit-setranks` | Definir o cargo de cada jogador |
 | `/audit-import` | Trazer os dados da planilha (só na primeira vez) |
+| `/audit-logs` | Ver quem mexeu na auditoria e o que foi feito |

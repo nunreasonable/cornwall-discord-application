@@ -126,6 +126,13 @@ namespace CornwallUtilities.commands
                     });
                 }
 
+                await AuditLog.RecordAsync(ctx, AuditLog.ActionPush,
+                    hasPending
+                        ? $"Consolidou {report.BatchesApplied} lote(s) (+{report.BattlesAdded} batalha(s), " +
+                          $"{report.PlayersUpdated} jogador(es)) e publicou no GitHub — commit `{Short(auditSha)}`."
+                        : $"Publicou o arquivo local no GitHub sem lotes pendentes " +
+                          $"({merged.entries.Count} jogador(es)) — commit `{Short(auditSha)}`.");
+
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(
                     BuildReportEmbed(report, pending, merged, hasPending, github.CommitUrl(auditSha),
                         archiveSha is null ? null : github.CommitUrl(archiveSha), archivePath, dryRun: false)));
@@ -144,6 +151,9 @@ namespace CornwallUtilities.commands
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
             }
         }
+
+        /// <summary>Sha curto, do jeito que o GitHub mostra.</summary>
+        private static string Short(string sha) => sha.Length <= 7 ? sha : sha[..7];
 
         /// <summary>
         /// Compara os dados de duas versoes do arquivo consolidado ignorando

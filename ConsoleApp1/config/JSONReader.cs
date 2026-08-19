@@ -178,13 +178,21 @@ namespace CornwallUtilities.config
         public int csvHeaderRows { get; set; } = 1;
     }
 
+    /// <summary>
+    /// Indices (base 0) das colunas da planilha usada pelo /audit-import.
+    ///
+    /// Use -1 para uma coluna que a planilha NAO tem. Os padroes abaixo seguem a
+    /// planilha atual do regimento - "NOME DE USUARIO, PATENTE, BATALHAS, ULTIMO
+    /// DIA ATUALIZADO" - que nao traz kills/deaths/assists: esses numeros passam a
+    /// vir apenas do /audit-add.
+    /// </summary>
     internal sealed class AuditCsvColumns
     {
-        public int username { get; set; } = 3;
-        public int rank { get; set; } = 5;
-        public int battles { get; set; } = 7;
-        public int kills { get; set; } = 9;
-        public int deaths { get; set; } = 10;
-        public int assists { get; set; } = 11;
+        public int username { get; set; }
+        public int rank { get; set; } = 1;
+        public int battles { get; set; } = 2;
+        public int kills { get; set; } = -1;
+        public int deaths { get; set; } = -1;
+        public int assists { get; set; } = -1;
     }
 }

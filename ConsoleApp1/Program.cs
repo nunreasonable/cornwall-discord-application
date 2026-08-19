@@ -139,6 +139,7 @@ namespace CornwallUtilities
                 slashCommands.RegisterGuildCommands<AuditSetRanks>(gid);
                 slashCommands.RegisterGuildCommands<AuditCheck>(gid);
                 slashCommands.RegisterGuildCommands<AuditImport>(gid);
+                slashCommands.RegisterGuildCommands<AuditLogs>(gid);
             }
             Console.WriteLine("Guild commands registered.");
         

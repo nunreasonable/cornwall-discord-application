@@ -149,6 +149,11 @@ namespace CornwallUtilities.commands
 
             embed.WithFooter($"Lote {batch.batchId} — {pendingCount} lote(s) pendente(s). Use /audit-push para consolidar.");
 
+            await AuditLog.RecordAsync(ctx, AuditLog.ActionAdd,
+                $"Lote `{batch.batchId}` com {batch.entries.Count} jogador(es): " +
+                string.Join(", ", batch.entries.Take(15).Select(e => e.username)) +
+                (batch.entries.Count > 15 ? $" e mais {batch.entries.Count - 15}" : string.Empty));
+
             await modalInteraction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
         }
     }

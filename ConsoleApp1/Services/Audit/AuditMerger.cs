@@ -101,8 +101,13 @@ namespace CornwallUtilities.Services.Audit
         /// verdade: seus K/D/A ja sao totais acumulados que incluem a planilha
         /// MAIS tudo que foi consolidado depois. Sobrescrever a partir da
         /// planilha faria os totais andarem para tras em silencio.
+        ///
+        /// `includeKda` diz se a planilha tem as colunas de kills/deaths/assists.
+        /// Quando nao tem, esses campos ficam intocados: compara-los apontaria
+        /// conflito em todo mundo (0 da planilha contra o total real) e
+        /// sobrescreve-los zeraria o historico de quem ja esta registrado.
         /// </summary>
-        public static ImportReport MergeImport(AuditFile audit, IEnumerable<AuditEntry> imported, bool overwrite)
+        public static ImportReport MergeImport(AuditFile audit, IEnumerable<AuditEntry> imported, bool overwrite, bool includeKda = true)
         {
             var report = new ImportReport();
             var index = BuildIndex(audit);
@@ -119,20 +124,26 @@ namespace CornwallUtilities.Services.Audit
                 {
                     if (overwrite)
                     {
-                        existing.kills = row.kills;
-                        existing.deaths = row.deaths;
-                        existing.assists = row.assists;
+                        if (includeKda)
+                        {
+                            existing.kills = row.kills;
+                            existing.deaths = row.deaths;
+                            existing.assists = row.assists;
+                        }
+
                         existing.battles = row.battles;
                         if (!string.IsNullOrWhiteSpace(row.rank))
                             existing.rank = row.rank;
                         report.Overwritten++;
                     }
-                    else if (existing.kills != row.kills || existing.deaths != row.deaths ||
-                             existing.assists != row.assists || existing.battles != row.battles)
+                    else if (existing.battles != row.battles ||
+                             (includeKda && (existing.kills != row.kills || existing.deaths != row.deaths ||
+                                             existing.assists != row.assists)))
                     {
-                        report.Conflicts.Add(
-                            $"{existing.username}: planilha {row.kills}/{row.deaths}/{row.assists} ({row.battles} bat.) " +
-                            $"vs armazenado {existing.kills}/{existing.deaths}/{existing.assists} ({existing.battles} bat.)");
+                        report.Conflicts.Add(includeKda
+                            ? $"{existing.username}: planilha {row.kills}/{row.deaths}/{row.assists} ({row.battles} bat.) " +
+                              $"vs armazenado {existing.kills}/{existing.deaths}/{existing.assists} ({existing.battles} bat.)"
+                            : $"{existing.username}: planilha {row.battles} bat. vs armazenado {existing.battles} bat.");
                     }
 
                     continue;

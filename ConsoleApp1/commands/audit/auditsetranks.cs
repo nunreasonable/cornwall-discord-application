@@ -180,6 +180,10 @@ namespace CornwallUtilities.commands
                     return true;
                 });
 
+                await AuditLog.RecordAsync(ctx, AuditLog.ActionSetRanks,
+                    string.Join(", ", updates.Select(kv =>
+                        $"{kv.Key} → {(string.IsNullOrWhiteSpace(kv.Value) ? "sem cargo" : kv.Value)}")));
+
                 notice = $"✅ {updates.Count} cargo(s) atualizado(s).";
                 await ctx.EditResponseAsync(BuildView(roster, page, pageCount, sessionId, changed, notice));
             }

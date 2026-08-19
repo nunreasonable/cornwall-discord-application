@@ -126,6 +126,9 @@ namespace CornwallUtilities.commands
                 return storedAudit.entries.RemoveAll(e => string.Equals(e.username, current.username, StringComparison.OrdinalIgnoreCase));
             });
 
+            await AuditLog.RecordAsync(ctx, AuditLog.ActionRemove,
+                $"Removeu **{current.username}** de `{(editingPending ? "pendente" : "auditoria")}` ({removed} registro(s)).");
+
             await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(new DiscordEmbedBuilder()
                 .WithTitle("Jogador removido")
                 .WithDescription($"**{current.username}** removido ({removed} registro(s)).")
@@ -248,6 +251,11 @@ namespace CornwallUtilities.commands
 
             if (editingPending)
                 embed.WithFooter("Batalhas não são editáveis no escopo pendente: elas são contadas por lote no /audit-push.");
+
+            await AuditLog.RecordAsync(ctx, AuditLog.ActionEdit,
+                $"Editou **{before.username}** em `{(editingPending ? "pendente" : "auditoria")}`: " +
+                $"{before.kills}/{before.deaths}/{before.assists} ({before.battles} bat.) → " +
+                $"{after.username} {after.kills}/{after.deaths}/{after.assists} ({after.battles} bat.)");
 
             await modalInteraction.EditOriginalResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
         }

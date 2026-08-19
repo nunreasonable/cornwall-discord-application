@@ -13,12 +13,21 @@ namespace CornwallUtilities.Services.Audit
     {
         public List<AuditEntry> Rows { get; } = new();
         public int SkippedRows { get; set; }
+
+        /// <summary>
+        /// Se a planilha traz kills/deaths/assists. Quando nao traz, esses numeros
+        /// nao podem ser comparados nem sobrescritos na importacao - senao um
+        /// jogador com historico seria zerado por uma planilha que nem tem a
+        /// coluna.
+        /// </summary>
+        public bool HasKda { get; set; }
     }
 
     /// <summary>
     /// Le a auditoria atual da planilha do Google (export CSV) para semear o
-    /// arquivo local. A aba Roster ja traz nome, cargo, batalhas e K/D/A, entao a
-    /// importacao preserva o historico inteiro que o regimento acumulou ate aqui.
+    /// arquivo local. As colunas sao configuraveis em `audit.csvColumns`; uma
+    /// coluna marcada com -1 simplesmente nao existe na planilha e o campo
+    /// correspondente fica de fora da importacao.
     /// </summary>
     internal static class AuditCsvImporter
     {
@@ -28,11 +37,23 @@ namespace CornwallUtilities.Services.Audit
                 throw new AuditConfigException("`audit.auditCsvUrl` não está configurado (o gid da aba ainda é um placeholder).");
 
             var csv = await DownloadAsync(cfg.auditCsvUrl!, ct).ConfigureAwait(false);
+            return Parse(csv, cfg);
+        }
 
+        /// <summary>
+        /// Converte o CSV ja baixado em linhas da auditoria. Separado do download
+        /// de proposito: e a parte que depende do formato da planilha e a que
+        /// precisa ser conferida quando a planilha muda.
+        /// </summary>
+        public static CsvImportResult Parse(string csv, AuditConfig cfg)
+        {
             var columns = cfg.csvColumns ?? new AuditCsvColumns();
             var headerRows = Math.Max(0, cfg.csvHeaderRows);
 
-            var result = new CsvImportResult();
+            var result = new CsvImportResult
+            {
+                HasKda = columns.kills >= 0 || columns.deaths >= 0 || columns.assists >= 0
+            };
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // ParseCsv (e nao uma quebra por linha) porque a planilha tem campos
@@ -41,7 +62,7 @@ namespace CornwallUtilities.Services.Audit
 
             foreach (var cells in records)
             {
-                var username = (cells.ElementAtOrDefault(columns.username) ?? string.Empty).Trim();
+                var username = ReadText(cells, columns.username);
                 if (string.IsNullOrWhiteSpace(username))
                 {
                     result.SkippedRows++;
@@ -63,7 +84,7 @@ namespace CornwallUtilities.Services.Audit
                     deaths = ReadInt(cells, columns.deaths),
                     assists = ReadInt(cells, columns.assists),
                     battles = ReadInt(cells, columns.battles),
-                    rank = (cells.ElementAtOrDefault(columns.rank) ?? string.Empty).Trim()
+                    rank = ReadText(cells, columns.rank)
                 });
             }
 
@@ -107,9 +128,13 @@ namespace CornwallUtilities.Services.Audit
             throw lastError!;
         }
 
+        /// <summary>Texto de uma celula. Indice negativo = coluna ausente na planilha.</summary>
+        private static string ReadText(List<string> cells, int index) =>
+            index < 0 ? string.Empty : (cells.ElementAtOrDefault(index) ?? string.Empty).Trim();
+
         private static int ReadInt(List<string> cells, int index)
         {
-            var raw = (cells.ElementAtOrDefault(index) ?? string.Empty).Trim();
+            var raw = ReadText(cells, index);
             if (raw.Length == 0)
                 return 0;
 
