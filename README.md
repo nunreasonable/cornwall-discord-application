@@ -35,6 +35,40 @@ Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de a
   - Parâmetros: cargo/usuário, mensagem
   - Limite: 500 membros por execução
 
+### Sistema de Auditoria
+> 📖 **Guia passo a passo para quem vai usar:** [`markdownspam/audit_usage.md`](markdownspam/audit_usage.md)
+> — escrito em linguagem simples, sem exigir conhecimento técnico.
+
+Registra kills, deaths, assists, batalhas e cargo de cada integrante. Funciona em duas
+etapas: primeiro as auditorias entram numa fila (`/audit-add`), depois são publicadas de
+uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
+
+- **`/audit-add`** - Registra a auditoria de uma batalha
+  - Abre uma janela para colar o bloco, uma linha por jogador: `nome k d a n`
+  - O campo `n` é lido e descartado (é só formatação)
+  - Cada execução vale **+1 batalha** para cada jogador listado
+  - Função: valida linha a linha, mostra prévia e guarda na fila (não publica)
+
+- **`/audit-push`** - Publica a fila
+  - Parâmetro opcional: `dry_run` (simula sem gravar nem publicar)
+  - Função: consolida os totais, publica na branch de dados e arquiva cada lote por data
+  - Em caso de erro a fila **não** é limpa; republicar não conta em dobro
+
+- **`/audit-check`** - Consulta a auditoria
+  - Parâmetros opcionais: `jogador` (com autocomplete), `ordenar`, `privado`
+  - Função: tabela paginada do efetivo ou ficha individual com K/D
+
+- **`/audit-edit`** - Corrige, renomeia ou remove um jogador
+  - Parâmetros: `jogador`, `escopo` (consolidado ou pendente), `remover`
+  - Função: janela pré-preenchida com os valores atuais e resumo antes/depois
+
+- **`/audit-setranks`** - Define os cargos manualmente
+  - Função: lista paginada, até 5 jogadores por vez; cargo é texto livre e campo em branco remove
+
+- **`/audit-import`** - Importa a auditoria atual da planilha
+  - Parâmetros: `dry_run` (padrão `true`), `sobrescrever` (padrão `false`)
+  - Função: semeia o sistema preservando nome, cargo, batalhas e K/D/A; não altera quem já existe
+
 ### Sistema de Repost
 - **`/messages`** - Verifica status do armazenamento de mensagens
   - Função: Estatísticas e progresso do sistema
@@ -62,6 +96,10 @@ O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações d
 - Permissões de comandos
 - Mensagens personalizadas
 - Lista de termos bloqueados e resposta automática do blacklist
+- Bloco `audit`: destino no GitHub e mapeamento das colunas da planilha usadas pelo
+  `/audit-import`. O campo `githubToken` pode ficar **vazio** — nesse caso o bot reaproveita
+  o login do `gh` CLI da máquina (`gh auth login`), sem precisar criar nenhum token novo.
+  A ordem de busca da credencial é: `githubToken` → `GH_TOKEN`/`GITHUB_TOKEN` → `gh auth token`
 - `notifyUserIds` / `dmAlertCooldownMinutes`: quem recebe DM quando alguém cai na blacklist,
   e a janela de silêncio entre esses alertas (infrações dentro da janela viram uma DM única
   de resumo, para o bot não ser sinalizado como spam)
