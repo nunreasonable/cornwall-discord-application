@@ -697,8 +697,36 @@ namespace CornwallUtilities.Services
         private void ClearLoginAttempts(HttpListenerRequest request) =>
             _loginAttempts.TryRemove(ClientKey(request), out _);
 
-        private static string ClientKey(HttpListenerRequest request) =>
-            request.RemoteEndPoint?.Address?.ToString() ?? "desconhecido";
+        /// <summary>
+        /// Identifica o cliente para o rate limit de login.
+        ///
+        /// Nao pode usar RemoteEndPoint: a API so e alcancavel pelo tunnel do
+        /// cloudflared rodando na mesma maquina, entao o peer TCP e sempre
+        /// 127.0.0.1 e TODOS os clientes cairiam no mesmo balde - dez codigos
+        /// errados de qualquer pessoa trancariam o dashboard para todo mundo
+        /// por cinco minutos, e um login bem-sucedido de qualquer um limparia a
+        /// contagem de todos.
+        ///
+        /// CF-Connecting-IP e definido pela Cloudflare e nao e forjavel: uma
+        /// requisicao que traga esse header do cliente e recusada na borda com
+        /// 403 "error code: 1000".
+        ///
+        /// X-Forwarded-For NAO serve. O valor enviado pelo cliente e mantido na
+        /// frente da cadeia: quem manda "X-Forwarded-For: 8.8.8.8" faz o header
+        /// chegar aqui como "8.8.8.8,&lt;ip real&gt;". Ler o primeiro elemento,
+        /// que e a leitura convencional, entregaria justamente o valor escolhido
+        /// pelo atacante, permitindo trocar de identidade a cada tentativa.
+        /// </summary>
+        private static string ClientKey(HttpListenerRequest request)
+        {
+            var cloudflareIp = request.Headers["CF-Connecting-IP"];
+            if (!string.IsNullOrWhiteSpace(cloudflareIp))
+            {
+                return cloudflareIp.Trim();
+            }
+
+            return request.RemoteEndPoint?.Address?.ToString() ?? "desconhecido";
+        }
 
         private static async Task<JObject?> ReadBodyAsJsonAsync(HttpListenerRequest request)
         {
