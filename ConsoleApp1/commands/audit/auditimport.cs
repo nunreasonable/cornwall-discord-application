@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
@@ -20,7 +21,7 @@ namespace CornwallUtilities.commands
             // Padrao true de proposito: este comando semeia o arquivo que guarda
             // o historico inteiro do regimento, entao gravar precisa ser explicito.
             [Option("dry_run", "Só mostra o que seria importado (padrão)")] bool dryRun = true,
-            [Option("sobrescrever", "Sobrescreve K/D/A de quem já existe (perigoso)")] bool sobrescrever = false)
+            [Option("sobrescrever", "Sobrescreve os dados de quem já existe pelos da planilha (perigoso)")] bool sobrescrever = false)
         {
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource,
                 new DiscordInteractionResponseBuilder().AsEphemeral());
@@ -44,7 +45,7 @@ namespace CornwallUtilities.commands
 
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                 var csv = await AuditCsvImporter.FetchAsync(config.audit, cts.Token);
 
                 ImportReport report;
@@ -88,6 +89,21 @@ namespace CornwallUtilities.commands
                     "a planilha **mais** tudo que foi consolidado depois, então sobrescrever faria os totais voltarem atrás.", false));
 
                 await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(embed));
+            }
+            catch (OperationCanceledException)
+            {
+                // Inclui TaskCanceledException: sem este caso o texto interno do
+                // .NET ("HttpClient.Timeout of N seconds") vazava para o usuario.
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(
+                    AuditEmbeds.Error("Falha na importação",
+                        "A planilha demorou demais para responder. Tente de novo em alguns minutos; " +
+                        "se continuar, verifique a conexão da máquina do bot.")));
+            }
+            catch (HttpRequestException ex)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(
+                    AuditEmbeds.Error("Falha na importação", AuditEmbeds.Trim(
+                        $"Não consegui baixar a planilha: {ex.Message}", 1000))));
             }
             catch (Exception ex)
             {

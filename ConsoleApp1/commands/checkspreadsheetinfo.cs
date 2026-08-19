@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
 using CornwallUtilities.Services;
@@ -39,7 +40,10 @@ namespace CornwallUtilities.commands
 
             try
             {
-                var csvText = await HttpClientProvider.Shared.GetStringAsync(url);
+                // Prazo explicito no lugar do teto silencioso de 20s do cliente
+                // compartilhado: a exportacao da planilha pode demorar.
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var csvText = await HttpClientProvider.LongRunning.GetStringAsync(url, cts.Token);
 
                 // ParseCsv le o documento inteiro: quebrar por linha antes corrompia
                 // os registros cujos campos entre aspas contem quebra de linha.

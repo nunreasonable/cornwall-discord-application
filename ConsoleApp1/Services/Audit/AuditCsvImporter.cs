@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
@@ -26,7 +27,7 @@ namespace CornwallUtilities.Services.Audit
             if (string.IsNullOrWhiteSpace(cfg.auditCsvUrl) || cfg.auditCsvUrl!.Contains("GID_AQUI"))
                 throw new AuditConfigException("`audit.auditCsvUrl` não está configurado (o gid da aba ainda é um placeholder).");
 
-            var csv = await HttpClientProvider.Shared.GetStringAsync(cfg.auditCsvUrl, ct).ConfigureAwait(false);
+            var csv = await DownloadAsync(cfg.auditCsvUrl!, ct).ConfigureAwait(false);
 
             var columns = cfg.csvColumns ?? new AuditCsvColumns();
             var headerRows = Math.Max(0, cfg.csvHeaderRows);
@@ -67,6 +68,43 @@ namespace CornwallUtilities.Services.Audit
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Baixa o CSV com algumas tentativas: a exportacao do Google as vezes
+        /// engasga (redirect para googleusercontent + planilha grande) e uma
+        /// falha isolada nao deveria derrubar a importacao inteira.
+        ///
+        /// Usa LongRunning, e nao Shared: o teto de 20s do cliente compartilhado
+        /// ignorava o prazo que o comando pedia e abortava a importacao.
+        /// </summary>
+        private static async Task<string> DownloadAsync(string url, CancellationToken ct)
+        {
+            const int maxAttempts = 3;
+            Exception? lastError = null;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                try
+                {
+                    return await HttpClientProvider.LongRunning.GetStringAsync(url, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+                {
+                    // Cancelamento vindo do chamador (prazo do comando esgotado)
+                    // nao e transitorio: nao adianta insistir.
+                    ct.ThrowIfCancellationRequested();
+
+                    lastError = ex;
+
+                    if (attempt < maxAttempts)
+                        await Task.Delay(500 * attempt, ct).ConfigureAwait(false);
+                }
+            }
+
+            throw lastError!;
         }
 
         private static int ReadInt(List<string> cells, int index)
