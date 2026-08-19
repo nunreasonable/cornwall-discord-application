@@ -64,6 +64,14 @@ namespace CornwallUtilities
             // Client_Ready, que dispara de novo a cada reconexao do gateway.
             TerminalShenanigans.Initialize(Client);
 
+            // Este handler PRECISA ser registrado antes do UseInteractivity: o
+            // despachante de eventos chama os handlers na ordem de inscricao e
+            // para no primeiro que marcar "Handled", e o paginador da
+            // interatividade marca Handled ao confirmar o clique. Registrando
+            // antes, conseguimos barrar o clique de quem nao e dono da mensagem
+            // e responder a ele.
+            Client.ComponentInteractionCreated += HandleComponentInteraction;
+
             // Habilita a extensão de interatividade para aguardar cliques em botões
             Client.UseInteractivity(new InteractivityConfiguration
             {
@@ -85,7 +93,6 @@ namespace CornwallUtilities
             });
 
             Client.Ready += Client_Ready;
-            Client.ComponentInteractionCreated += HandleComponentInteraction;
             Client.MessageCreated += HandleMessageCreated;
 
             var commandsConfig = new CommandsNextConfiguration()
@@ -273,20 +280,50 @@ namespace CornwallUtilities
         }
 
         /// <summary>
-        /// Handler apenas de diagnostico: NAO responde a interacao.
+        /// Handler de componentes. Como regra ele so observa: no DisCatSharp as
+        /// submissoes de modal e os cliques nos botoes de paginacao chegam por
+        /// este mesmo evento e ja tem dono - os waiters da Interactivity. Como
+        /// cada interacao aceita uma unica resposta inicial, responder aqui
+        /// disputava essa resposta e quebrava modais e paginacao. Os ids dos
+        /// botoes de paginacao sao gerados dinamicamente, entao nao da para
+        /// filtrar por prefixo com seguranca.
         ///
-        /// No DisCatSharp as submissoes de modal e os cliques nos botoes de
-        /// paginacao chegam por este mesmo evento e ja tem dono - os waiters da
-        /// Interactivity. Como cada interacao aceita uma unica resposta inicial,
-        /// responder aqui disputava essa resposta e quebrava modais e paginacao.
-        /// Os ids dos botoes de paginacao sao gerados dinamicamente, entao nao da
-        /// para filtrar por prefixo com seguranca; por isso este handler so
-        /// observa. Um botao realmente orfao mostra o aviso nativo do Discord.
+        /// A unica excecao e o clique de quem NAO rodou o comando numa mensagem
+        /// paginada publica: a interatividade descartaria o clique em silencio e
+        /// o Discord mostraria "interacao falhou". Nesse caso respondemos com um
+        /// aviso efemero e marcamos Handled para a interatividade nem ver o
+        /// evento - por isso este handler e registrado antes do UseInteractivity.
         /// </summary>
         private static Task HandleComponentInteraction(DiscordClient sender, ComponentInteractionCreateEventArgs e)
         {
-            if (e.Interaction.Type != InteractionType.ModalSubmit)
-                Console.WriteLine($"[component] interacao recebida: {e.Interaction.Data?.CustomId}");
+            if (e.Interaction.Type == InteractionType.ModalSubmit)
+                return Task.CompletedTask;
+
+            Console.WriteLine($"[component] interacao recebida: {e.Interaction.Data?.CustomId}");
+
+            if (!PaginationOwnership.TryGetOwner(e.Message.Id, out var ownerId) || e.User.Id == ownerId)
+                return Task.CompletedTask;
+
+            // Marcado de forma sincrona: o despachante so olha Handled depois que
+            // este handler retorna, e a resposta REST vai em segundo plano para
+            // nao segurar o caminho do gateway.
+            e.Handled = true;
+
+            var interaction = e.Interaction;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                        new DiscordInteractionResponseBuilder()
+                            .WithContent("Você não rodou esse comando para poder fazer essa ação")
+                            .AsEphemeral());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[component] falha ao avisar clique de terceiro: {ex.Message}");
+                }
+            });
 
             return Task.CompletedTask;
         }

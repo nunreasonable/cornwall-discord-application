@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
+using CornwallUtilities.Services;
 using CornwallUtilities.Services.Audit;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.ApplicationCommands.Attributes;
@@ -65,7 +66,22 @@ namespace CornwallUtilities.commands
             // defer da linha 35 - o Discord recusava com BadRequest e o comando
             // morria. Aqui o defer ja aconteceu, entao deferred e sempre true e o
             // ephemeral acompanha a opcao "privado" usada no defer.
-            await ctx.Interaction.SendPaginatedResponseAsync(true, privado, ctx.User, paginated);
+            // O paginador so aceita cliques de quem rodou o comando. Registrar o
+            // dono aqui permite que o handler de componentes explique isso a quem
+            // clicar sem ser dono, em vez de deixar o Discord dizer so
+            // "interacao falhou". O id da mensagem paginada e o da propria
+            // resposta original - o defer da linha 35 ja a criou.
+            var original = await ctx.GetOriginalResponseAsync();
+            PaginationOwnership.Register(original.Id, ctx.User.Id);
+
+            try
+            {
+                await ctx.Interaction.SendPaginatedResponseAsync(true, privado, ctx.User, paginated);
+            }
+            finally
+            {
+                PaginationOwnership.Unregister(original.Id);
+            }
         }
 
         private static async Task ShowSinglePlayerAsync(InteractionContext ctx, AuditFile audit, PendingFile pending, string jogador)
