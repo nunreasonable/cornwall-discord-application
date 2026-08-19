@@ -13,20 +13,31 @@ namespace CornwallUtilities.commands
     internal static class AuditPermissions
     {
         /// <summary>Retorna null quando o uso e permitido, ou o embed de recusa.</summary>
-        public static DiscordEmbed? CheckStaff(InteractionContext ctx, JSONReader config)
+        public static DiscordEmbed? CheckStaff(InteractionContext ctx, JSONReader config) =>
+            CheckStaff(ctx.Guild, ctx.Member, config);
+
+        /// <summary>
+        /// Mesma regra, desacoplada do tipo de contexto.
+        ///
+        /// Existe porque os comandos de prefixo recebem <c>CommandContext</c> e os
+        /// de barra recebem <c>InteractionContext</c>: sem esta sobrecarga, o
+        /// criterio de staff teria de ser duplicado e passaria a existir em dois
+        /// lugares para mudar.
+        /// </summary>
+        public static DiscordEmbed? CheckStaff(DiscordGuild? guild, DiscordMember? member, JSONReader config)
         {
-            if (ctx.Guild is null || ctx.Member is null)
+            if (guild is null || member is null)
                 return AuditEmbeds.Error("Comando indisponível", "Este comando só pode ser usado dentro do servidor.");
 
             if (!config.enlistPermissionRoleId.HasValue)
                 return AuditEmbeds.Error("Configuração ausente", "`enlistPermissionRoleId` não está definido no config.jsonc.");
 
             var requiredRoleId = config.enlistPermissionRoleId.Value;
-            var hasPermission = ctx.Member.Roles.Any(r => r.Id == requiredRoleId);
+            var hasPermission = member.Roles.Any(r => r.Id == requiredRoleId);
 
             return hasPermission
                 ? null
-                : AuditEmbeds.Denied($"Você precisa do cargo <@&{requiredRoleId}> para usar os comandos de auditoria.");
+                : AuditEmbeds.Denied($"Você precisa do cargo <@&{requiredRoleId}> para usar este comando.");
         }
     }
 }

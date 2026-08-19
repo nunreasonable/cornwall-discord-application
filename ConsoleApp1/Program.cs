@@ -131,6 +131,7 @@ namespace CornwallUtilities
                 slashCommands.RegisterGuildCommands<DeploymentsMessage>(gid);
                 slashCommands.RegisterGuildCommands<MessageStorageStatus>(gid);
                 slashCommands.RegisterGuildCommands<DashboardLink>(gid);
+                slashCommands.RegisterGuildCommands<Promocoes>(gid);
 
                 // Auditoria
                 slashCommands.RegisterGuildCommands<AuditAdd>(gid);
