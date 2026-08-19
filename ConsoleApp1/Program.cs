@@ -7,6 +7,7 @@ using DisCatSharp.Enums;
 using DisCatSharp.Entities;
 using DisCatSharp.CommandsNext;
 using DisCatSharp.Interactivity;
+using DisCatSharp.Interactivity.Enums;
 using DisCatSharp.Interactivity.Extensions;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.ApplicationCommands.Context;
@@ -66,7 +67,21 @@ namespace CornwallUtilities
             // Habilita a extensão de interatividade para aguardar cliques em botões
             Client.UseInteractivity(new InteractivityConfiguration
             {
-                Timeout = TimeSpan.FromMinutes(3)
+                Timeout = TimeSpan.FromMinutes(3),
+
+                // AckPaginationButtons vem "false" por padrao, e isso quebrava a
+                // paginacao (/audit-check): ao clicar numa seta o paginador guarda
+                // a interacao do BOTAO como "ultima interacao" e edita a resposta
+                // original dela. Sem o ACK (DeferredMessageUpdate) essa interacao
+                // nao tem resposta original, entao o EditOriginalResponse virava
+                // NotFound e o Discord ainda mostrava "interacao falhou" pro
+                // usuario. Com true a interatividade confirma o clique antes de
+                // editar a mensagem.
+                AckPaginationButtons = true,
+
+                // Ao expirar os 3 minutos, apenas desabilita os botoes em vez de
+                // apagar a mensagem - o conteudo continua legivel.
+                ButtonBehavior = ButtonPaginationBehavior.Disable
             });
 
             Client.Ready += Client_Ready;
