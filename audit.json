@@ -1,225 +1,400 @@
 {
   "version": 1,
-  "lastUpdatedUtc": "2026-08-18T23:39:55.7934524+00:00",
+  "lastUpdatedUtc": "2026-08-19T21:45:05.6067239+00:00",
   "appliedBatchIds": [
-    "d8c0223012f9"
+    "a4cb75e51b0c",
+    "42b768c8e60a",
+    "af4a971c3722",
+    "bd211d7a9694",
+    "b795aa504a80"
   ],
   "entries": [
     {
-      "username": "DecafOdebrecht",
-      "kills": 36,
-      "deaths": 37,
-      "assists": 1,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "0.97"
-    },
-    {
-      "username": "BrithishOdebrecht",
-      "kills": 76,
-      "deaths": 63,
-      "assists": 7,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "1.21"
-    },
-    {
-      "username": "Alpine_Castle",
-      "kills": 38,
-      "deaths": 40,
-      "assists": 11,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "0.95"
-    },
-    {
       "username": "soldadovaguinho2040",
-      "kills": 60,
-      "deaths": 53,
-      "assists": 5,
-      "battles": 1,
+      "kills": 72,
+      "deaths": 69,
+      "assists": 19,
+      "battles": 2,
       "rank": "",
-      "KdRatio": "1.13"
+      "KdRatio": "1.04"
     },
     {
-      "username": "FoxOdebrecht",
-      "kills": 58,
-      "deaths": 48,
-      "assists": 12,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "1.21"
-    },
-    {
-      "username": "dogcaramelomaronba",
-      "kills": 43,
-      "deaths": 66,
-      "assists": 8,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "0.65"
-    },
-    {
-      "username": "WalkerOdebrecht",
-      "kills": 67,
-      "deaths": 50,
-      "assists": 11,
-      "battles": 1,
+      "username": "MazziN_0171",
+      "kills": 254,
+      "deaths": 190,
+      "assists": 76,
+      "battles": 4,
       "rank": "",
       "KdRatio": "1.34"
     },
     {
-      "username": "PauloOdebrecht",
-      "kills": 47,
-      "deaths": 57,
-      "assists": 2,
-      "battles": 1,
+      "username": "WalkerOdebrecht",
+      "kills": 240,
+      "deaths": 174,
+      "assists": 66,
+      "battles": 3,
       "rank": "",
-      "KdRatio": "0.82"
-    },
-    {
-      "username": "WesterWaltz",
-      "kills": 44,
-      "deaths": 40,
-      "assists": 5,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "1.10"
-    },
-    {
-      "username": "RafaOdebrecht",
-      "kills": 63,
-      "deaths": 55,
-      "assists": 9,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "1.15"
-    },
-    {
-      "username": "brasildamassa",
-      "kills": 29,
-      "deaths": 53,
-      "assists": 5,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "0.55"
-    },
-    {
-      "username": "andrezzinho4",
-      "kills": 21,
-      "deaths": 39,
-      "assists": 2,
-      "battles": 1,
-      "rank": "",
-      "KdRatio": "0.54"
+      "KdRatio": "1.38"
     },
     {
       "username": "lipao000",
-      "kills": 38,
-      "deaths": 51,
-      "assists": 11,
-      "battles": 1,
+      "kills": 81,
+      "deaths": 79,
+      "assists": 24,
+      "battles": 2,
       "rank": "",
-      "KdRatio": "0.75"
+      "KdRatio": "1.03"
     },
     {
-      "username": "ChunkyKongOc",
-      "kills": 59,
-      "deaths": 59,
-      "assists": 5,
-      "battles": 1,
+      "username": "RafaOdebrecht",
+      "kills": 130,
+      "deaths": 108,
+      "assists": 35,
+      "battles": 2,
       "rank": "",
-      "KdRatio": "1.00"
+      "KdRatio": "1.20"
     },
     {
-      "username": "MaximusOdebrecht",
-      "kills": 75,
+      "username": "joao7783271",
+      "kills": 58,
       "deaths": 45,
-      "assists": 11,
-      "battles": 1,
+      "assists": 13,
+      "battles": 2,
       "rank": "",
-      "KdRatio": "1.67"
+      "KdRatio": "1.29"
     },
     {
-      "username": "supremewar2014",
-      "kills": 41,
-      "deaths": 39,
-      "assists": 6,
-      "battles": 1,
+      "username": "PauloOdebrecht",
+      "kills": 30,
+      "deaths": 46,
+      "assists": 7,
+      "battles": 2,
       "rank": "",
-      "KdRatio": "1.05"
+      "KdRatio": "0.65"
     },
     {
-      "username": "TherryOdebrecht",
-      "kills": 40,
-      "deaths": 44,
-      "assists": 3,
-      "battles": 1,
+      "username": "FoxOdebrecht",
+      "kills": 92,
+      "deaths": 65,
+      "assists": 23,
+      "battles": 2,
+      "rank": "",
+      "KdRatio": "1.42"
+    },
+    {
+      "username": "xtn13",
+      "kills": 104,
+      "deaths": 114,
+      "assists": 29,
+      "battles": 3,
       "rank": "",
       "KdRatio": "0.91"
     },
     {
-      "username": "AzureOdebrecht",
-      "kills": 57,
-      "deaths": 48,
+      "username": "gabe_28q",
+      "kills": 69,
+      "deaths": 75,
+      "assists": 29,
+      "battles": 2,
+      "rank": "",
+      "KdRatio": "0.92"
+    },
+    {
+      "username": "gularte101045",
+      "kills": 75,
+      "deaths": 60,
+      "assists": 33,
+      "battles": 2,
+      "rank": "",
+      "KdRatio": "1.25"
+    },
+    {
+      "username": "DecafOdebrecht",
+      "kills": 144,
+      "deaths": 107,
+      "assists": 39,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "1.35"
+    },
+    {
+      "username": "Brunoalexandrino",
+      "kills": 119,
+      "deaths": 84,
+      "assists": 21,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "1.42"
+    },
+    {
+      "username": "AkanaOdebrecht",
+      "kills": 126,
+      "deaths": 125,
+      "assists": 60,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "1.01"
+    },
+    {
+      "username": "luqinhas_kidbatata",
+      "kills": 137,
+      "deaths": 159,
+      "assists": 36,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "0.86"
+    },
+    {
+      "username": "mrxavier1313_2",
+      "kills": 129,
+      "deaths": 138,
+      "assists": 26,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "0.93"
+    },
+    {
+      "username": "VMatheusRV",
+      "kills": 26,
+      "deaths": 34,
       "assists": 7,
       "battles": 1,
       "rank": "",
-      "KdRatio": "1.19"
+      "KdRatio": "0.76"
     },
     {
-      "username": "GabrieelSC",
-      "kills": 47,
-      "deaths": 48,
-      "assists": 7,
+      "username": "AlanOdebrecht",
+      "kills": 178,
+      "deaths": 228,
+      "assists": 85,
+      "battles": 4,
+      "rank": "",
+      "KdRatio": "0.78"
+    },
+    {
+      "username": "HikaruBRZ",
+      "kills": 135,
+      "deaths": 104,
+      "assists": 48,
+      "battles": 2,
+      "rank": "",
+      "KdRatio": "1.30"
+    },
+    {
+      "username": "BrithishOdebrecht",
+      "kills": 201,
+      "deaths": 193,
+      "assists": 70,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "1.04"
+    },
+    {
+      "username": "supremewar2014",
+      "kills": 135,
+      "deaths": 154,
+      "assists": 50,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "0.88"
+    },
+    {
+      "username": "brasildamassa",
+      "kills": 62,
+      "deaths": 182,
+      "assists": 10,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "0.34"
+    },
+    {
+      "username": "loi980gt",
+      "kills": 60,
+      "deaths": 45,
+      "assists": 21,
       "battles": 1,
       "rank": "",
-      "KdRatio": "0.98"
+      "KdRatio": "1.33"
     },
     {
-      "username": "luizgugumo431",
-      "kills": 48,
-      "deaths": 66,
-      "assists": 5,
+      "username": "FelipeiroOdebrecht",
+      "kills": 79,
+      "deaths": 95,
+      "assists": 19,
+      "battles": 2,
+      "rank": "",
+      "KdRatio": "0.83"
+    },
+    {
+      "username": "sem_indentidadee",
+      "kills": 32,
+      "deaths": 44,
+      "assists": 12,
       "battles": 1,
       "rank": "",
       "KdRatio": "0.73"
     },
     {
+      "username": "Huewij2010",
+      "kills": 37,
+      "deaths": 40,
+      "assists": 13,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.93"
+    },
+    {
       "username": "thales8541",
-      "kills": 56,
-      "deaths": 41,
+      "kills": 60,
+      "deaths": 43,
+      "assists": 19,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.40"
+    },
+    {
+      "username": "1golina47",
+      "kills": 35,
+      "deaths": 45,
       "assists": 7,
       "battles": 1,
       "rank": "",
-      "KdRatio": "1.37"
+      "KdRatio": "0.78"
     },
     {
-      "username": "Brunoalexandrino",
-      "kills": 51,
-      "deaths": 23,
-      "assists": 2,
+      "username": "XequeOdebrecht",
+      "kills": 200,
+      "deaths": 147,
+      "assists": 69,
+      "battles": 3,
+      "rank": "",
+      "KdRatio": "1.36"
+    },
+    {
+      "username": "Mi_arroba",
+      "kills": 37,
+      "deaths": 31,
+      "assists": 18,
       "battles": 1,
       "rank": "",
-      "KdRatio": "2.22"
+      "KdRatio": "1.19"
     },
     {
-      "username": "NoahOdebrecht",
-      "kills": 53,
-      "deaths": 47,
-      "assists": 6,
+      "username": "SRGUAXINIM203",
+      "kills": 37,
+      "deaths": 30,
+      "assists": 13,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.23"
+    },
+    {
+      "username": "JoaoOdebrecht",
+      "kills": 34,
+      "deaths": 41,
+      "assists": 17,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.83"
+    },
+    {
+      "username": "SephirothOdebrecht",
+      "kills": 27,
+      "deaths": 36,
+      "assists": 13,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.75"
+    },
+    {
+      "username": "bendvelvet",
+      "kills": 36,
+      "deaths": 32,
+      "assists": 9,
       "battles": 1,
       "rank": "",
       "KdRatio": "1.13"
     },
     {
-      "username": "Stathie",
-      "kills": 51,
-      "deaths": 41,
+      "username": "Itapirema331",
+      "kills": 11,
+      "deaths": 22,
+      "assists": 0,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.50"
+    },
+    {
+      "username": "Alpine_Castle",
+      "kills": 72,
+      "deaths": 74,
+      "assists": 26,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.97"
+    },
+    {
+      "username": "luizgugumo431",
+      "kills": 48,
+      "deaths": 74,
       "assists": 12,
       "battles": 1,
       "rank": "",
-      "KdRatio": "1.24"
+      "KdRatio": "0.65"
+    },
+    {
+      "username": "JMGBC_555",
+      "kills": 94,
+      "deaths": 84,
+      "assists": 28,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.12"
+    },
+    {
+      "username": "NightOdeBrecht",
+      "kills": 88,
+      "deaths": 106,
+      "assists": 40,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.83"
+    },
+    {
+      "username": "marcelollaa",
+      "kills": 66,
+      "deaths": 54,
+      "assists": 22,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.22"
+    },
+    {
+      "username": "DaneOdebrecht",
+      "kills": 54,
+      "deaths": 70,
+      "assists": 30,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "0.77"
+    },
+    {
+      "username": "c_affeineaddict",
+      "kills": 72,
+      "deaths": 52,
+      "assists": 20,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.38"
+    },
+    {
+      "username": "AzureOdebrecht",
+      "kills": 26,
+      "deaths": 20,
+      "assists": 24,
+      "battles": 1,
+      "rank": "",
+      "KdRatio": "1.30"
     }
   ]
 }
