@@ -35,6 +35,15 @@ namespace CornwallUtilities
 
         static async Task Main(string[] args)
         {
+            // Modo cliente: nao sobe bot nenhum, so liga este terminal no socket
+            // de controle do bot que ja esta rodando (veja TerminalShenanigans).
+            // Precisa vir antes do tee - a saida aqui e do usuario, nao do bot.
+            if (args.Length > 0 && (args[0] == "--terminal" || args[0] == "--attach"))
+            {
+                Environment.ExitCode = await TerminalShenanigans.AttachAsync();
+                return;
+            }
+
             // Primeira linha do processo de proposito: o tee so captura o que
             // for escrito DEPOIS dele, e os handlers globais abaixo ja logam.
             ConsoleTee.Install();

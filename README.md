@@ -138,6 +138,34 @@ O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações d
   e a janela de silêncio entre esses alertas (infrações dentro da janela viram uma DM única
   de resumo, para o bot não ser sinalizado como spam)
 
+## Interface de terminal
+
+Além dos comandos do Discord, o bot aceita comandos em texto
+(`ConsoleApp1/terminalshenanigans.cs`): `>channel ID` escolhe um canal, texto solto vira uma mensagem
+nesse canal, `>help` lista tudo e `>exit` encerra a sessão.
+
+Em produção o bot roda como serviço do systemd (`ccore-bot.service`), e serviço do systemd
+recebe o stdin ligado em `/dev/null`. Por isso a interface **nunca** subia na máquina de
+verdade: o bot logava `stdin nao interativo; interface de terminal desativada` e pronto.
+
+Agora ela tem dois caminhos, com o mesmo interpretador atrás dos dois:
+
+- **stdin**, quando o processo tem terminal de verdade (`dotnet run` na mão);
+- **socket Unix**, sempre — inclusive sob o systemd.
+
+Para abrir uma sessão no bot que já está rodando, basta rodar o próprio binário em modo
+cliente:
+
+```bash
+ConsoleApp1/bin/Debug/net9.0/ConsoleApp1 --terminal
+```
+
+O socket fica em `$XDG_RUNTIME_DIR/ccore-bot/terminal.sock` (modo `0600`, dentro de um
+diretório `0700`), então só o dono do processo consegue falar com ele — nada é exposto na
+rede. `CCORE_TERMINAL_SOCKET` troca esse caminho, se precisar. Várias sessões podem ficar
+abertas ao mesmo tempo: cada uma tem o seu próprio canal atual, e o `>exit` fecha só a
+sessão de quem digitou, nunca o bot.
+
 ## Dashboard e API HTTP
 
 O bot expõe uma API em `http://127.0.0.1:5056` (`Services/DashboardHttpService.cs`), consumida
