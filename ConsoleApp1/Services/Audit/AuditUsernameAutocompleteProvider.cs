@@ -22,13 +22,7 @@ namespace CornwallUtilities.Services.Audit
             {
                 var audit = await AuditStore.Instance.ReadAuditAsync().ConfigureAwait(false);
 
-                return audit.entries
-                    .Where(e => !string.IsNullOrWhiteSpace(e.username))
-                    .Where(e => typed.Length == 0 || e.username.Contains(typed, StringComparison.OrdinalIgnoreCase))
-                    // Quem comeca com o texto digitado vem primeiro.
-                    .OrderByDescending(e => e.username.StartsWith(typed, StringComparison.OrdinalIgnoreCase))
-                    .ThenBy(e => e.username, StringComparer.OrdinalIgnoreCase)
-                    .Take(25)
+                return Search(audit.entries, typed, 25)
                     .Select(e => new DiscordApplicationCommandAutocompleteChoice(
                         AuditEmbeds.Trim($"{e.username} ({e.kills}/{e.deaths}/{e.assists} — {e.battles} bat.)", 100),
                         e.username))
@@ -39,6 +33,28 @@ namespace CornwallUtilities.Services.Audit
                 Console.WriteLine($"[audit] autocomplete falhou: {ex.Message}");
                 return Array.Empty<DiscordApplicationCommandAutocompleteChoice>();
             }
+        }
+
+        /// <summary>
+        /// Filtra o efetivo pelo texto digitado.
+        ///
+        /// Extraido de dentro do autocomplete para o /audit-setranks usar o mesmo
+        /// criterio: quem digita "oda" no comando e no painel de cargos espera a
+        /// mesma lista de volta. Texto vazio devolve o efetivo em ordem
+        /// alfabetica, cortado em <paramref name="take" />.
+        /// </summary>
+        public static List<AuditEntry> Search(IEnumerable<AuditEntry> entries, string? typed, int take)
+        {
+            var query = (typed ?? string.Empty).Trim();
+
+            return entries
+                .Where(e => !string.IsNullOrWhiteSpace(e.username))
+                .Where(e => query.Length == 0 || e.username.Contains(query, StringComparison.OrdinalIgnoreCase))
+                // Quem comeca com o texto digitado vem primeiro.
+                .OrderByDescending(e => e.username.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+                .ThenBy(e => e.username, StringComparer.OrdinalIgnoreCase)
+                .Take(take)
+                .ToList();
         }
     }
 }

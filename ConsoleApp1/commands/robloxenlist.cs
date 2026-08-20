@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
 using CornwallUtilities.Services;
+using CornwallUtilities.Services.Audit;
 using DisCatSharp;
 using DisCatSharp.Entities;
 using DisCatSharp.Interactivity.Extensions;
@@ -20,45 +21,63 @@ namespace CornwallUtilities.commands
 {
     internal class RobloxEnlist : ApplicationCommandsModule
     {
+        /// <summary>
+        /// Recusa antes do modal.
+        ///
+        /// Aqui a interacao ainda nao foi respondida, entao a saida e uma resposta
+        /// direta e nao um EditResponse: o comando nao defere mais no inicio,
+        /// porque deferir impediria o modal de ser exibido.
+        /// </summary>
+        private static Task DenyAsync(InteractionContext ctx, string title, string description) =>
+            ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                new DiscordInteractionResponseBuilder()
+                    .AddEmbed(new DiscordEmbedBuilder()
+                        .WithTitle(title)
+                        .WithDescription(description)
+                        .WithColor(DiscordColor.IndianRed))
+                    .AsEphemeral());
+
+        /// <summary>Valores estaveis das opcoes; o rotulo exibido pode mudar sem mexer no codigo.</summary>
+        private const string Portugues = "pt";
+        private const string Brasileiro = "br";
+        private const string Sim = "sim";
+        private const string Nao = "nao";
+
         [SlashCommand("alistar-se", "Aliste-se usando verificação automática de conta ROBLOX + formulário.")]
         public async Task RobloxEnlistCommand(InteractionContext ctx)
         {
-            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-
+            /*
+             * Nada de deferir aqui.
+             *
+             * Um modal precisa ser a PRIMEIRA resposta da interacao - depois de um
+             * DeferredChannelMessageWithSource nao da mais para exibi-lo. Por isso
+             * todas as validacoes rodam antes de qualquer resposta. Todas leem
+             * cache (ctx.Guild, ctx.Channel, targetMember.Roles) e o config e
+             * cacheado por carimbo de modificacao, entao cabem nos 3 segundos que
+             * o Discord da para responder. E a mesma forma do /audit-add.
+             */
             var config = new JSONReader();
             await config.ReadJSON();
 
             if (ctx.Guild is null)
             {
-                var guildEmbed = new DiscordEmbedBuilder()
-                    .WithTitle("Comando inválido")
-                    .WithDescription("Este comando só pode ser executado em um servidor (guild).")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(guildEmbed));
+                await DenyAsync(ctx, "Comando inválido",
+                    "Este comando só pode ser executado em um servidor (guild).");
                 return;
             }
 
             // Canal específico de alistamento
             if (!config.robloxEnlistChannelId.HasValue || config.robloxEnlistChannelId.Value == 0)
             {
-                var missingConfig = new DiscordEmbedBuilder()
-                    .WithTitle("Configuração inválida")
-                    .WithDescription("O ID do canal de alistamento ROBLOX não está configurado. Verifique o arquivo config.json (robloxEnlistChannelId).")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(missingConfig));
+                await DenyAsync(ctx, "Configuração inválida",
+                    "O ID do canal de alistamento ROBLOX não está configurado. Verifique o arquivo config.json (robloxEnlistChannelId).");
                 return;
             }
 
             if (ctx.Channel.Id != config.robloxEnlistChannelId.Value)
             {
-                var wrongChannel = new DiscordEmbedBuilder()
-                    .WithTitle("Canal incorreto")
-                    .WithDescription("Este comando só pode ser utilizado no canal de alistamento.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(wrongChannel));
+                await DenyAsync(ctx, "Canal incorreto",
+                    "Este comando só pode ser utilizado no canal de alistamento.");
                 return;
             }
 
@@ -70,234 +89,154 @@ namespace CornwallUtilities.commands
                 var hasBlockedRole = targetMember.Roles.Any(r => config.robloxEnlistBlockedRoleIds.Contains(r.Id));
                 if (hasBlockedRole)
                 {
-                    var blockedEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("Alistamento negado")
-                        .WithDescription("Este usuário já está alistado em algum outro regimento, favor redirecionar-se ao canal <#1397974742228533322> para solicitar a transferência.")
-                        .WithColor(DiscordColor.IndianRed);
-
-                    await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(blockedEmbed));
+                    await DenyAsync(ctx, "Alistamento negado",
+                        "Este usuário já está alistado em algum outro regimento, favor redirecionar-se ao canal <#1397974742228533322> para solicitar a transferência.");
                     return;
                 }
             }
 
+            /*
+             * O formulario inteiro num modal so.
+             *
+             * Antes eram cinco perguntas por DM, uma de cada vez, com dois minutos
+             * de espera cada. Isso barrava quem tinha DM fechada e recusava
+             * resposta livre que fugisse do esperado - digitar "pt" em vez de
+             * "portugues" cancelava o alistamento inteiro.
+             *
+             * Sao exatamente cinco perguntas, e o modal do Discord aceita
+             * exatamente cinco componentes: cabe justo. As tres perguntas fechadas
+             * viram radio, entao nao existe mais resposta invalida nelas.
+             */
+            var modalId = $"roblox_enlist:{ctx.User.Id}:{Guid.NewGuid():N}";
+
+            var modal = new DiscordInteractionModalBuilder()
+                .WithTitle("Alistamento — 12° Regiment")
+                .WithCustomId(modalId)
+                .AddLabelComponent(new DiscordLabelComponent(
+                        "Nome no Roblox",
+                        "Exatamente como aparece na sua conta",
+                        null)
+                    .WithTextComponent(new DiscordTextInputComponent(
+                        TextComponentStyle.Small,
+                        customId: "enlist_roblox",
+                        placeholder: "Ex.: RafaOdebrecht",
+                        minLength: 1,
+                        // Teto de nome de usuario do ROBLOX; digitar mais que isso
+                        // so levaria a uma consulta que nunca acha ninguem.
+                        maxLength: 20,
+                        required: true,
+                        defaultValue: null)))
+                .AddLabelComponent(new DiscordLabelComponent("Nacionalidade", null, null)
+                    .WithRadioGroupComponent(new DiscordRadioGroupComponent(
+                        new[]
+                        {
+                            new DiscordRadioGroupComponentOption("Português 🇵🇹", Portugues, null, false),
+                            new DiscordRadioGroupComponentOption("Brasileiro 🇧🇷", Brasileiro, null, false)
+                        },
+                        "enlist_language",
+                        true)))
+                .AddLabelComponent(new DiscordLabelComponent(
+                        "Pertence a outros grupos?",
+                        "Outros regimentos ou grupos no ROBLOX",
+                        null)
+                    .WithRadioGroupComponent(new DiscordRadioGroupComponent(
+                        new[]
+                        {
+                            new DiscordRadioGroupComponentOption("Sim", Sim, null, false),
+                            new DiscordRadioGroupComponentOption("Não", Nao, null, false)
+                        },
+                        "enlist_groups",
+                        true)))
+                .AddLabelComponent(new DiscordLabelComponent(
+                        "Quem te recrutou?",
+                        "Opcional — deixe vazio se não souber",
+                        null)
+                    .WithTextComponent(new DiscordTextInputComponent(
+                        TextComponentStyle.Small,
+                        customId: "enlist_recruiter",
+                        placeholder: "Nome de quem te trouxe",
+                        minLength: 0,
+                        maxLength: 60,
+                        required: false,
+                        defaultValue: null)))
+                .AddLabelComponent(new DiscordLabelComponent(
+                        "Quer o cargo social?",
+                        "Acesso aos canais sociais do regimento",
+                        null)
+                    .WithRadioGroupComponent(new DiscordRadioGroupComponent(
+                        new[]
+                        {
+                            new DiscordRadioGroupComponentOption("Sim", Sim, null, false),
+                            new DiscordRadioGroupComponentOption("Não", Nao, null, false)
+                        },
+                        "enlist_social",
+                        true)));
+
             var interactivity = ctx.Client.GetInteractivity();
 
-            DiscordDmChannel dmChannel;
-            var formEmbed = new DiscordEmbedBuilder()
-                .WithTitle("Formulário de Alistamento - 12° Regiment")
-                .WithDescription($"{ctx.User.Mention}, por favor, preencha o formulário respondendo às perguntas abaixo:")
-                .WithColor(DiscordColor.Blurple);
+            // Registrar o waiter ANTES de exibir o modal fecha a janela de corrida.
+            var waiter = interactivity.WaitForModalAsync(modalId, TimeSpan.FromMinutes(10));
+            await ctx.CreateModalResponseAsync(modal);
 
-            try
-            {
-                dmChannel = await ctx.User.CreateDmChannelAsync();
-                await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(formEmbed));
-            }
-            catch (DisCatSharp.Exceptions.UnauthorizedException)
-            {
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
+            var response = await waiter;
+            if (response.TimedOut)
                 return;
-            }
-            catch (DisCatSharp.Exceptions.NotFoundException)
-            {
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
-                return;
-            }
-            catch (DisCatSharp.Exceptions.BadRequestException)
-            {
-                await ctx.EditResponseAsync(new DiscordWebhookBuilder().WithContent("Could not reach your DMs please enable them."));
-                return;
-            }
-            await ctx.EditResponseAsync(new DiscordWebhookBuilder()
-                .WithContent("Enviei o formulário por DM. Responda às perguntas por lá."));
-            // Daqui para baixo a resposta pode chegar depois dos 15 minutos de
-            // vida do token da interacao: o formulario por DM tem 5 perguntas de
-            // 2 minutos cada, mais as consultas ao ROBLOX. SafeEditAsync cai para
-            // uma mensagem no canal quando o token ja venceu.
 
+            var modalInteraction = response.Result.Interaction;
+            await modalInteraction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource,
+                new DiscordInteractionResponseBuilder().AsEphemeral());
 
-            async Task<string?> AskDmQuestionAsync(string title, string description, TimeSpan timeout)
+            /*
+             * As respostas seguem pelo token do MODAL, nao pelo do comando: o ctx
+             * ja foi respondido com o modal e nao tem resposta original para
+             * editar. Como o fluxo agora acaba em segundos, o InteractionReply
+             * .SafeEditAsync - que existia para o caso do token vencer durante o
+             * formulario por DM - deixou de ser necessario aqui.
+             */
+            async Task ReplyAsync(DiscordEmbedBuilder embed) =>
+                await modalInteraction.EditOriginalResponseAsync(
+                    new DiscordWebhookBuilder().AddEmbed(embed));
+
+            async Task FailAsync(string title, string description)
             {
-                var questionEmbed = new DiscordEmbedBuilder()
+                await ReplyAsync(new DiscordEmbedBuilder()
                     .WithTitle(title)
                     .WithDescription(description)
-                    .WithColor(DiscordColor.Blurple);
-
-                await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(questionEmbed));
-
-                var response = await interactivity.WaitForMessageAsync(
-                    m => m.Author.Id == ctx.User.Id && m.Channel.Id == dmChannel.Id,
-                    timeout);
-
-                if (response.TimedOut || response.Result is null || string.IsNullOrWhiteSpace(response.Result.Content))
-                {
-                    return null;
-                }
-
-                return response.Result.Content.Trim();
+                    .WithColor(DiscordColor.IndianRed));
             }
 
-            static bool? ParseYesNo(string input)
+            var robloxName = (ModalUtil.ReadModalValue(modalInteraction, "enlist_roblox") ?? string.Empty).Trim();
+            if (robloxName.Length == 0)
             {
-                var normalized = input.Trim().ToLowerInvariant();
-                if (normalized == "sim" || normalized == "s")
-                    return true;
-                if (normalized == "não" || normalized == "nao" || normalized == "n")
-                    return false;
-                return null;
-            }
-
-            // Pergunta 1: Nome no Roblox
-            var robloxName = await AskDmQuestionAsync(
-                "1️⃣ Nome no Roblox",
-                "Digite seu nome de usuário no Roblox:",
-                TimeSpan.FromMinutes(2));
-
-            if (robloxName is null)
-            {
-                var timeoutName = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Nome no Roblox não fornecido a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, timeoutName.Build());
+                await FailAsync("Nome não informado",
+                    "O nome no Roblox é obrigatório. Rode `/alistar-se` de novo.");
                 return;
             }
 
-            // Pergunta 2: Nacionalidade
-            var languageRaw = await AskDmQuestionAsync(
-                "2️⃣ Nacionalidade",
-                "Responda com `português` ou `brasileiro`:",
-                TimeSpan.FromMinutes(2));
+            var languageChoice = ModalUtil.ReadModalSelection(modalInteraction, "enlist_language");
+            var groupsChoice = ModalUtil.ReadModalSelection(modalInteraction, "enlist_groups");
+            var socialChoice = ModalUtil.ReadModalSelection(modalInteraction, "enlist_social");
 
-            if (languageRaw is null)
+            // Os tres radios sao obrigatorios, entao so cai aqui se o Discord
+            // mandar algo fora do combinado - vale dizer isso em vez de assumir um
+            // padrao silencioso e registrar no log uma resposta que ninguem deu.
+            if (languageChoice is null || groupsChoice is null || socialChoice is null)
             {
-                var timeoutLang = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Nacionalidade não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, timeoutLang.Build());
+                await FailAsync("Formulário incompleto",
+                    "Alguma das perguntas de escolha voltou sem resposta. Rode `/alistar-se` de novo.");
                 return;
             }
 
-            var languageNormalized = languageRaw.Trim().ToLowerInvariant();
-            string languageAnswer;
-            if (languageNormalized.StartsWith("port"))
-            {
-                languageAnswer = "Português 🇵🇹";
-            }
-            else if (languageNormalized.StartsWith("bra"))
-            {
-                languageAnswer = "Brasileiro 🇧🇷";
-            }
-            else
-            {
-                await dmChannel.SendMessageAsync("Resposta inválida. Use `português` ou `brasileiro` e execute o comando novamente.");
-                var invalidLang = new DiscordEmbedBuilder()
-                    .WithTitle("Resposta inválida")
-                    .WithDescription("Nacionalidade inválida. Execute o comando novamente e responda com `português` ou `brasileiro`.")
-                    .WithColor(DiscordColor.IndianRed);
+            var languageAnswer = languageChoice == Brasileiro ? "Brasileiro 🇧🇷" : "Português 🇵🇹";
+            var groupsAnswer = groupsChoice == Sim ? "Sim" : "Não";
 
-                await InteractionReply.SafeEditAsync(ctx, invalidLang.Build());
-                return;
-            }
-
-            // Pergunta 3: Pendendo aos grupos
-            var groupsRaw = await AskDmQuestionAsync(
-                "3️⃣ Pendendo aos grupos?",
-                "Responda com `sim` ou `não`:",
-                TimeSpan.FromMinutes(2));
-
-            if (groupsRaw is null)
-            {
-                var timeoutGroups = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Resposta sobre grupos não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, timeoutGroups.Build());
-                return;
-            }
-
-            var groupsParsed = ParseYesNo(groupsRaw);
-            if (!groupsParsed.HasValue)
-            {
-                await dmChannel.SendMessageAsync("Resposta inválida. Use `sim` ou `não` e execute o comando novamente.");
-                var invalidGroups = new DiscordEmbedBuilder()
-                    .WithTitle("Resposta inválida")
-                    .WithDescription("Resposta sobre grupos inválida. Execute o comando novamente e responda com `sim` ou `não`.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, invalidGroups.Build());
-                return;
-            }
-
-            var groupsAnswer = groupsParsed.Value ? "Sim" : "Não";
-
-            // Pergunta 4: Quem recrutou (opcional)
-            var recruiterResponse = await AskDmQuestionAsync(
-                "4️⃣ Quem te recrutou?",
-                "Digite o nome de quem te recrutou (ou digite 'não sei' para pular):",
-                TimeSpan.FromMinutes(2));
-
-            string recruiterAnswer = string.Empty;
-            if (!string.IsNullOrWhiteSpace(recruiterResponse))
-            {
-                var recruiterNormalized = recruiterResponse.Trim().ToLowerInvariant();
-                if (recruiterNormalized != "não sei" && recruiterNormalized != "nao sei")
-                {
-                    recruiterAnswer = recruiterResponse.Trim();
-                }
-            }
-
-            // Pergunta 5: Cargo social
-            var socialRoleRaw = await AskDmQuestionAsync(
-                "5️⃣ Cargo social?",
-                "Responda com `sim` ou `não`:",
-                TimeSpan.FromMinutes(2));
-
-            if (socialRoleRaw is null)
-            {
-                var timeoutSocial = new DiscordEmbedBuilder()
-                    .WithTitle("Tempo esgotado")
-                    .WithDescription("Resposta sobre cargo social não fornecida a tempo. Execute o comando novamente quando estiver pronto.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, timeoutSocial.Build());
-                return;
-            }
-
-            var socialParsed = ParseYesNo(socialRoleRaw);
-            if (!socialParsed.HasValue)
-            {
-                await dmChannel.SendMessageAsync("Resposta inválida. Use `sim` ou `não` e execute o comando novamente.");
-                var invalidSocial = new DiscordEmbedBuilder()
-                    .WithTitle("Resposta inválida")
-                    .WithDescription("Resposta sobre cargo social inválida. Execute o comando novamente e responda com `sim` ou `não`.")
-                    .WithColor(DiscordColor.IndianRed);
-
-                await InteractionReply.SafeEditAsync(ctx, invalidSocial.Build());
-                return;
-            }
-
-            var wantsSocialRole = socialParsed.Value;
+            var wantsSocialRole = socialChoice == Sim;
             var socialRoleAnswer = wantsSocialRole ? "Sim" : "Não";
 
-            // Confirmação final
-            var confirmEmbed = new DiscordEmbedBuilder()
-                .WithTitle("✅ Formulário Completo")
-                .WithDescription("Obrigado! Seu formulário foi preenchido. Processando suas informações...")
-                .WithColor(DiscordColor.Green)
-                .AddField(new DiscordEmbedField("Nome no Roblox", robloxName))
-                .AddField(new DiscordEmbedField("Nacionalidade", languageAnswer))
-                .AddField(new DiscordEmbedField("Pendendo aos grupos?", groupsAnswer))
-                .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "Não informado" : recruiterAnswer))
-                .AddField(new DiscordEmbedField("Cargo social?", socialRoleAnswer));
+            // Campo opcional de verdade: vazio ja significa "nao informado", sem o
+            // "digite 'nao sei' para pular" que o formulario por DM precisava.
+            var recruiterAnswer = (ModalUtil.ReadModalValue(modalInteraction, "enlist_recruiter") ?? string.Empty).Trim();
 
-            await dmChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(confirmEmbed));
-
-            
             int badgeCount= 0;
             int friendsCount;
             TimeSpan accountAge;
@@ -329,7 +268,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Não foi possível encontrar uma conta ROBLOX com esse nome. Verifique se o nome foi digitado corretamente.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await InteractionReply.SafeEditAsync(ctx, errLookup.Build());
+                            await ReplyAsync(errLookup);
                             return;
                         }
 
@@ -342,7 +281,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Nenhuma conta ROBLOX foi encontrada com o nome informado.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await InteractionReply.SafeEditAsync(ctx, notFound.Build());
+                            await ReplyAsync(notFound);
                             return;
                         }
 
@@ -354,7 +293,7 @@ namespace CornwallUtilities.commands
                                 .WithDescription("Não foi possível determinar o ID da conta ROBLOX a partir do nome informado.")
                                 .WithColor(DiscordColor.IndianRed);
 
-                            await InteractionReply.SafeEditAsync(ctx, invalidLookup.Build());
+                            await ReplyAsync(invalidLookup);
                             return;
                         }
                     }
@@ -368,7 +307,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível obter as informações da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
+                        await ReplyAsync(errEmbed);
                         return;
                     }
 
@@ -383,7 +322,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível determinar a data de criação da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
+                        await ReplyAsync(errEmbed);
                         return;
                     }
 
@@ -398,7 +337,7 @@ namespace CornwallUtilities.commands
                             .WithDescription("Não foi possível obter a quantidade de amigos da conta ROBLOX.")
                             .WithColor(DiscordColor.IndianRed);
 
-                        await InteractionReply.SafeEditAsync(ctx, errEmbed.Build());
+                        await ReplyAsync(errEmbed);
                         return;
                     }
 
@@ -433,7 +372,7 @@ namespace CornwallUtilities.commands
                         .WithDescription("A consulta à API do ROBLOX demorou demais. Tente novamente em instantes.")
                         .WithColor(DiscordColor.IndianRed);
 
-                    await InteractionReply.SafeEditAsync(ctx, timeoutEmbed.Build());
+                    await ReplyAsync(timeoutEmbed);
                     return;
                 }
                 catch (Exception ex)
@@ -447,7 +386,7 @@ namespace CornwallUtilities.commands
                         .WithDescription($"Ocorreu um erro inesperado ao consultar a conta ROBLOX: `{err}`")
                         .WithColor(DiscordColor.IndianRed);
 
-                    await InteractionReply.SafeEditAsync(ctx, genericEmbed.Build());
+                    await ReplyAsync(genericEmbed);
                     return;
                 }
             }
@@ -474,7 +413,7 @@ namespace CornwallUtilities.commands
                     .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
                     .AddField(new DiscordEmbedField("Badges (bônus)", badgesDisplay, true));
 
-                await InteractionReply.SafeEditAsync(ctx, deniedEmbed.Build());
+                await ReplyAsync(deniedEmbed);
                 return;
             }
 
@@ -610,7 +549,7 @@ namespace CornwallUtilities.commands
                 .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 12°.")
                 .WithColor(DiscordColor.Green);
 
-            await InteractionReply.SafeEditAsync(ctx, successEmbed.Build());
+            await ReplyAsync(successEmbed);
         }
     }
 }

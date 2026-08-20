@@ -168,12 +168,31 @@ Também dá para:
 /audit-setranks
 ```
 
-O bot lista os jogadores com o cargo atual de cada um. Você seleciona **até 5 por vez** no
-menu, e abre uma janela com um campo por pessoa para escrever o cargo.
+O bot abre um painel com busca. São três passos:
+
+**1. Ache a pessoa.** Clique em **🔍 Buscar** e digite parte do nome — `oda` já traz todos os
+Odebrecht. Deixar a busca vazia lista o efetivo em ordem alfabética.
+
+**2. Junte quem você quer mudar.** Selecione no menu; os escolhidos vão para a **cesta**, que
+aparece no painel com o cargo atual de cada um. Cabem **até 10 pessoas**.
+
+> 💡 **Buscar de novo não perde a cesta.** Selecione quatro numa busca, procure outro nome e
+> selecione mais seis: os dez continuam lá. É por isso que não existe mais seta de página.
+
+**3. Escreva os cargos.** Clique em **Definir cargos**. Abre uma janela com uma linha por
+pessoa, já preenchida com o cargo atual — é só editar o que vem depois do `=`:
+
+```
+DecafOdebrecht = Lieutenant Colonel
+RafaOdebrecht = Serjeant Major
+chebobful =
+```
 
 - O cargo é **texto livre** — escreva como preferir (`C4. Serjeant Major`, `Sargento`, etc.)
-- **Deixar em branco remove** o cargo daquela pessoa
-- Use os botões ◀ ▶ para ver mais páginas e **Concluir** quando terminar
+- **Deixar vazio depois do `=` remove** o cargo daquela pessoa
+- Se você errar um nome, o bot avisa qual não existe em vez de ignorar em silêncio
+
+Clique em **Concluir** quando terminar. **Limpar seleção** esvazia a cesta sem alterar nada.
 
 A sessão expira depois de 3 minutos parada. É só rodar o comando de novo.
 

@@ -25,6 +25,39 @@ namespace CornwallUtilities.Services.Audit
                 .Value;
         }
 
+        /// <summary>
+        /// Le a opcao escolhida num radio group ou select de um modal submetido.
+        ///
+        /// Irmao do <see cref="ReadModalValue" />: la o valor mora em
+        /// DiscordTextInputComponent.Value, aqui em RadioGroup.SelectedValue (ou
+        /// em SelectedValues, quando o campo e um select). A travessia e a mesma,
+        /// por isso reaproveita o Flatten em vez de repeti-la.
+        ///
+        /// Devolve null quando o campo nao foi respondido - o que so acontece se
+        /// o componente tiver sido montado como opcional.
+        /// </summary>
+        public static string? ReadModalSelection(DiscordInteraction interaction, string customId)
+        {
+            var components = interaction.Data?.ModalComponents;
+            if (components is null)
+                return null;
+
+            var flat = Flatten(components).ToList();
+
+            var radio = flat
+                .OfType<DiscordRadioGroupComponent>()
+                .FirstOrDefault(r => r.CustomId == customId);
+
+            if (radio is not null)
+                return string.IsNullOrEmpty(radio.SelectedValue) ? null : radio.SelectedValue;
+
+            return flat
+                .OfType<DiscordBaseSelectComponent>()
+                .FirstOrDefault(s => s.CustomId == customId)?
+                .SelectedValues?
+                .FirstOrDefault();
+        }
+
         private static IEnumerable<DiscordComponent> Flatten(IEnumerable<DiscordComponent> components)
         {
             foreach (var component in components)

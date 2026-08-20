@@ -10,9 +10,12 @@ Bot Discord para o 12° "The Cornwall" Regiment of Foot com funcionalidades de a
   - Parâmetros: usuário, username ROBLOX
   - Função: Verificação anti-ALT + atribuição de cargos + nickname + log
 
-- **`/alistar-se`** - Auto-alistamento com formulário interativo
+- **`/alistar-se`** - Auto-alistamento com formulário em pop-up
   - Canal específico requerido
-  - Função: Formulário completo + verificação ROBLOX automática
+  - As cinco perguntas são respondidas de uma vez num modal; nacionalidade, "pertence a
+    outros grupos?" e "cargo social?" são botões de escolha, então não existe resposta inválida
+  - **Não usa DM** — quem está com a DM fechada também consegue se alistar
+  - Função: formulário completo + verificação anti-ALT no ROBLOX + cargos + apelido + log
 
 ### Planilha & Informações
 - **`/checkspreadsheetinfo`** - Consulta informações da planilha regimental
@@ -66,7 +69,12 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
   - Função: janela pré-preenchida com os valores atuais e resumo antes/depois
 
 - **`/audit-setranks`** - Define os cargos manualmente
-  - Função: lista paginada, até 5 jogadores por vez; cargo é texto livre e campo em branco remove
+  - Função: busca pelo nome, junta até 10 jogadores numa cesta e define os cargos de uma vez
+  - O botão **🔍 Buscar** filtra o efetivo; buscar de novo **não** perde quem já está na cesta,
+    então dá para juntar gente de partes diferentes da lista sem paginar
+  - **Definir cargos** abre um bloco `nome = cargo`, uma linha por jogador, já preenchido com o
+    cargo atual; cargo é texto livre e o lado direito vazio remove o cargo
+  - Nome que não existe na auditoria é reportado de volta, não ignorado em silêncio
 
 - **`/audit-import`** - Importa o efetivo atual da planilha
   - Parâmetros: `dry_run` (padrão `true`), `sobrescrever` (padrão `false`)
@@ -180,6 +188,27 @@ O caminho `config/config.jsonc` é lido em relação ao diretório de trabalho, 
 ser executado de dentro de `ConsoleApp1/`.
 
 Observação: o bot agora usa o intent `MessageContent` para ler o texto das mensagens e detectar termos bloqueados. Esse intent também precisa estar habilitado no painel do aplicativo do Discord.
+
+## Portal do Discord: os dois campos de URL ficam vazios
+
+O painel do aplicativo oferece **Interactions Endpoint URL** e **Linked Roles
+Verification URL**. Nenhum dos dois está preenchido, e o primeiro não deve ser.
+
+**Interactions Endpoint URL — deixar vazio.** A documentação do Discord descreve
+o Gateway e o endpoint HTTP como formas *mutuamente exclusivas* de receber
+interação: preencher o campo faz o bot **parar de receber interações pelo
+Gateway**. Isso quebraria todo comando que depende da extensão `Interactivity`,
+que escuta eventos do Gateway — hoje `/audit-setranks`, `/audit-add`,
+`/audit-edit` e `/robloxenlist`, além da paginação. Migrar exigiria
+reimplementar à mão a verificação de assinatura Ed25519, o roteamento de
+comandos e um armazenamento de estado para os fluxos de várias etapas, sem
+ganho: o bot roda continuamente atrás do tunnel e o Gateway entrega tudo.
+
+**Linked Roles Verification URL — opcional, e aditiva.** Essa não desliga nada.
+Serve para exigir uma verificação feita pelo bot (por exemplo, conta do ROBLOX
+confirmada) como requisito de um cargo do servidor. A infraestrutura HTTP
+necessária já existe — ver a seção do dashboard acima — mas nada foi
+implementado ainda.
 
 ## Requisitos
 
