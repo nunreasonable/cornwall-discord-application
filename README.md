@@ -177,22 +177,42 @@ status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). O login é 
 |---|---|---|---|
 | GET | `/api/health` | público | ping da API |
 | GET | `/api/status` | público | uptime, latência, servidores, membros, versão |
-| GET | `/api/status?detail=host` | 3 | acrescenta SO, disco, carga e memória |
-| GET | `/api/logs` | 3 | buffer de logs (`take`, `level`, `q`) |
+| GET | `/api/status?detail=host` | 2 | acrescenta SO, disco, carga e memória |
+| GET | `/api/logs` | 2 | buffer de logs (`take`, `level`, `q`) |
 | GET | `/api/audit/roster` | 1 | efetivo consolidado + fila pendente |
 | GET | `/api/audit/history` | 1 | histórico da auditoria (o mesmo do `/audit-logs`) |
-| POST | `/api/audit/entry` | 3 | edita, renomeia ou remove um jogador |
-| POST | `/api/audit/ranks` | 3 | define patentes |
-| POST | `/api/audit/push` | 3 | publica no GitHub (aceita `dryRun`) |
+| POST | `/api/audit/entry` | **1 / 2** | edita e renomeia com 1; **remover** exige 2 |
+| POST | `/api/audit/ranks` | 1 | define patentes |
+| POST | `/api/audit/push` | 2 | publica no GitHub (aceita `dryRun`) |
 | GET | `/api/promotions` | 1 | elegibilidade pela escada de promoções |
-| POST | `/api/deployment` | 2 | envia a mensagem de deployment |
-| POST | `/api/dm` | 3 | inicia DM em massa, devolve `jobId` |
-| GET | `/api/dm/status` | 3 | progresso do job (`?jobId=`) |
-| POST | `/api/enlist` | 3 | alista com verificação ROBLOX |
+| POST | `/api/deployment` | 1 | envia a mensagem de deployment |
+| POST | `/api/dm` | 2 | inicia DM em massa, devolve `jobId` |
+| GET | `/api/dm/status` | 2 | progresso do job (`?jobId=`) |
+| POST | `/api/enlist` | 2 | alista com verificação ROBLOX |
 | POST | `/api/messages/send` | 1 | manda o bot escrever num canal |
-| POST | `/api/roles/add`, `/api/roles/remove` | 3 | gerencia cargos |
+| POST | `/api/roles/add`, `/api/roles/remove` | 2 | gerencia cargos |
 | POST | `/api/punishments/timeout` | 2 | aplica timeout |
 | POST | `/api/punishments/remove-from-regiment` | 2 | remove os cargos do regimento |
+
+### Onde fica a fronteira
+
+**Nível 1 (NCO/Officer)** faz a administração do dia a dia: mandar mensagem por canal,
+consultar o efetivo, definir patente, corrigir números de um jogador e anunciar deployment.
+Nada nesse conjunto remove alguém nem fala com serviço de terceiro.
+
+**Nível 2 (Regimental Command)** concentra três famílias:
+
+- **remove gente** — expulsar do regimento, timeout, tirar cargo, apagar registro da auditoria;
+- **fala com API externa** — publicar no GitHub, alistar via ROBLOX;
+- **age em volume ou expõe o interior** — DM em massa (até 500), logs do bot e
+  `status?detail=host`, que carregam id de usuário e caminho da máquina.
+
+Conceder cargo fica no 2 junto com remover, e não no 1, porque dar cargo pode escalar
+privilégio.
+
+Os níveis vivem em dois lugares e **precisam concordar**: `DashboardHttpService` é o portão
+real, e o `applyUser` do painel apenas apaga os botões. Divergir faz a interface mentir —
+botão aceso que devolve 403, ou apagado que funcionaria.
 
 A lógica administrativa é compartilhada entre os comandos de barra e a API: `DeploymentBuilder`,
 `MassDmService`, `EnlistmentService`, `BotStatusSnapshot` e `AuditPublisher` existem justamente

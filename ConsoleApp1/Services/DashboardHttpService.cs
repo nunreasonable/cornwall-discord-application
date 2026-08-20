@@ -484,7 +484,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -540,10 +540,11 @@ namespace CornwallUtilities.Services
 
         private async Task HandleRoleChangeAsync(HttpListenerContext ctx, bool add)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Cargo entra e sai por aqui; conceder cargo pode escalar privilegio.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para gerenciar cargos." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para gerenciar cargos.");
                 return;
             }
 
@@ -589,7 +590,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para timeout." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para timeout.");
                 return;
             }
 
@@ -627,7 +628,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para remover do regimento." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para remover do regimento.");
                 return;
             }
 
@@ -685,10 +686,11 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // detail=host expoe dados da maquina, nao do bot.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para ver dados da máquina." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para ver dados da máquina.");
                 return;
             }
 
@@ -727,10 +729,11 @@ namespace CornwallUtilities.Services
         /// </summary>
         private async Task HandleLogsAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Logs carregam id de usuario, excecao e caminho da maquina que hospeda o bot.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para ver os logs do bot." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para ver os logs do bot.");
                 return;
             }
 
@@ -761,7 +764,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -796,7 +799,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -819,14 +822,49 @@ namespace CornwallUtilities.Services
         /// </summary>
         private async Task HandleAuditEntryAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            /*
+             * Esta rota faz duas coisas com pesos diferentes: corrigir numeros
+             * de um jogador (nivel 1) e APAGAR o registro dele (nivel 2).
+             * Corrigir um K/D errado e administracao do dia a dia; apagar o
+             * historico de alguem nao e.
+             *
+             * A ordem aqui importa. O piso da rota e conferido ANTES de tocar no
+             * corpo: ReadBodyAsJsonAsync faz JObject.Parse, que LANCA em JSON
+             * malformado, e sem esta checagem primeiro um chamador sem sessao
+             * conseguiria disparar o parser so mandando lixo. Autenticado o
+             * minimo, o corpo e lido e o `remove` decide se ainda falta subir
+             * para 2.
+             */
+            var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para editar a auditoria." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para editar a auditoria.");
                 return;
             }
 
-            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            JObject? body;
+            try
+            {
+                body = await ReadBodyAsJsonAsync(ctx.Request);
+            }
+            catch (JsonReaderException)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Corpo da requisição não é JSON válido." });
+                return;
+            }
+
+            var remove = (bool?)body?["remove"] ?? false;
+
+            if (remove)
+            {
+                var elevated = await RequirePermissionAsync(ctx.Request, 2);
+                if (elevated is null)
+                {
+                    await WriteAuthFailureAsync(ctx, "Remover registros da auditoria exige permissão 2+.");
+                    return;
+                }
+            }
+
             var username = ((string?)body?["username"])?.Trim();
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -835,7 +873,6 @@ namespace CornwallUtilities.Services
             }
 
             var editingPending = string.Equals((string?)body?["scope"], "pendente", StringComparison.OrdinalIgnoreCase);
-            var remove = (bool?)body?["remove"] ?? false;
             var scopeLabel = editingPending ? "pendente" : "auditoria";
 
             if (remove)
@@ -948,10 +985,11 @@ namespace CornwallUtilities.Services
         /// <summary>Define a patente de um ou mais jogadores. Campo vazio remove.</summary>
         private async Task HandleAuditRanksAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Definir patente e digitacao de dado: nao da cargo no Discord nem remove nada.
+            RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para definir patentes." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para definir patentes.");
                 return;
             }
 
@@ -1019,10 +1057,11 @@ namespace CornwallUtilities.Services
         /// </summary>
         private async Task HandleAuditPushAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Publica na API do GitHub, em repositorio publico.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para publicar a auditoria." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para publicar a auditoria.");
                 return;
             }
 
@@ -1076,7 +1115,7 @@ namespace CornwallUtilities.Services
             var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -1115,10 +1154,11 @@ namespace CornwallUtilities.Services
         /// <summary>Dispara a mensagem de deployment, igual ao /deployment.</summary>
         private async Task HandleDeploymentAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 2);
+            var session = await // Anuncio de partida: notifica, mas nao remove ninguem nem toca API externa.
+            RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para enviar deployment." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para enviar deployment.");
                 return;
             }
 
@@ -1174,10 +1214,11 @@ namespace CornwallUtilities.Services
         /// </summary>
         private async Task HandleDmStartAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // DM em massa: ate 500 pessoas de uma vez.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para enviar DM em massa." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para enviar DM em massa.");
                 return;
             }
 
@@ -1242,10 +1283,11 @@ namespace CornwallUtilities.Services
 
         private async Task HandleDmStatusAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Acompanha o envio em massa acima.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -1269,10 +1311,11 @@ namespace CornwallUtilities.Services
         /// <summary>Alista um usuario, com a mesma verificacao ROBLOX do /enlistuser.</summary>
         private async Task HandleEnlistAsync(HttpListenerContext ctx)
         {
-            var session = await RequirePermissionAsync(ctx.Request, 3);
+            var session = await // Consulta a API do ROBLOX, concede cargos e muda apelido.
+            RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para alistar." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente para alistar.");
                 return;
             }
 
@@ -1440,6 +1483,34 @@ namespace CornwallUtilities.Services
         /// conhecido e mantido - derrubar todo mundo numa instabilidade do
         /// Discord seria pior que o risco que isso cobre.
         /// </summary>
+        /// <summary>
+        /// Responde a uma falha de autorizacao dizendo QUAL das duas aconteceu.
+        ///
+        /// Antes todas as rotas devolviam 403 "Permissao insuficiente", inclusive
+        /// quando o problema era simplesmente nao haver sessao. O efeito pratico
+        /// era ruim: quem estava com a sessao expirada via "permissao
+        /// insuficiente" em todo painel e concluia que o cargo dele e que era
+        /// baixo demais - foi exatamente essa a leitura que motivou esta
+        /// mudanca. Pior, o painel ja sabe tratar 401 (limpa o token e volta
+        /// para a tela de login) e nunca recebia um.
+        ///
+        /// Agora: sem sessao -> 401, e o painel manda logar de novo; com sessao
+        /// e nivel baixo -> 403 com o motivo especifico da rota.
+        /// </summary>
+        private async Task WriteAuthFailureAsync(HttpListenerContext ctx, string forbiddenMessage)
+        {
+            if (TryGetSession(ctx.Request) is null)
+            {
+                await WriteJsonAsync(ctx.Response, 401, new
+                {
+                    error = "Sessão inválida ou expirada. Rode /dashboardlink no Discord e entre de novo."
+                });
+                return;
+            }
+
+            await WriteJsonAsync(ctx.Response, 403, new { error = forbiddenMessage });
+        }
+
         private async Task<DashboardSession?> RequirePermissionAsync(HttpListenerRequest request, int minLevel)
         {
             var session = TryGetSession(request);
