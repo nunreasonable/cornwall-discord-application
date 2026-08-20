@@ -91,6 +91,22 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 - **`/ping`** - Testa latência do bot
   - Função: Retorna tempo de resposta em ms
 
+- **`/logs`** - Mostra as últimas linhas de log do bot
+  - Requer: o mesmo cargo de staff dos comandos de auditoria
+  - Parâmetros opcionais: `quantidade` (1–100, padrão 25), `nivel`
+    (todos/erro/aviso/info), `filtro` (texto), `privado` (padrão `true`)
+  - Função: histórico paginado, do mais recente para o mais antigo
+
+  As linhas vêm de um **buffer em memória** (`Services/BotLogBuffer.cs`), alimentado por um
+  tee instalado sobre o `Console.Out` (`Services/ConsoleTee.cs`). O bot não usa biblioteca de
+  log: escreve tudo com `Console.WriteLine`, e antes disso a única forma de ler essa saída era
+  ter acesso à máquina e rodar `journalctl --user -u ccore-bot`.
+
+  O tee **não substitui** o stdout, ele duplica: o journald continua recebendo tudo, e a
+  interface de terminal continua funcionando. O buffer guarda as últimas 1000 linhas e
+  **zera a cada reinício do bot** — para histórico que sobrevive a restart, o journald
+  continua sendo a fonte.
+
 ### Comandos de Administração
 - **`vsfdliliane`** - Comando especial restrito
   - Requer: ID de usuário específico
@@ -113,6 +129,44 @@ O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações d
 - `notifyUserIds` / `dmAlertCooldownMinutes`: quem recebe DM quando alguém cai na blacklist,
   e a janela de silêncio entre esses alertas (infrações dentro da janela viram uma DM única
   de resumo, para o bot não ser sinalizado como spam)
+
+## Dashboard e API HTTP
+
+O bot expõe uma API em `http://127.0.0.1:5056` (`Services/DashboardHttpService.cs`), consumida
+pelo painel em [dashboard.daeese.me](https://dashboard.daeese.me/) e pela página pública de
+status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). O login é o código de
+`/dashboardlink`; os níveis 1–4 vêm de `dashboard_auth.json`.
+
+| Método | Rota | Nível | O que faz |
+|---|---|---|---|
+| GET | `/api/health` | público | ping da API |
+| GET | `/api/status` | público | uptime, latência, servidores, membros, versão |
+| GET | `/api/status?detail=host` | 3 | acrescenta SO, disco, carga e memória |
+| GET | `/api/logs` | 3 | buffer de logs (`take`, `level`, `q`) |
+| GET | `/api/audit/roster` | 1 | efetivo consolidado + fila pendente |
+| GET | `/api/audit/history` | 1 | histórico da auditoria (o mesmo do `/audit-logs`) |
+| POST | `/api/audit/entry` | 3 | edita, renomeia ou remove um jogador |
+| POST | `/api/audit/ranks` | 3 | define patentes |
+| POST | `/api/audit/push` | 3 | publica no GitHub (aceita `dryRun`) |
+| GET | `/api/promotions` | 1 | elegibilidade pela escada de promoções |
+| POST | `/api/deployment` | 2 | envia a mensagem de deployment |
+| POST | `/api/dm` | 3 | inicia DM em massa, devolve `jobId` |
+| GET | `/api/dm/status` | 3 | progresso do job (`?jobId=`) |
+| POST | `/api/enlist` | 3 | alista com verificação ROBLOX |
+| POST | `/api/messages/send` | 1 | manda o bot escrever num canal |
+| POST | `/api/roles/add`, `/api/roles/remove` | 3 | gerencia cargos |
+| POST | `/api/punishments/timeout` | 2 | aplica timeout |
+| POST | `/api/punishments/remove-from-regiment` | 2 | remove os cargos do regimento |
+
+A lógica administrativa é compartilhada entre os comandos de barra e a API: `DeploymentBuilder`,
+`MassDmService`, `EnlistmentService`, `BotStatusSnapshot` e `AuditPublisher` existem justamente
+para que `/deployment` e `POST /api/deployment` (e assim por diante) produzam o mesmo resultado
+em vez de duas cópias que divergem no primeiro ajuste.
+
+**A DM em massa é um job, não um request.** Cada destinatário custa ~4,2s entre o limitador
+global (`DmRateLimiter`, 3s) e o espaçamento de 1,2s, então o teto de 500 pessoas leva cerca de
+35 minutos. `POST /api/dm` responde `202` com um `jobId` e o envio segue em segundo plano; o
+progresso vem de `GET /api/dm/status`. Os jobs vivem em memória e somem no reinício.
 
 `config.jsonc` e `dashboard_auth.json` **não são versionados** (contêm token e IDs do
 servidor). Para montar um ambiente novo, copie os modelos e preencha:

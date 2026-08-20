@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
+using CornwallUtilities.Services.Audit;
 using DisCatSharp;
 using DisCatSharp.Entities;
 using Newtonsoft.Json;
@@ -41,6 +42,12 @@ namespace CornwallUtilities.Services
         private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
 
         private CancellationTokenSource? _cts;
+
+        /// <summary>Cache do retrato publico de status - ver GetCachedPublicStatus.</summary>
+        private static readonly TimeSpan StatusCacheTtl = TimeSpan.FromSeconds(10);
+        private readonly object _statusCacheLock = new();
+        private PublicStatus? _cachedStatus;
+        private DateTimeOffset _cachedStatusAt;
 
         public DashboardHttpService(DiscordClient client, DashboardAuthService auth)
         {
@@ -239,6 +246,78 @@ namespace CornwallUtilities.Services
                 if (ctx.Request.HttpMethod == "POST" && path == "/api/punishments/remove-from-regiment")
                 {
                     await HandleRemoveFromRegimentAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/status")
+                {
+                    await HandleStatusAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/logs")
+                {
+                    await HandleLogsAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/audit/roster")
+                {
+                    await HandleAuditRosterAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/audit/history")
+                {
+                    await HandleAuditHistoryAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/audit/entry")
+                {
+                    await HandleAuditEntryAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/audit/ranks")
+                {
+                    await HandleAuditRanksAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/audit/push")
+                {
+                    await HandleAuditPushAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/promotions")
+                {
+                    await HandlePromotionsAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/deployment")
+                {
+                    await HandleDeploymentAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/dm")
+                {
+                    await HandleDmStartAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "GET" && path == "/api/dm/status")
+                {
+                    await HandleDmStatusAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/enlist")
+                {
+                    await HandleEnlistAsync(ctx);
                     return;
                 }
 
@@ -585,6 +664,722 @@ namespace CornwallUtilities.Services
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao remover usuário do regimento.", details = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Saude do bot. E a UNICA rota mutante-livre sem autenticacao alem do
+        /// /api/health, porque alimenta a pagina publica em ccore.daeese.me/status.
+        ///
+        /// Por isso o corpo padrao so traz o que ja e visivel para qualquer
+        /// pessoa no servidor (esta no ar, ha quanto tempo, latencia, tamanho).
+        /// Dados da maquina exigem `?detail=host` e nivel 3 - o mesmo criterio
+        /// que ja restringe o -osinfo a staff.
+        /// </summary>
+        private async Task HandleStatusAsync(HttpListenerContext ctx)
+        {
+            var wantsHost = string.Equals(ctx.Request.QueryString["detail"], "host", StringComparison.OrdinalIgnoreCase);
+
+            if (!wantsHost)
+            {
+                await WriteJsonAsync(ctx.Response, 200, new { bot = GetCachedPublicStatus() });
+                return;
+            }
+
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para ver dados da máquina." });
+                return;
+            }
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                bot = BotStatusSnapshot.Public(_client),
+                host = BotStatusSnapshot.Host(),
+                logs = LogCountsPayload()
+            });
+        }
+
+        /// <summary>
+        /// Retrato publico com cache curto.
+        ///
+        /// Sem autenticacao na frente, cada visita a pagina de status vira uma
+        /// chamada aqui; o cache impede que um refresh agressivo (ou um script)
+        /// vire trabalho repetido atravessando o tunnel. Dez segundos sao curtos
+        /// o bastante para "o bot caiu" aparecer praticamente na hora.
+        /// </summary>
+        private PublicStatus GetCachedPublicStatus()
+        {
+            lock (_statusCacheLock)
+            {
+                if (_cachedStatus is not null && DateTimeOffset.UtcNow - _cachedStatusAt < StatusCacheTtl)
+                    return _cachedStatus;
+
+                _cachedStatus = BotStatusSnapshot.Public(_client);
+                _cachedStatusAt = DateTimeOffset.UtcNow;
+                return _cachedStatus;
+            }
+        }
+
+        /// <summary>
+        /// Ultimas linhas do console. Nivel 3 porque os logs carregam ids de
+        /// usuario, mensagens de excecao e caminhos da maquina.
+        /// </summary>
+        private async Task HandleLogsAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para ver os logs do bot." });
+                return;
+            }
+
+            var take = ReadInt(ctx.Request.QueryString["take"], 100, 1, BotLogBuffer.Capacity);
+            var level = BotLogBuffer.ParseLevel(ctx.Request.QueryString["level"]);
+            var query = ctx.Request.QueryString["q"];
+
+            var lines = BotLogBuffer.Snapshot(take, level, query).Select(l => new
+            {
+                timestampUtc = l.TimestampUtc,
+                level = BotLogBuffer.LevelName(l.Level),
+                tag = l.Tag,
+                text = l.Text
+            });
+
+            await WriteJsonAsync(ctx.Response, 200, new { logs = lines, counts = LogCountsPayload() });
+        }
+
+        private static object LogCountsPayload()
+        {
+            var counts = BotLogBuffer.Counts();
+            return new { info = counts.Info, aviso = counts.Aviso, erro = counts.Erro, totalSeen = BotLogBuffer.TotalSeen };
+        }
+
+        /// <summary>Efetivo consolidado mais o que ainda esta na fila.</summary>
+        private async Task HandleAuditRosterAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 1);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                return;
+            }
+
+            var (audit, pending) = await AuditStore.Instance.ReadBothAsync();
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                lastUpdatedUtc = audit.lastUpdatedUtc,
+                totals = new
+                {
+                    players = audit.entries.Count,
+                    battles = audit.entries.Sum(e => (long)e.battles),
+                    kills = audit.entries.Sum(e => (long)e.kills)
+                },
+                entries = audit.entries
+                    .OrderByDescending(e => e.battles)
+                    .ThenBy(e => e.username, StringComparer.OrdinalIgnoreCase)
+                    .Select(e => new { e.username, e.kills, e.deaths, e.assists, e.battles, e.rank, kd = e.KdRatio }),
+                pending = pending.batches.Select(b => new
+                {
+                    b.batchId,
+                    b.createdUtc,
+                    b.submittedByUsername,
+                    players = b.entries.Count
+                })
+            });
+        }
+
+        /// <summary>Historico do sistema de auditoria - o mesmo que /audit-logs mostra.</summary>
+        private async Task HandleAuditHistoryAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 1);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                return;
+            }
+
+            var take = ReadInt(ctx.Request.QueryString["take"], 100, 1, 500);
+            var entries = await AuditLog.ReadAsync();
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                logs = entries
+                    .OrderByDescending(e => e.timestampUtc)
+                    .Take(take)
+                    .Select(e => new { e.timestampUtc, userId = e.userId.ToString(), e.username, e.action, e.details })
+            });
+        }
+
+        /// <summary>
+        /// Edita, renomeia ou remove um jogador. Espelha o /audit-edit,
+        /// inclusive a recusa de renomear para um nome que ja existe: sem ela,
+        /// dois jogadores seriam fundidos em silencio.
+        /// </summary>
+        private async Task HandleAuditEntryAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para editar a auditoria." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var username = ((string?)body?["username"])?.Trim();
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "username é obrigatório." });
+                return;
+            }
+
+            var editingPending = string.Equals((string?)body?["scope"], "pendente", StringComparison.OrdinalIgnoreCase);
+            var remove = (bool?)body?["remove"] ?? false;
+            var scopeLabel = editingPending ? "pendente" : "auditoria";
+
+            if (remove)
+            {
+                var removed = await AuditStore.Instance.UpdateAsync((storedAudit, storedPending) =>
+                {
+                    if (!editingPending)
+                        return storedAudit.entries.RemoveAll(e => string.Equals(e.username, username, StringComparison.OrdinalIgnoreCase));
+
+                    var count = 0;
+                    foreach (var batch in storedPending.batches)
+                        count += batch.entries.RemoveAll(e => string.Equals(e.username, username, StringComparison.OrdinalIgnoreCase));
+                    return count;
+                });
+
+                if (removed == 0)
+                {
+                    await WriteJsonAsync(ctx.Response, 404, new { error = $"'{username}' não foi encontrado em `{scopeLabel}`." });
+                    return;
+                }
+
+                var removeDetails = $"Removeu **{username}** de `{scopeLabel}` ({removed} registro(s)).";
+                await AuditLog.RecordAsync(session.UserId, session.Username, AuditLog.ActionRemove, removeDetails);
+                await AuditAsync(session, "AUDIT_REMOVE", removeDetails);
+                await WriteJsonAsync(ctx.Response, 200, new { ok = true, removed });
+                return;
+            }
+
+            var newName = ((string?)body?["newUsername"])?.Trim();
+            if (string.IsNullOrWhiteSpace(newName))
+                newName = username;
+
+            if (newName.Length > 32 || newName.Contains(','))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "O nome precisa ter até 32 caracteres e não pode conter vírgula." });
+                return;
+            }
+
+            if (!TryReadCount(body, "kills", out var kills) ||
+                !TryReadCount(body, "deaths", out var deaths) ||
+                !TryReadCount(body, "assists", out var assists) ||
+                !TryReadCount(body, "battles", out var battles))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "kills, deaths, assists e battles precisam ser inteiros não negativos." });
+                return;
+            }
+
+            AuditEntry? before = null;
+
+            var failure = await AuditStore.Instance.UpdateAsync<string?>((storedAudit, storedPending) =>
+            {
+                var renamed = !string.Equals(username, newName, StringComparison.OrdinalIgnoreCase);
+
+                if (editingPending)
+                {
+                    if (renamed && storedPending.batches.SelectMany(b => b.entries)
+                            .Any(e => string.Equals(e.username, newName, StringComparison.OrdinalIgnoreCase)))
+                        return $"Já existe '{newName}' nos lotes pendentes.";
+
+                    var found = false;
+                    foreach (var entry in storedPending.batches.SelectMany(b => b.entries)
+                                 .Where(e => string.Equals(e.username, username, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        before ??= entry.Clone();
+                        entry.username = newName;
+                        entry.kills = kills;
+                        entry.deaths = deaths;
+                        entry.assists = assists;
+                        found = true;
+                    }
+
+                    // Batalhas nao sao editaveis no escopo pendente: elas sao
+                    // contadas por lote na hora do push.
+                    return found ? null : "O jogador não está mais nos lotes pendentes.";
+                }
+
+                if (renamed && storedAudit.entries.Any(e => string.Equals(e.username, newName, StringComparison.OrdinalIgnoreCase)))
+                    return $"Já existe '{newName}' na auditoria. Renomear aqui juntaria dois jogadores sem aviso, então a operação foi cancelada.";
+
+                var target = storedAudit.entries.FirstOrDefault(e => string.Equals(e.username, username, StringComparison.OrdinalIgnoreCase));
+                if (target is null)
+                    return "O jogador não está mais na auditoria.";
+
+                before = target.Clone();
+                target.username = newName;
+                target.kills = kills;
+                target.deaths = deaths;
+                target.assists = assists;
+                target.battles = battles;
+                return null;
+            });
+
+            if (failure is not null)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = failure });
+                return;
+            }
+
+            var details =
+                $"Editou **{username}** em `{scopeLabel}`: " +
+                $"{before?.kills}/{before?.deaths}/{before?.assists} ({before?.battles} bat.) → " +
+                $"{newName} {kills}/{deaths}/{assists} ({(editingPending ? before?.battles : battles)} bat.)";
+
+            await AuditLog.RecordAsync(session.UserId, session.Username, AuditLog.ActionEdit, details);
+            await AuditAsync(session, "AUDIT_EDIT", details);
+
+            await WriteJsonAsync(ctx.Response, 200, new { ok = true, username = newName });
+        }
+
+        /// <summary>Define a patente de um ou mais jogadores. Campo vazio remove.</summary>
+        private async Task HandleAuditRanksAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para definir patentes." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            if (body?["ranks"] is not JArray rawRanks || rawRanks.Count == 0)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "ranks é obrigatório: uma lista de { username, rank }." });
+                return;
+            }
+
+            var requested = new List<(string Username, string Rank)>();
+            foreach (var item in rawRanks)
+            {
+                var name = ((string?)item["username"])?.Trim();
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                requested.Add((name, ((string?)item["rank"])?.Trim() ?? string.Empty));
+            }
+
+            if (requested.Count == 0)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Nenhum jogador válido na lista." });
+                return;
+            }
+
+            var changes = new List<string>();
+            var missing = new List<string>();
+
+            await AuditStore.Instance.UpdateAsync((storedAudit, _) =>
+            {
+                foreach (var (name, rank) in requested)
+                {
+                    var target = storedAudit.entries.FirstOrDefault(e => string.Equals(e.username, name, StringComparison.OrdinalIgnoreCase));
+                    if (target is null)
+                    {
+                        missing.Add(name);
+                        continue;
+                    }
+
+                    if (string.Equals(target.rank, rank, StringComparison.Ordinal))
+                        continue;
+
+                    changes.Add($"{target.username}: '{(string.IsNullOrWhiteSpace(target.rank) ? "-" : target.rank)}' → '{(string.IsNullOrWhiteSpace(rank) ? "-" : rank)}'");
+                    target.rank = rank;
+                }
+
+                return true;
+            });
+
+            if (changes.Count > 0)
+            {
+                var details = $"Definiu cargo(s) de {changes.Count} jogador(es): {string.Join("; ", changes.Take(10))}{(changes.Count > 10 ? "…" : "")}";
+                await AuditLog.RecordAsync(session.UserId, session.Username, AuditLog.ActionSetRanks, details);
+                await AuditAsync(session, "AUDIT_SETRANKS", details);
+            }
+
+            await WriteJsonAsync(ctx.Response, 200, new { ok = true, changed = changes.Count, changes, missing });
+        }
+
+        /// <summary>
+        /// Publica a auditoria no GitHub. Reaproveita exatamente o mesmo
+        /// AuditPublisher do /audit-push, entao a ordem dos passos e as garantias
+        /// contra contagem dupla valem igual aqui.
+        /// </summary>
+        private async Task HandleAuditPushAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para publicar a auditoria." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var dryRun = (bool?)body?["dryRun"] ?? false;
+
+            var config = new JSONReader();
+            await config.ReadJSON();
+
+            var outcome = await AuditPublisher.PublishAsync(config, dryRun);
+
+            if (!outcome.Ok)
+            {
+                await WriteJsonAsync(ctx.Response, 502, new
+                {
+                    error = $"Falha ao publicar durante: {outcome.FailedStep}.",
+                    details = outcome.Error,
+                    hint = "O arquivo pendente NÃO foi limpo; republicar não conta em dobro."
+                });
+                return;
+            }
+
+            if (!outcome.DryRun && !outcome.NothingToDo)
+            {
+                await AuditLog.RecordAsync(session.UserId, session.Username, AuditLog.ActionPush, outcome.LogDetails);
+                await AuditAsync(session, "AUDIT_PUSH", outcome.LogDetails);
+            }
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                ok = true,
+                dryRun = outcome.DryRun,
+                nothingToDo = outcome.NothingToDo,
+                hasPending = outcome.HasPending,
+                pendingBatches = outcome.PendingBatches,
+                totalEntries = outcome.TotalEntries,
+                batchesApplied = outcome.Report.BatchesApplied,
+                batchesSkipped = outcome.Report.BatchesSkipped,
+                playersUpdated = outcome.Report.PlayersUpdated,
+                battlesAdded = outcome.Report.BattlesAdded,
+                newPlayers = outcome.Report.NewPlayers,
+                auditCommitUrl = outcome.AuditCommitUrl,
+                archiveCommitUrl = outcome.ArchiveCommitUrl,
+                archivePath = outcome.ArchivePath
+            });
+        }
+
+        /// <summary>Quem esta elegivel a promocao, pela mesma escada do /promocoes.</summary>
+        private async Task HandlePromotionsAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 1);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                return;
+            }
+
+            var audit = await AuditStore.Instance.ReadAuditAsync();
+
+            var results = audit.entries
+                .Select(PromotionLadder.Evaluate)
+                .OrderByDescending(r => r.IsPromotable)
+                .ThenByDescending(r => r.Battles)
+                .ThenBy(r => r.Username, StringComparer.OrdinalIgnoreCase)
+                .Select(r => new
+                {
+                    username = r.Username,
+                    promotable = r.IsPromotable,
+                    status = r.Status.ToString(),
+                    // NeedsApproval separa "e so bater o numero" de "o comando
+                    // precisa avaliar": a escada nao decide promocao sozinha.
+                    needsApproval = r.Status == PromotionStatus.EligibleNeedsApproval,
+                    currentRank = string.IsNullOrWhiteSpace(r.CurrentRankName) ? null : r.CurrentRankName,
+                    targetRank = r.TargetRank?.Name,
+                    nextRank = r.NextRank?.Name,
+                    stepsSkipped = r.StepsSkipped,
+                    battles = r.Battles,
+                    battlesToNext = r.BattlesToNext
+                })
+                .ToList();
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                promotable = results.Count(r => r.promotable),
+                total = results.Count,
+                players = results
+            });
+        }
+
+        /// <summary>Dispara a mensagem de deployment, igual ao /deployment.</summary>
+        private async Task HandleDeploymentAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 2);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para enviar deployment." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var codigo = ((string?)body?["codigo"])?.Trim();
+            if (string.IsNullOrWhiteSpace(codigo))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "codigo é obrigatório." });
+                return;
+            }
+
+            var dashboardConfig = await _auth.GetConfigAsync();
+            var config = new JSONReader();
+            await config.ReadJSON();
+
+            try
+            {
+                var guild = await _client.GetGuildAsync(dashboardConfig.guildId);
+                var (channel, channelError) = await DeploymentBuilder.ResolveChannelAsync(_client, config, guild);
+                if (channel is null)
+                {
+                    await WriteJsonAsync(ctx.Response, 400, new { error = channelError ?? "Canal de deployment indisponível." });
+                    return;
+                }
+
+                var deployment = DeploymentBuilder.Build(config, guild, codigo);
+                await channel.SendMessageAsync(deployment.Message);
+
+                await AuditAsync(session, "DEPLOYMENT", $"Enviou deployment com código '{codigo}' para o canal {channel.Id} ({deployment.RolesPinged} cargo(s) pingado(s)).");
+
+                await WriteJsonAsync(ctx.Response, 200, new
+                {
+                    ok = true,
+                    channelId = channel.Id.ToString(),
+                    rolesPinged = deployment.RolesPinged,
+                    warning = deployment.ImageWarning
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[dashboard] falha ao enviar deployment: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar o deployment.", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Inicia um envio de DM em massa.
+        ///
+        /// Responde com um jobId em vez de esperar o envio terminar: cada
+        /// destinatario custa cerca de 4,2s entre o limitador global e o
+        /// espacamento, entao os 500 do teto levam ~35 minutos. Manter o request
+        /// aberto durante isso so garantiria um timeout.
+        /// </summary>
+        private async Task HandleDmStartAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para enviar DM em massa." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var roleId = ReadSnowflake(body, "roleId");
+            var userId = ReadSnowflake(body, "userId");
+            var message = ((string?)body?["message"])?.Trim() ?? string.Empty;
+            var code = ((string?)body?["code"])?.Trim() ?? string.Empty;
+
+            if (!roleId.HasValue && !userId.HasValue)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Informe roleId ou userId." });
+                return;
+            }
+
+            var dashboardConfig = await _auth.GetConfigAsync();
+            var config = new JSONReader();
+            await config.ReadJSON();
+
+            try
+            {
+                var guild = await _client.GetGuildAsync(dashboardConfig.guildId);
+
+                DiscordRole? role = roleId.HasValue ? guild.GetRole(roleId.Value) : null;
+                if (roleId.HasValue && role is null)
+                {
+                    await WriteJsonAsync(ctx.Response, 400, new { error = $"Cargo {roleId} não existe neste servidor." });
+                    return;
+                }
+
+                DiscordUser? user = null;
+                if (userId.HasValue)
+                    user = await _client.GetUserAsync(userId.Value);
+
+                // Resolver AQUI, e nao dentro do job: um alvo invalido deve
+                // falhar no request, e nao virar um job que so quebra depois.
+                var (members, targetName, error) = await MassDmService.ResolveRecipientsAsync(guild, role, user);
+                if (members is null)
+                {
+                    await WriteJsonAsync(ctx.Response, 400, new { error });
+                    return;
+                }
+
+                var embed = commands.DmRolesCertainRoles.BuildDeploymentDm(targetName, code, message);
+
+                // O link vai no content, e nao no embed, para o Discord montar o
+                // preview - mesmo criterio do /dmdeployment. Passar null aqui
+                // faria a DM do painel sair diferente da DM do comando.
+                var content = string.IsNullOrWhiteSpace(config.defaultGameLink) ? null : config.defaultGameLink;
+                var job = MassDmService.StartJob(members, targetName, content, embed);
+
+                await AuditAsync(session, "MASS_DM", $"Iniciou envio de DM para {members.Count} destinatário(s) ({targetName}) — job {job.JobId}.");
+
+                await WriteJsonAsync(ctx.Response, 202, new { ok = true, job = job.Snapshot() });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[dashboard] falha ao iniciar DM em massa: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao iniciar o envio.", details = ex.Message });
+            }
+        }
+
+        private async Task HandleDmStatusAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente." });
+                return;
+            }
+
+            var jobId = ctx.Request.QueryString["jobId"];
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                await WriteJsonAsync(ctx.Response, 200, new { jobs = MassDmService.RecentJobs() });
+                return;
+            }
+
+            var job = MassDmService.GetJob(jobId);
+            if (job is null)
+            {
+                await WriteJsonAsync(ctx.Response, 404, new { error = "Job não encontrado ou já expirado." });
+                return;
+            }
+
+            await WriteJsonAsync(ctx.Response, 200, new { job });
+        }
+
+        /// <summary>Alista um usuario, com a mesma verificacao ROBLOX do /enlistuser.</summary>
+        private async Task HandleEnlistAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 3);
+            if (session is null)
+            {
+                await WriteJsonAsync(ctx.Response, 403, new { error = "Permissão insuficiente para alistar." });
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var userId = ReadSnowflake(body, "userId");
+            var robloxUsername = ((string?)body?["robloxUsername"])?.Trim();
+            var socialRole = (bool?)body?["socialRole"] ?? false;
+
+            if (!userId.HasValue || string.IsNullOrWhiteSpace(robloxUsername))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "userId e robloxUsername são obrigatórios." });
+                return;
+            }
+
+            var dashboardConfig = await _auth.GetConfigAsync();
+            var config = new JSONReader();
+            await config.ReadJSON();
+
+            DiscordGuild guild;
+            DiscordMember member;
+            try
+            {
+                guild = await _client.GetGuildAsync(dashboardConfig.guildId);
+                member = await guild.GetMemberAsync(userId.Value);
+            }
+            catch (Exception)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "O usuário informado não é membro do servidor." });
+                return;
+            }
+
+            var check = await EnlistmentService.VerifyRobloxAsync(robloxUsername);
+            if (!check.Ok)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = check.Error });
+                return;
+            }
+
+            // Reprovado na verificacao nao e erro do chamador: a consulta
+            // funcionou e a resposta e "negado". Por isso 200 com approved=false
+            // em vez de 4xx - o painel precisa mostrar os numeros que motivaram.
+            if (!check.IsLikelyMain)
+            {
+                await WriteJsonAsync(ctx.Response, 200, new
+                {
+                    ok = false,
+                    approved = false,
+                    reason = "Conta ROBLOX não atende aos critérios mínimos de confiabilidade.",
+                    accountAgeDays = check.AccountAge.Days,
+                    friends = check.FriendsCount,
+                    badges = check.BadgesDisplay
+                });
+                return;
+            }
+
+            var applied = await EnlistmentService.ApplyAsync(_client, guild, member, config, socialRole);
+
+            var logEmbed = EnlistmentService.BuildLogEmbed(
+                _client, member, $"<@{session.UserId}> (dashboard)", robloxUsername, check, applied, socialRole);
+
+            var announceWarnings = await EnlistmentService.AnnounceAsync(_client, guild, config, logEmbed, member);
+
+            await AuditAsync(session, "ENLIST", $"Alistou {userId} como '{robloxUsername}' ({applied.AddedRoles.Count} cargo(s)).");
+
+            await WriteJsonAsync(ctx.Response, 200, new
+            {
+                ok = true,
+                approved = true,
+                accountAgeDays = check.AccountAge.Days,
+                friends = check.FriendsCount,
+                badges = check.BadgesDisplay,
+                rolesAdded = applied.AddedRoles.Select(r => r.Name),
+                nicknameChanged = applied.NicknameChanged,
+                warnings = applied.Warnings.Concat(announceWarnings)
+            });
+        }
+
+        /// <summary>Inteiro vindo da query string, com padrao e limites.</summary>
+        private static int ReadInt(string? raw, int fallback, int min, int max)
+        {
+            if (!int.TryParse(raw, out var value))
+                return fallback;
+
+            return Math.Clamp(value, min, max);
+        }
+
+        /// <summary>Contador nao negativo vindo do corpo JSON. Ausente = 0.</summary>
+        private static bool TryReadCount(JObject? body, string field, out int value)
+        {
+            value = 0;
+            var token = body?[field];
+            if (token is null || token.Type == JTokenType.Null)
+                return true;
+
+            if (token.Type == JTokenType.Integer)
+            {
+                value = token.Value<int>();
+                return value >= 0;
+            }
+
+            if (token.Type == JTokenType.String && int.TryParse(token.Value<string>()?.Trim(), out var parsed))
+            {
+                value = parsed;
+                return value >= 0;
+            }
+
+            return false;
         }
 
         private async Task TrySendPunishmentDmAsync(DiscordMember member, string punishmentType, string? reason)

@@ -35,6 +35,10 @@ namespace CornwallUtilities
 
         static async Task Main(string[] args)
         {
+            // Primeira linha do processo de proposito: o tee so captura o que
+            // for escrito DEPOIS dele, e os handlers globais abaixo ja logam.
+            ConsoleTee.Install();
+
             InstallGlobalExceptionHandlers();
 
             var jsonReader = new JSONReader();
@@ -132,6 +136,7 @@ namespace CornwallUtilities
                 slashCommands.RegisterGuildCommands<MessageStorageStatus>(gid);
                 slashCommands.RegisterGuildCommands<DashboardLink>(gid);
                 slashCommands.RegisterGuildCommands<Promocoes>(gid);
+                slashCommands.RegisterGuildCommands<BotLogs>(gid);
 
                 // Auditoria
                 slashCommands.RegisterGuildCommands<AuditAdd>(gid);
