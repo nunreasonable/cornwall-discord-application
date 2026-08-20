@@ -12,6 +12,7 @@ namespace CornwallUtilities.config
         public string? prefix { get; private set; }
         public string? spreadsheetCsvUrl { get; private set; }
         public string? spreadsheetRosterCsvUrl { get; private set; }
+        public SpreadsheetInfoTab[]? spreadsheetInfoTabs { get; private set; }
         public string? defaultGameLink { get; private set; }
 
         // Config used by the /enlistuser slash command
@@ -73,6 +74,7 @@ namespace CornwallUtilities.config
             prefix = data?.prefix;
             spreadsheetCsvUrl = data?.spreadsheetCsvUrl;
             spreadsheetRosterCsvUrl = data?.spreadsheetRosterCsvUrl;
+            spreadsheetInfoTabs = data?.spreadsheetInfoTabs;
             defaultGameLink = data?.defaultGameLink;
 
             enlistPermissionRoleId = data?.enlistPermissionRoleId;
@@ -145,6 +147,7 @@ namespace CornwallUtilities.config
         public string? prefix { get; set; }
         public string? spreadsheetCsvUrl { get; set; }
         public string? spreadsheetRosterCsvUrl { get; set; }
+        public SpreadsheetInfoTab[]? spreadsheetInfoTabs { get; set; }
         public string? defaultGameLink { get; set; }
 
         // Config for /enlistuser
@@ -201,6 +204,27 @@ namespace CornwallUtilities.config
         public string? responseMessage2 { get; set; }
         public ulong[]? notifyUserIds { get; set; }
         public int? dmAlertCooldownMinutes { get; set; }
+    }
+
+    /// <summary>
+    /// Uma aba da planilha regimental que o /checkspreadsheetinfo varre.
+    ///
+    /// So o nome e a URL sao necessarios: a coluna do nome de usuario e achada
+    /// pelo cabecalho, nao por indice fixo, porque as abas nao a tem na mesma
+    /// posicao - PROMOCOES comeca na coluna K.
+    /// </summary>
+    internal sealed class SpreadsheetInfoTab
+    {
+        /// <summary>Nome mostrado no embed, ex.: "CENTRO".</summary>
+        public string? name { get; set; }
+        /// <summary>URL de export CSV da aba.</summary>
+        public string? csvUrl { get; set; }
+        /// <summary>
+        /// Aba de historico de promocoes, que tem colunas proprias (patente
+        /// antiga e nova) e por isso vira uma secao separada do embed em vez de
+        /// mais um bloco de dados atuais.
+        /// </summary>
+        public bool promotions { get; set; }
     }
 
     internal sealed class AuditConfig

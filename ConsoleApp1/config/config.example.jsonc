@@ -3,6 +3,21 @@
     "prefix": "-",
     "spreadsheetCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=0",
     "spreadsheetRosterCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
+    // Abas da planilha regimental que o /checkspreadsheetinfo varre. A busca
+    // corre todas e diz em qual o jogador apareceu, entao trocar alguem de
+    // companhia nao exige mexer aqui.
+    //
+    // A coluna do nome NAO e fixada por indice: o comando acha o cabecalho
+    // ("NOME DE USUARIO", e "NOME DO USUARIO" em PROMOCOES) e usa a posicao
+    // dele. PROMOCOES comeca na coluna K, e sem isso a busca cairia numa das
+    // dez colunas vazias a esquerda.
+    "spreadsheetInfoTabs": [
+        { "name": "CENTRO", "csvUrl": "https://docs.google.com/spreadsheets/d/1ZPFd05P5tsy-6QgvxIgm_5ftjP7ZO6E1lDyjAnmHJxs/export?format=csv&gid=1117562202" },
+        { "name": "LIGEIROS", "csvUrl": "https://docs.google.com/spreadsheets/d/1ZPFd05P5tsy-6QgvxIgm_5ftjP7ZO6E1lDyjAnmHJxs/export?format=csv&gid=206072502" },
+        { "name": "GRANADEIROS", "csvUrl": "https://docs.google.com/spreadsheets/d/1ZPFd05P5tsy-6QgvxIgm_5ftjP7ZO6E1lDyjAnmHJxs/export?format=csv&gid=213664984" },
+        // Historico de promocoes: formato proprio, entra como secao a parte do embed.
+        { "name": "PROMOÇÕES", "csvUrl": "https://docs.google.com/spreadsheets/d/1ZPFd05P5tsy-6QgvxIgm_5ftjP7ZO6E1lDyjAnmHJxs/export?format=csv&gid=382684213", "promotions": true }
+    ],
     "defaultGameLink": "https://www.roblox.com/games/12068120918/Napoleonic-Wars",
 
     "enlistPermissionRoleId": 1487945889581629582,
