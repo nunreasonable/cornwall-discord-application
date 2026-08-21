@@ -39,6 +39,16 @@ namespace CornwallUtilities.Services
 
         /// <summary>De quanto em quanto tempo a permissao de uma sessao viva e reconferida no Discord.</summary>
         private static readonly TimeSpan PermissionRefreshInterval = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Espera antes de tentar de novo quando a consulta de permissao FALHOU.
+        ///
+        /// Curta de proposito: e o intervalo em que alguem que acabou de perder o
+        /// cargo continua com o nivel antigo, entao nao pode ser da ordem do
+        /// PermissionRefreshInterval. Longa o bastante para que uma instabilidade
+        /// do Discord nao seja repaginada a cada request.
+        /// </summary>
+        private static readonly TimeSpan PermissionRetryBackoff = TimeSpan.FromSeconds(30);
         private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
 
         private CancellationTokenSource? _cts;
@@ -359,7 +369,7 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            var code = (string?)body?["linkCode"];
+            var code = ReadString(body, "linkCode");
             if (string.IsNullOrWhiteSpace(code))
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "linkCode é obrigatório." });
@@ -403,7 +413,7 @@ namespace CornwallUtilities.Services
                 AvatarUrl = pending.AvatarUrl,
                 PermissionLevel = permissionResult.PermissionLevel,
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(sessionLifetime),
-                PermissionCheckedAt = DateTimeOffset.UtcNow
+                NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRefreshInterval)
             };
 
             _sessions[token] = session;
@@ -490,7 +500,7 @@ namespace CornwallUtilities.Services
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var channelId = ReadSnowflake(body, "channelId");
-            var message = (string?)body?["message"];
+            var message = ReadString(body, "message");
             if (!channelId.HasValue || string.IsNullOrWhiteSpace(message))
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "channelId e message são obrigatórios." });
@@ -551,7 +561,7 @@ namespace CornwallUtilities.Services
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var userId = ReadSnowflake(body, "userId");
             var roleId = ReadSnowflake(body, "roleId");
-            var reason = ((string?)body?["reason"])?.Trim();
+            var reason = ReadString(body, "reason")?.Trim();
 
             if (!userId.HasValue || !roleId.HasValue)
             {
@@ -596,10 +606,13 @@ namespace CornwallUtilities.Services
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var userId = ReadSnowflake(body, "userId");
-            var durationMinutes = (int?)body?["durationMinutes"];
-            var reason = ((string?)body?["reason"])?.Trim();
+            var reason = ReadString(body, "reason")?.Trim();
 
-            if (!userId.HasValue || !durationMinutes.HasValue || durationMinutes.Value <= 0)
+            // TryReadCount, e nao `(int?)body?[...]`: o cast do Newtonsoft
+            // lanca FormatException quando o campo chega como texto nao
+            // numerico, e o painel recebia 500 "erro interno" no lugar do 400
+            // que descreve o problema. Ausente conta como 0 e cai no mesmo 400.
+            if (!userId.HasValue || !TryReadCount(body, "durationMinutes", out var durationMinutes) || durationMinutes <= 0)
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "userId e durationMinutes válidos são obrigatórios." });
                 return;
@@ -611,7 +624,7 @@ namespace CornwallUtilities.Services
                 var guild = await _client.GetGuildAsync(config.guildId);
                 var member = await guild.GetMemberAsync(userId.Value);
 
-                await member.TimeoutAsync(DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(durationMinutes.Value, 1, 40320)), reason);
+                await member.TimeoutAsync(DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(durationMinutes, 1, 40320)), reason);
 
                 await TrySendPunishmentDmAsync(member, "Timeout", reason);
                 await AuditAsync(session, "TIMEOUT", $"Aplicou timeout em {userId} por {durationMinutes} minuto(s).");
@@ -634,7 +647,7 @@ namespace CornwallUtilities.Services
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var userId = ReadSnowflake(body, "userId");
-            var reason = ((string?)body?["reason"])?.Trim();
+            var reason = ReadString(body, "reason")?.Trim();
 
             if (!userId.HasValue)
             {
@@ -673,7 +686,7 @@ namespace CornwallUtilities.Services
         ///
         /// Por isso o corpo padrao so traz o que ja e visivel para qualquer
         /// pessoa no servidor (esta no ar, ha quanto tempo, latencia, tamanho).
-        /// Dados da maquina exigem `?detail=host` e nivel 3 - o mesmo criterio
+        /// Dados da maquina exigem `?detail=host` e nivel 2 - o mesmo criterio
         /// que ja restringe o -osinfo a staff.
         /// </summary>
         private async Task HandleStatusAsync(HttpListenerContext ctx)
@@ -724,7 +737,7 @@ namespace CornwallUtilities.Services
         }
 
         /// <summary>
-        /// Ultimas linhas do console. Nivel 3 porque os logs carregam ids de
+        /// Ultimas linhas do console. Nivel 2 porque os logs carregam ids de
         /// usuario, mensagens de excecao e caminhos da maquina.
         /// </summary>
         private async Task HandleLogsAsync(HttpListenerContext ctx)
@@ -853,7 +866,7 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            var remove = (bool?)body?["remove"] ?? false;
+            var remove = ReadBool(body, "remove");
 
             if (remove)
             {
@@ -865,14 +878,14 @@ namespace CornwallUtilities.Services
                 }
             }
 
-            var username = ((string?)body?["username"])?.Trim();
+            var username = ReadString(body, "username")?.Trim();
             if (string.IsNullOrWhiteSpace(username))
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "username é obrigatório." });
                 return;
             }
 
-            var editingPending = string.Equals((string?)body?["scope"], "pendente", StringComparison.OrdinalIgnoreCase);
+            var editingPending = string.Equals(ReadString(body, "scope"), "pendente", StringComparison.OrdinalIgnoreCase);
             var scopeLabel = editingPending ? "pendente" : "auditoria";
 
             if (remove)
@@ -901,7 +914,7 @@ namespace CornwallUtilities.Services
                 return;
             }
 
-            var newName = ((string?)body?["newUsername"])?.Trim();
+            var newName = ReadString(body, "newUsername")?.Trim();
             if (string.IsNullOrWhiteSpace(newName))
                 newName = username;
 
@@ -1003,11 +1016,11 @@ namespace CornwallUtilities.Services
             var requested = new List<(string Username, string Rank)>();
             foreach (var item in rawRanks)
             {
-                var name = ((string?)item["username"])?.Trim();
+                var name = ReadString(item as JObject, "username")?.Trim();
                 if (string.IsNullOrWhiteSpace(name))
                     continue;
 
-                requested.Add((name, ((string?)item["rank"])?.Trim() ?? string.Empty));
+                requested.Add((name, ReadString(item as JObject, "rank")?.Trim() ?? string.Empty));
             }
 
             if (requested.Count == 0)
@@ -1066,7 +1079,7 @@ namespace CornwallUtilities.Services
             }
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
-            var dryRun = (bool?)body?["dryRun"] ?? false;
+            var dryRun = ReadBool(body, "dryRun");
 
             var config = new JSONReader();
             await config.ReadJSON();
@@ -1163,7 +1176,7 @@ namespace CornwallUtilities.Services
             }
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
-            var codigo = ((string?)body?["codigo"])?.Trim();
+            var codigo = ReadString(body, "codigo")?.Trim();
             if (string.IsNullOrWhiteSpace(codigo))
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "codigo é obrigatório." });
@@ -1225,8 +1238,8 @@ namespace CornwallUtilities.Services
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var roleId = ReadSnowflake(body, "roleId");
             var userId = ReadSnowflake(body, "userId");
-            var message = ((string?)body?["message"])?.Trim() ?? string.Empty;
-            var code = ((string?)body?["code"])?.Trim() ?? string.Empty;
+            var message = ReadString(body, "message")?.Trim() ?? string.Empty;
+            var code = ReadString(body, "code")?.Trim() ?? string.Empty;
 
             if (!roleId.HasValue && !userId.HasValue)
             {
@@ -1321,8 +1334,8 @@ namespace CornwallUtilities.Services
 
             var body = await ReadBodyAsJsonAsync(ctx.Request);
             var userId = ReadSnowflake(body, "userId");
-            var robloxUsername = ((string?)body?["robloxUsername"])?.Trim();
-            var socialRole = (bool?)body?["socialRole"] ?? false;
+            var robloxUsername = ReadString(body, "robloxUsername")?.Trim();
+            var socialRole = ReadBool(body, "socialRole");
 
             if (!userId.HasValue || string.IsNullOrWhiteSpace(robloxUsername))
             {
@@ -1517,13 +1530,32 @@ namespace CornwallUtilities.Services
             if (session is null)
                 return null;
 
-            if (DateTimeOffset.UtcNow - session.PermissionCheckedAt >= PermissionRefreshInterval)
+            if (DateTimeOffset.UtcNow >= session.NextPermissionCheckAt)
             {
                 var current = await _auth.ResolvePermissionLevelAsync(_client, session.UserId);
-                if (!current.HadLookupFailure)
+
+                if (current.HadLookupFailure)
+                {
+                    /*
+                     * Discord fora do ar nao derruba ninguem: o nivel conhecido
+                     * continua valendo, porque expulsar todo mundo numa
+                     * instabilidade seria pior que o risco coberto aqui.
+                     *
+                     * O que MUDA e a hora da proxima tentativa. Antes a falha nao
+                     * mexia no carimbo, entao a sessao seguia vencida e cada
+                     * request refazia as tres tentativas do
+                     * ResolvePermissionLevelAsync, com os atrasos entre elas,
+                     * antes de responder qualquer coisa: uma lentidao do Discord
+                     * virava lentidao de todo o painel, multiplicada pelo numero
+                     * de requests. Com o adiamento curto, o custo da
+                     * indisponibilidade e pago uma vez a cada 30 segundos.
+                     */
+                    session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRetryBackoff);
+                }
+                else
                 {
                     session.PermissionLevel = current.PermissionLevel;
-                    session.PermissionCheckedAt = DateTimeOffset.UtcNow;
+                    session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRefreshInterval);
 
                     if (current.PermissionLevel <= 0)
                     {
@@ -1653,6 +1685,45 @@ namespace CornwallUtilities.Services
             response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
         }
 
+        /// <summary>
+        /// Texto de um campo do corpo JSON.
+        ///
+        /// O cast direto `(string?)body?["x"]` do Newtonsoft LANCA quando o
+        /// campo vem como objeto ou lista - e a excecao subia ate o tratador
+        /// geral, que devolvia 500 "erro interno" para o que na verdade e um
+        /// corpo malformado do cliente. Aqui um tipo inesperado vira
+        /// simplesmente null, e a validacao de campo obrigatorio da rota
+        /// responde o 400 que corresponde ao caso.
+        /// </summary>
+        private static string? ReadString(JObject? body, string field)
+        {
+            var token = body?[field];
+            if (token is null || token.Type is JTokenType.Null or JTokenType.Undefined)
+                return null;
+
+            return token.Type switch
+            {
+                JTokenType.Object or JTokenType.Array => null,
+                _ => token.ToString()
+            };
+        }
+
+        /// <summary>Booleano do corpo JSON. Ausente ou ilegivel = <paramref name="fallback"/>.</summary>
+        private static bool ReadBool(JObject? body, string field, bool fallback = false)
+        {
+            var token = body?[field];
+            if (token is null)
+                return fallback;
+
+            return token.Type switch
+            {
+                JTokenType.Boolean => token.Value<bool>(),
+                JTokenType.Integer => token.Value<long>() != 0,
+                JTokenType.String => bool.TryParse(token.Value<string>()?.Trim(), out var parsed) ? parsed : fallback,
+                _ => fallback
+            };
+        }
+
         private static ulong? ReadSnowflake(JObject? body, string field)
         {
             var token = body?[field];
@@ -1730,8 +1801,15 @@ namespace CornwallUtilities.Services
             public int PermissionLevel { get; set; }
             public DateTimeOffset ExpiresAt { get; set; }
 
-            /// <summary>Quando o nivel desta sessao foi conferido no Discord pela ultima vez.</summary>
-            public DateTimeOffset PermissionCheckedAt { get; set; }
+            /// <summary>
+            /// Quando o nivel desta sessao deve ser reconferido no Discord.
+            ///
+            /// Guarda o PROXIMO horario, e nao o ultimo: e o que permite adiar a
+            /// tentativa por um tempo diferente conforme a consulta anterior
+            /// tenha dado certo (PermissionRefreshInterval) ou falhado
+            /// (PermissionRetryBackoff).
+            /// </summary>
+            public DateTimeOffset NextPermissionCheckAt { get; set; }
         }
 
         private sealed class LoginAttempts

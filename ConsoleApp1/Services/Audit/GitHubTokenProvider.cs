@@ -27,15 +27,15 @@ namespace CornwallUtilities.Services.Audit
         /// </summary>
         public static void Invalidate()
         {
-            s_lock.Wait();
-            try
-            {
-                s_cached = null;
-            }
-            finally
-            {
-                s_lock.Release();
-            }
+            // Sem tomar o semaforo: esta chamada nasce do tratador de erro de um
+            // comando, e o dono do semaforo pode estar exatamente dentro do
+            // `gh auth token` (ate 10s). Esperar ali bloquearia uma thread do
+            // ThreadPool - o mesmo tipo de bloqueio que este codebase evita em
+            // todo lugar por causa do heartbeat do gateway. Escrever null e
+            // atomico, e no pior caso uma resolucao concorrente que ja estava em
+            // andamento regrava o token vencido; a proxima falha invalida de
+            // novo, que e o comportamento que ja existia.
+            Volatile.Write(ref s_cached, null);
         }
 
         public static async Task<string> ResolveAsync(AuditConfig? cfg)
@@ -43,8 +43,9 @@ namespace CornwallUtilities.Services.Audit
             await s_lock.WaitAsync().ConfigureAwait(false);
             try
             {
-                if (!string.IsNullOrWhiteSpace(s_cached))
-                    return s_cached!;
+                var cached = Volatile.Read(ref s_cached);
+                if (!string.IsNullOrWhiteSpace(cached))
+                    return cached;
 
                 // 1) Override explicito no config.jsonc.
                 if (!string.IsNullOrWhiteSpace(cfg?.githubToken))

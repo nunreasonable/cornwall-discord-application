@@ -47,17 +47,27 @@ namespace CornwallUtilities.Services.Audit
                     continue;
                 }
 
+                // Um lote e uma batalha: se o mesmo nome aparecer duas vezes
+                // dentro dele, o K/D/A soma mas a batalha continua sendo uma so.
+                // O /audit-add ja funde as linhas repetidas na leitura, mas
+                // nada garantia isso aqui - e um lote editado pelo painel ou
+                // vindo de um arquivamento antigo entrava contando em dobro.
+                var countedInBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                 foreach (var entry in batch.entries)
                 {
                     if (string.IsNullOrWhiteSpace(entry.username))
                         continue;
+
+                    var firstInBatch = countedInBatch.Add(entry.username);
 
                     if (index.TryGetValue(entry.username, out var target))
                     {
                         target.kills += entry.kills;
                         target.deaths += entry.deaths;
                         target.assists += entry.assists;
-                        target.battles += 1;
+                        if (firstInBatch)
+                            target.battles += 1;
                     }
                     else
                     {
@@ -76,7 +86,8 @@ namespace CornwallUtilities.Services.Audit
                     }
 
                     touched.Add(target.username);
-                    report.BattlesAdded++;
+                    if (firstInBatch)
+                        report.BattlesAdded++;
                 }
 
                 report.BatchesApplied++;

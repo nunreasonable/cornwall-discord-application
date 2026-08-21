@@ -347,11 +347,22 @@ namespace CornwallUtilities.commands
 
             public void AddSection(string name, List<string> lines)
             {
+                if (string.IsNullOrWhiteSpace(name))
+                    name = "Planilha";
+
                 var text = new StringBuilder();
                 var part = 1;
 
+                // Flush com o acumulador VAZIO nao pode virar field: o Discord
+                // recusa field sem valor com BadRequest e leva junto a resposta
+                // inteira. Era o que acontecia quando a primeira linha da secao
+                // ja passava sozinha do teto do field - a condicao de corte
+                // disparava antes de haver qualquer texto acumulado.
                 void Flush()
                 {
+                    if (text.Length == 0)
+                        return;
+
                     var fieldName = part == 1 ? name : $"{name} (parte {part})";
                     if (_fieldCount >= MaxFields || _totalChars + fieldName.Length + text.Length > MaxTotalChars)
                     {
@@ -367,8 +378,15 @@ namespace CornwallUtilities.commands
                     text.Clear();
                 }
 
-                foreach (var line in lines)
+                foreach (var raw in lines)
                 {
+                    // Uma celula da planilha pode sozinha ser maior que um field
+                    // inteiro (o limite do Discord e 1024). Sem o corte, ela ia
+                    // para o field como estava e a resposta voltava BadRequest.
+                    var line = raw.Length <= MaxFieldChars
+                        ? raw
+                        : raw.Substring(0, MaxFieldChars - 1) + "…";
+
                     if (text.Length + line.Length + 1 > MaxFieldChars)
                     {
                         Flush();
@@ -381,8 +399,7 @@ namespace CornwallUtilities.commands
                     text.Append(line);
                 }
 
-                if (text.Length > 0)
-                    Flush();
+                Flush();
             }
         }
 

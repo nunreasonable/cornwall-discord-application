@@ -72,8 +72,24 @@ namespace CornwallUtilities.commands
 
             var interactivity = ctx.Client.GetInteractivity();
 
+            /*
+             * Submissao de modal chega por ComponentInteractionCreated tambem: o
+             * despachante monta o MESMO ComponentInteractionCreateEventArgs para
+             * Component e para ModalSubmit, e nesse segundo caso o Message vem
+             * nulo - e por isso que o handler global do Program.cs ja abre com
+             * `e.Message is null`.
+             *
+             * O EventWaiter da Interactivity chama o predicado direto, sem
+             * try/catch: um `e.Message.Id` cru derrubava o evento inteiro com
+             * NullReferenceException ("erro no evento COMPONENT_INTERACTED")
+             * sempre que um modal era enviado enquanto esta sessao esperava um
+             * clique - o modal desta propria tela ou o de outra sessao do
+             * comando. Filtrar por tipo antes de tocar no Message resolve.
+             */
             bool Owned(ComponentInteractionCreateEventArgs e) =>
-                e.Message.Id == message.Id
+                e.Interaction.Type == InteractionType.Component
+                && e.Message is not null
+                && e.Message.Id == message.Id
                 && e.User.Id == ctx.User.Id
                 && (e.Interaction.Data?.CustomId ?? string.Empty).EndsWith(sessionId, StringComparison.Ordinal);
 
@@ -396,12 +412,17 @@ namespace CornwallUtilities.commands
                     e.username,
                     AuditEmbeds.Trim($"K{e.kills} D{e.deaths} A{e.assists} B{e.battles} — {(string.IsNullOrWhiteSpace(e.rank) ? "sem cargo" : e.rank)}", 100)));
 
+                // Argumentos nomeados de proposito: o construtor recebe
+                // (placeholder, options, customId, ...) - o placeholder vem
+                // PRIMEIRO. Passando posicionalmente, o texto do menu virava o
+                // customId, o clique no select nunca casava com o sessionId e a
+                // Discord respondia "interacao falhou".
                 builder.AddComponents(new DiscordStringSelectComponent(
-                    $"audit_rank_pick:{sessionId}",
-                    options,
-                    $"Selecione jogadores (cabem mais {livres})",
-                    1,
-                    Math.Min(livres, matches.Count)));
+                    placeholder: $"Selecione jogadores (cabem mais {livres})",
+                    options: options,
+                    customId: $"audit_rank_pick:{sessionId}",
+                    minOptions: 1,
+                    maxOptions: Math.Min(livres, matches.Count)));
             }
 
             return builder.AddComponents(

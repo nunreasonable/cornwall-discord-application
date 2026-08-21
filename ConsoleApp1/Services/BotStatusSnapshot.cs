@@ -107,7 +107,7 @@ namespace CornwallUtilities.Services
                 measuredAtUtc: DateTimeOffset.UtcNow);
         }
 
-        /// <summary>Recorte sensivel. Exige nivel 3 na API.</summary>
+        /// <summary>Recorte sensivel. Exige nivel 2 na API (`GET /api/status?detail=host`).</summary>
         public static HostStatus Host()
         {
             var process = CurrentProcessLines().ToDictionary(r => r.Item1, r => r.Item2);

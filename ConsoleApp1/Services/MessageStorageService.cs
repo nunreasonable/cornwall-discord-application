@@ -60,7 +60,11 @@ namespace CornwallUtilities.Services
                 Timestamp = DateTime.UtcNow,
                 ChannelId = message.ChannelId,
                 HasMentions = message.MentionedUsers.Count > 0 || message.MentionedRoles.Count > 0 || message.MentionedChannels.Count > 0,
-                OriginalMessageUrl = $"https://discord.com/channels/{message.Channel.GuildId}/{message.ChannelId}/{message.Id}"
+                // Channel?.GuildId, e nao Channel.GuildId: isto roda no caminho
+                // do despacho do gateway, e uma NullReferenceException aqui
+                // derruba o evento MESSAGE_CREATE inteiro em vez de so perder
+                // uma URL.
+                OriginalMessageUrl = $"https://discord.com/channels/{message.Channel?.GuildId}/{message.ChannelId}/{message.Id}"
             };
 
             // Process attachments
@@ -329,22 +333,32 @@ namespace CornwallUtilities.Services
             }
         }
 
+        /// <summary>
+        /// Descarta da memoria o que passou da janela de retencao. NAO apaga
+        /// nada do Discord.
+        ///
+        /// A poda e feita pela FRENTE da fila, com TryPeek, e nao drenando tudo
+        /// para reenfileirar o que sobrou: a fila e FIFO e o Timestamp e posto
+        /// no enfileiramento, entao as mais antigas estao sempre na frente. A
+        /// versao anterior tirava um retrato, esvaziava a fila e devolvia o
+        /// retrato - qualquer mensagem que chegasse entre o retrato e o dreno
+        /// era engolida pelo `while (TryDequeue)` e sumia sem nunca ter sido
+        /// velha.
+        /// </summary>
         private void CleanupOldMessages(object? state)
         {
             var cutoffTime = DateTime.UtcNow.AddHours(-_messageRetentionHours);
-            var messages = _messageQueue.ToArray();
-            var validMessages = messages.Where(m => m.Timestamp > cutoffTime).ToArray();
+            var removed = 0;
 
-            // Clear and re-add valid messages to memory only
-            // NOTE: This only removes messages from memory, NOT from Discord chat
-            while (_messageQueue.TryDequeue(out _)) { }
-            
-            foreach (var message in validMessages)
+            while (_messageQueue.TryPeek(out var oldest) && oldest.Timestamp <= cutoffTime)
             {
-                _messageQueue.Enqueue(message);
+                if (!_messageQueue.TryDequeue(out _))
+                    break;
+
+                removed++;
             }
 
-            Console.WriteLine($"Memory cleanup completed. Removed {messages.Length - validMessages.Length} old messages from memory. Current count: {validMessages.Length}");
+            Console.WriteLine($"Memory cleanup completed. Removed {removed} old messages from memory. Current count: {_messageQueue.Count}");
         }
 
         public int GetMessageCount()
@@ -426,10 +440,16 @@ namespace CornwallUtilities.Services
             // Uma mensagem guardada de quem tem Nitro pode passar dos 2000
             // caracteres que o bot consegue enviar; cortar aqui evita um 400 que
             // derrubaria o repost inteiro.
-            if (message.Content.Length > 2000)
-                message.Content = message.Content[..1997] + "...";
+            //
+            // O corte vai para uma variavel local, e nao de volta para o objeto
+            // guardado: escrever em message.Content mutilava permanentemente a
+            // copia que continua na fila, entao a mensagem original ficava
+            // truncada para sempre depois do primeiro repost.
+            var content = message.Content.Length > 2000
+                ? message.Content[..1997] + "..."
+                : message.Content;
 
-            var hasText = !string.IsNullOrWhiteSpace(message.Content);
+            var hasText = !string.IsNullOrWhiteSpace(content);
             var attachmentUrls = message.Attachments
                 .Select(a => a.Url)
                 .Where(url => !string.IsNullOrWhiteSpace(url))
@@ -449,7 +469,7 @@ namespace CornwallUtilities.Services
             if (hasText)
             {
                 await channel.SendMessageAsync(new DiscordMessageBuilder()
-                    .WithContent(message.Content)
+                    .WithContent(content)
                     .WithAllowedMentions(Mentions.None));
             }
 

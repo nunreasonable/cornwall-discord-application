@@ -240,10 +240,21 @@ namespace CornwallUtilities
                 {
                     return; // listener fechado no shutdown
                 }
+                catch (SocketException ex) when (ex.SocketErrorCode is SocketError.OperationAborted or SocketError.Interrupted)
+                {
+                    return; // listener fechado embaixo do accept
+                }
                 catch (Exception ex)
                 {
+                    // Uma falha isolada de accept (descritor esgotado, cliente
+                    // que desiste no meio do handshake) nao pode aposentar o
+                    // socket de controle ate o proximo restart do bot - era o
+                    // que o `return` daqui fazia. A pausa evita que um listener
+                    // quebrado de verdade gire consumindo uma CPU inteira, do
+                    // mesmo jeito que o laco de accept do dashboard.
                     Console.WriteLine($"[terminal] accept falhou: {ex.Message}");
-                    return;
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+                    continue;
                 }
 
                 _ = Task.Run(() => ServeSessionAsync(connection));
