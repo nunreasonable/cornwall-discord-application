@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdatedUtc": "2026-08-22T01:54:29.3399728+00:00",
+  "lastUpdatedUtc": "2026-08-22T01:55:03.6179982+00:00",
   "appliedBatchIds": [
     "a4cb75e51b0c",
     "42b768c8e60a",
@@ -8,7 +8,8 @@
     "bd211d7a9694",
     "b795aa504a80",
     "bc1629e78d69",
-    "753dfcffb496"
+    "753dfcffb496",
+    "ae3ce19b8628"
   ],
   "entries": [
     {
@@ -22,12 +23,12 @@
     },
     {
       "username": "MazziN_0171",
-      "kills": 122,
-      "deaths": 84,
-      "assists": 30,
-      "battles": 24,
+      "kills": 181,
+      "deaths": 141,
+      "assists": 54,
+      "battles": 25,
       "rank": "Lance corporal",
-      "KdRatio": "1.45"
+      "KdRatio": "1.28"
     },
     {
       "username": "WalkerOdebrecht",
@@ -40,21 +41,21 @@
     },
     {
       "username": "lipao000",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 49,
+      "kills": 21,
+      "deaths": 61,
+      "assists": 13,
+      "battles": 50,
       "rank": "Ensign",
-      "KdRatio": "0"
+      "KdRatio": "0.34"
     },
     {
       "username": "RafaOdebrecht",
-      "kills": 208,
-      "deaths": 120,
-      "assists": 24,
-      "battles": 177,
+      "kills": 254,
+      "deaths": 158,
+      "assists": 31,
+      "battles": 178,
       "rank": "Serjeant Major",
-      "KdRatio": "1.73"
+      "KdRatio": "1.61"
     },
     {
       "username": "joao7783271",
@@ -94,12 +95,12 @@
     },
     {
       "username": "gabe_28q",
-      "kills": 112,
-      "deaths": 98,
-      "assists": 26,
-      "battles": 25,
+      "kills": 166,
+      "deaths": 151,
+      "assists": 42,
+      "battles": 26,
       "rank": "Lance Corporal",
-      "KdRatio": "1.14"
+      "KdRatio": "1.10"
     },
     {
       "username": "gularte101045",
@@ -121,21 +122,21 @@
     },
     {
       "username": "Brunoalexandrino",
-      "kills": 100,
-      "deaths": 92,
-      "assists": 20,
-      "battles": 62,
+      "kills": 145,
+      "deaths": 134,
+      "assists": 33,
+      "battles": 63,
       "rank": "Corporal",
-      "KdRatio": "1.09"
+      "KdRatio": "1.08"
     },
     {
       "username": "AkanaOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 10,
+      "kills": 31,
+      "deaths": 54,
+      "assists": 4,
+      "battles": 11,
       "rank": "Quartermaster-Serjeant",
-      "KdRatio": "0"
+      "KdRatio": "0.57"
     },
     {
       "username": "luqinhas_kidbatata",
@@ -166,21 +167,21 @@
     },
     {
       "username": "AlanOdebrecht",
-      "kills": 30,
-      "deaths": 132,
-      "assists": 12,
-      "battles": 114,
+      "kills": 77,
+      "deaths": 206,
+      "assists": 29,
+      "battles": 115,
       "rank": "Quartermaster-Serjeant",
-      "KdRatio": "0.23"
+      "KdRatio": "0.37"
     },
     {
       "username": "HikaruBRZ",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 54,
+      "kills": 42,
+      "deaths": 57,
+      "assists": 29,
+      "battles": 55,
       "rank": "Serjeant",
-      "KdRatio": "0"
+      "KdRatio": "0.74"
     },
     {
       "username": "BrithishOdebrecht",
@@ -211,30 +212,30 @@
     },
     {
       "username": "loi980gt",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 80,
+      "kills": 87,
+      "deaths": 53,
+      "assists": 32,
+      "battles": 81,
       "rank": "Corporal",
-      "KdRatio": "0"
+      "KdRatio": "1.64"
     },
     {
       "username": "FelipeiroOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 99,
+      "kills": 43,
+      "deaths": 54,
+      "assists": 11,
+      "battles": 100,
       "rank": "Lieutenant",
-      "KdRatio": "0"
+      "KdRatio": "0.80"
     },
     {
       "username": "sem_indentidadee",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 63,
+      "kills": 35,
+      "deaths": 58,
+      "assists": 12,
+      "battles": 64,
       "rank": "Corporal",
-      "KdRatio": "0"
+      "KdRatio": "0.60"
     },
     {
       "username": "Huewij2010",
@@ -247,12 +248,12 @@
     },
     {
       "username": "thales8541",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 117,
+      "kills": 60,
+      "deaths": 57,
+      "assists": 26,
+      "battles": 118,
       "rank": "Lance Serjeant",
-      "KdRatio": "0"
+      "KdRatio": "1.05"
     },
     {
       "username": "1golina47",
@@ -265,12 +266,12 @@
     },
     {
       "username": "XequeOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 14,
+      "kills": 52,
+      "deaths": 54,
+      "assists": 28,
+      "battles": 15,
       "rank": "Kingsman",
-      "KdRatio": "0"
+      "KdRatio": "0.96"
     },
     {
       "username": "Mi_arroba",
@@ -328,21 +329,21 @@
     },
     {
       "username": "Alpine_Castle",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 69,
+      "kills": 45,
+      "deaths": 53,
+      "assists": 33,
+      "battles": 70,
       "rank": "Corporal",
-      "KdRatio": "0"
+      "KdRatio": "0.85"
     },
     {
       "username": "luizgugumo431",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 105,
+      "kills": 24,
+      "deaths": 39,
+      "assists": 8,
+      "battles": 106,
       "rank": "Lieutenant",
-      "KdRatio": "0"
+      "KdRatio": "0.62"
     },
     {
       "username": "JMGBC_555",
@@ -391,12 +392,12 @@
     },
     {
       "username": "AzureOdebrecht",
-      "kills": 82,
-      "deaths": 62,
-      "assists": 38,
-      "battles": 115,
+      "kills": 145,
+      "deaths": 112,
+      "assists": 59,
+      "battles": 116,
       "rank": "Ensign",
-      "KdRatio": "1.32"
+      "KdRatio": "1.29"
     },
     {
       "username": "chebobful",
@@ -472,12 +473,12 @@
     },
     {
       "username": "santiag0904",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 47,
+      "kills": 30,
+      "deaths": 44,
+      "assists": 18,
+      "battles": 48,
       "rank": "Corporal",
-      "KdRatio": "0"
+      "KdRatio": "0.68"
     },
     {
       "username": "realmadridmydestiny1",
@@ -490,12 +491,12 @@
     },
     {
       "username": "dogcaramelomaronba",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 41,
+      "kills": 38,
+      "deaths": 57,
+      "assists": 15,
+      "battles": 42,
       "rank": "Corporal",
-      "KdRatio": "0"
+      "KdRatio": "0.67"
     },
     {
       "username": "Evertonwdrd10",
