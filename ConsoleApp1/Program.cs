@@ -191,7 +191,19 @@ namespace CornwallUtilities
             MessagePipeline.Start(ProcessMessageAsync);
 
             DashboardHttp = new DashboardHttpService(Client, new DashboardAuthService("config/dashboard_auth.json"));
-            await DashboardHttp.StartAsync();
+            try
+            {
+                await DashboardHttp.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                // O dashboard e acessorio; o bot nao e. Porta 5056 ocupada ou
+                // listenUrl malformada lancavam aqui, ANTES do ConnectAsync, e
+                // derrubavam o bot inteiro - comandos de barra, moderacao,
+                // alistamento, tudo - por causa de uma funcionalidade auxiliar.
+                Console.WriteLine($"[dashboard] nao subiu, o bot segue sem ele: {ex.Message}");
+                DashboardHttp = null;
+            }
 
             StartThreadPoolCanary();
 

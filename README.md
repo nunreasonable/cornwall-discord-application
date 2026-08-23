@@ -179,6 +179,7 @@ status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). O login é 
 | GET | `/api/status` | público | uptime, latência, servidores, membros, versão |
 | GET | `/api/status?detail=host` | 2 | acrescenta SO, disco, carga e memória |
 | GET | `/api/logs` | 2 | buffer de logs (`take`, `level`, `q`) |
+| GET | `/api/audit` | 1 | log de auditoria do painel (quem usou o dashboard e o quê fez) |
 | GET | `/api/audit/roster` | 1 | efetivo consolidado + fila pendente |
 | GET | `/api/audit/history` | 1 | histórico da auditoria (o mesmo do `/audit-logs`) |
 | POST | `/api/audit/entry` | **1 / 2** | edita e renomeia com 1; **remover** exige 2 |
@@ -223,6 +224,30 @@ em vez de duas cópias que divergem no primeiro ajuste.
 global (`DmRateLimiter`, 3s) e o espaçamento de 1,2s, então o teto de 500 pessoas leva cerca de
 35 minutos. `POST /api/dm` responde `202` com um `jobId` e o envio segue em segundo plano; o
 progresso vem de `GET /api/dm/status`. Os jobs vivem em memória e somem no reinício.
+
+### `tunnelSecret`: como o bot sabe que a requisição veio mesmo pelo tunnel
+
+O `dashboard_auth.json` tem um campo `tunnelSecret`. O Worker `daese-api-proxy` manda esse
+valor no header `X-Ccore-Tunnel` em toda requisição que encaminha, e o bot só confia no
+`CF-Connecting-IP` quando ele bate.
+
+Sem isso o limite de 10 tentativas de login por IP era contornável: quem alcançasse
+`127.0.0.1:5056` direto — outro processo na máquina, um segundo tunnel — mandava um
+`CF-Connecting-IP` diferente por requisição e tinha tentativas ilimitadas; e, ao contrário,
+dava para queimar de propósito as 10 tentativas do IP de outra pessoa.
+
+Para trocar o segredo, os dois lados têm que mudar juntos:
+
+```bash
+NOVO=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')
+# 1. no Worker
+cd nunreasonable.github.io/cloudflare/api-proxy-worker && echo "$NOVO" | npx wrangler secret put TUNNEL_SECRET
+# 2. no bot: grave em dashboard_auth.json e reinicie
+systemctl --user restart ccore-bot
+```
+
+Campo vazio **não** é erro: o bot avisa no log e o limite volta a ser global — conservador,
+porque erra fechando.
 
 `config.jsonc` e `dashboard_auth.json` **não são versionados** (contêm token e IDs do
 servidor). Para montar um ambiente novo, copie os modelos e preencha:

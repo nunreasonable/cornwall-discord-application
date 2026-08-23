@@ -27,11 +27,36 @@ namespace CornwallUtilities.config
             _auditLogPath = Path.Combine(directory, "dashboard_audit_log.json");
         }
 
+        /*
+         * Cache por carimbo de modificacao, no mesmo espirito do
+         * JSONReader.LoadAsync.
+         *
+         * Cada ReadAsync lia TRES arquivos do disco e desserializava o principal
+         * duas vezes - e o GetConfigAsync e chamado por praticamente toda rota
+         * que muda alguma coisa (mensagem, cargo, punicao, deployment, DM,
+         * alistamento) e tambem pelo login. Como tudo isso e serializado atras de
+         * um SemaphoreSlim unico, era gargalo de vazao alem de I/O desperdicado.
+         *
+         * A chave e o trio de LastWriteTimeUtc: qualquer escrita - inclusive a
+         * do proprio AppendAuditAsync - invalida sozinha.
+         */
+        private DashboardConfigStructure? _cache;
+        private (DateTime Core, DateTime Whitelist, DateTime Audit) _cacheStamp;
+
+        private (DateTime, DateTime, DateTime) CurrentStamps() => (
+            File.Exists(_path) ? File.GetLastWriteTimeUtc(_path) : DateTime.MinValue,
+            File.Exists(_whitelistPath) ? File.GetLastWriteTimeUtc(_whitelistPath) : DateTime.MinValue,
+            File.Exists(_auditLogPath) ? File.GetLastWriteTimeUtc(_auditLogPath) : DateTime.MinValue);
+
         public async Task<DashboardConfigStructure> ReadAsync()
         {
             await _fileLock.WaitAsync();
             try
             {
+                var stamps = CurrentStamps();
+                if (_cache is not null && stamps == _cacheStamp)
+                    return _cache;
+
                 var legacyConfig = new DashboardConfigStructure();
                 DashboardCoreConfigStructure coreConfig;
                 var rewriteCore = false;
@@ -62,13 +87,23 @@ namespace CornwallUtilities.config
                     await WriteJsonAsync(_path, coreConfig);
                 }
 
-                return MergeConfig(coreConfig, whitelistedUsers, auditLog);
+                var merged = MergeConfig(coreConfig, whitelistedUsers, auditLog);
+
+                // Relê os carimbos DEPOIS de tudo: o rewriteCore acima pode ter
+                // reescrito o arquivo principal, e guardar o carimbo de antes
+                // deixaria o cache preso a uma versao que ja nao existe.
+                _cacheStamp = CurrentStamps();
+                _cache = merged;
+                return merged;
             }
             finally
             {
                 _fileLock.Release();
             }
         }
+
+        /// <summary>Descarta o cache. Usado depois de gravar por este mesmo processo.</summary>
+        private void InvalidateCache() => _cache = null;
 
         public async Task WriteAsync(DashboardConfigStructure data)
         {
@@ -79,6 +114,12 @@ namespace CornwallUtilities.config
                 await WriteJsonAsync(_path, coreConfig);
                 await WriteJsonAsync(_whitelistPath, data.whitelistedUsers ?? new List<DashboardWhitelistedUser>());
                 await WriteJsonAsync(_auditLogPath, data.auditLog ?? new List<DashboardAuditEntry>());
+
+                // Nao basta confiar no carimbo: dois writes dentro do mesmo tick
+                // do relogio de arquivo dariam o mesmo LastWriteTimeUtc, e a
+                // segunda leitura devolveria a versao velha. Invalidar aqui
+                // fecha essa janela.
+                InvalidateCache();
             }
             finally
             {
@@ -103,6 +144,7 @@ namespace CornwallUtilities.config
                 regimentRoleIds = coreConfig.regimentRoleIds,
                 linkCodeLifetimeMinutes = coreConfig.linkCodeLifetimeMinutes,
                 sessionLifetimeMinutes = coreConfig.sessionLifetimeMinutes,
+                tunnelSecret = coreConfig.tunnelSecret,
                 whitelistedUsers = whitelistedUsers,
                 auditLog = auditLog
             };
@@ -121,7 +163,8 @@ namespace CornwallUtilities.config
                 level1RoleIds = data.level1RoleIds,
                 regimentRoleIds = data.regimentRoleIds,
                 linkCodeLifetimeMinutes = data.linkCodeLifetimeMinutes,
-                sessionLifetimeMinutes = data.sessionLifetimeMinutes
+                sessionLifetimeMinutes = data.sessionLifetimeMinutes,
+                tunnelSecret = data.tunnelSecret
             };
         }
 
@@ -161,6 +204,13 @@ namespace CornwallUtilities.config
     {
         public string listenUrl { get; set; } = "http://127.0.0.1:5056/";
         public string[] allowedOrigins { get; set; } = new[] { "*" };
+
+        /// <summary>
+        /// Segredo que o Worker da Cloudflare manda no header X-Ccore-Tunnel.
+        /// So com ele batendo o bot confia no CF-Connecting-IP para limitar
+        /// login por IP. Vazio desliga a checagem e o limite volta a ser global.
+        /// </summary>
+        public string tunnelSecret { get; set; } = string.Empty;
         public ulong guildId { get; set; }
         public ulong[] level4UserIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level3RoleIds { get; set; } = Array.Empty<ulong>();
@@ -175,6 +225,13 @@ namespace CornwallUtilities.config
     {
         public string listenUrl { get; set; } = "http://127.0.0.1:5056/";
         public string[] allowedOrigins { get; set; } = new[] { "*" };
+
+        /// <summary>
+        /// Segredo que o Worker da Cloudflare manda no header X-Ccore-Tunnel.
+        /// So com ele batendo o bot confia no CF-Connecting-IP para limitar
+        /// login por IP. Vazio desliga a checagem e o limite volta a ser global.
+        /// </summary>
+        public string tunnelSecret { get; set; } = string.Empty;
         public ulong guildId { get; set; }
         public ulong[] level4UserIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level3RoleIds { get; set; } = Array.Empty<ulong>();

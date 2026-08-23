@@ -1,30 +1,31 @@
 {
   "listenUrl": "http://127.0.0.1:5056/",
   "allowedOrigins": [
-    "*"
+    "https://exemplo.invalid"
   ],
-  "guildId": 1487938282200236224,
+  "guildId": 0,
   "level4UserIds": [
-    1402344358199689348
+    0
   ],
   "level3RoleIds": [
-    1487938745763233874
+    0
   ],
   "level2RoleIds": [
-    1487938766290288681,
-    1487938760665731143
+    0,
+    0
   ],
   "level1RoleIds": [
-    1487945889581629582
+    0
   ],
   "regimentRoleIds": [
-    1487938785345011815,
-    1487938826729951525,
-    1487938827925590097,
-    1487938867431739496,
-    1487938884145778858,
-    1487938885156868257
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
   ],
   "linkCodeLifetimeMinutes": 10,
-  "sessionLifetimeMinutes": 60
+  "sessionLifetimeMinutes": 60,
+  "tunnelSecret": ""
 }

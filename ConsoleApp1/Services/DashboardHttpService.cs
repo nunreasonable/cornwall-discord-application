@@ -34,6 +34,17 @@ namespace CornwallUtilities.Services
         /// <summary>Alfabeto sem caracteres ambiguos (0/O, 1/I/L) - o codigo e digitado a mao.</summary>
         private const string CodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
+        /// <summary>
+        /// Teto do corpo de requisicao. O maior corpo legitimo e o bloco do
+        /// /audit-add, na casa de poucos KB; 64 KB cobre com folga.
+        ///
+        /// Sem teto, o ReadToEnd de /api/auth/login - que roda ANTES de
+        /// qualquer autenticacao - bufferizava o corpo inteiro em string e
+        /// depois de novo em JObject. Um corpo de alguns GB derrubava o
+        /// processo, e junto a conexao do bot com o Discord.
+        /// </summary>
+        private const int MaxRequestBodyBytes = 64 * 1024;
+
         private const int MaxLoginAttemptsPerWindow = 10;
         private static readonly TimeSpan LoginAttemptWindow = TimeSpan.FromMinutes(5);
 
@@ -50,6 +61,7 @@ namespace CornwallUtilities.Services
         /// </summary>
         private static readonly TimeSpan PermissionRetryBackoff = TimeSpan.FromSeconds(30);
         private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
+        private string _tunnelSecret = string.Empty;
 
         private CancellationTokenSource? _cts;
 
@@ -75,13 +87,26 @@ namespace CornwallUtilities.Services
             if (!prefix.EndsWith('/'))
                 prefix += "/";
 
+            _tunnelSecret = config.tunnelSecret?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(_tunnelSecret))
+                Console.WriteLine("[dashboard] tunnelSecret vazio: o limite de login volta a ser global. Ver README.");
+
             _allowedOrigins = config.allowedOrigins
                 .Where(o => !string.IsNullOrWhiteSpace(o))
                 .Select(o => o.Trim())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             if (_allowedOrigins.Count == 0)
-                _allowedOrigins.Add("*");
+            {
+                // Antes o padrao era "*". CSRF nunca foi exploravel aqui (a
+                // autenticacao e Bearer, nunca cookie, e Allow-Credentials
+                // jamais e emitido), mas o curinga deixava qualquer site ler as
+                // rotas publicas - e, se um token vazasse, pilotar a API
+                // inteira do navegador da vitima. Estes sao os dois consumidores
+                // reais, conforme o README.
+                _allowedOrigins.Add("https://dashboard.daeese.me");
+                _allowedOrigins.Add("https://ccore.daeese.me");
+            }
 
             _listener.Prefixes.Clear();
             _listener.Prefixes.Add(prefix);
@@ -179,7 +204,36 @@ namespace CornwallUtilities.Services
                     continue;
                 }
 
-                _ = Task.Run(() => ProcessContextAsync(ctx));
+                _ = Task.Run(() => ProcessContextGuardedAsync(ctx));
+            }
+        }
+
+        /// <summary>
+        /// Limita quantas requisicoes ficam em voo ao mesmo tempo.
+        ///
+        /// Antes cada conexao aceita virava um item do thread pool na hora, sem
+        /// teto. Isso briga diretamente com o canario de thread pool do
+        /// Program.cs, que existe porque starvation ali atrasa o heartbeat do
+        /// gateway e derruba a conexao do bot com o Discord. O painel e um
+        /// punhado de requisicoes por minuto; 64 e folga de sobra.
+        /// </summary>
+        private readonly SemaphoreSlim _inFlight = new(64, 64);
+
+        private async Task ProcessContextGuardedAsync(HttpListenerContext ctx)
+        {
+            if (!await _inFlight.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false))
+            {
+                await TryWriteJsonAsync(ctx.Response, 503, new { error = "Dashboard ocupado, tente de novo." });
+                return;
+            }
+
+            try
+            {
+                await ProcessContextAsync(ctx).ConfigureAwait(false);
+            }
+            finally
+            {
+                _inFlight.Release();
             }
         }
 
@@ -333,6 +387,10 @@ namespace CornwallUtilities.Services
 
                 await WriteJsonAsync(ctx.Response, 404, new { error = "Rota não encontrada." });
             }
+            catch (BodyTooLargeException)
+            {
+                await TryWriteJsonAsync(ctx.Response, 413, new { error = "Corpo da requisição grande demais." });
+            }
             catch (JsonException)
             {
                 await TryWriteJsonAsync(ctx.Response, 400, new { error = "Corpo da requisição não é um JSON válido." });
@@ -404,7 +462,12 @@ namespace CornwallUtilities.Services
 
             var cfg = await _auth.GetConfigAsync();
             var sessionLifetime = Math.Clamp(cfg.sessionLifetimeMinutes, 5, 240);
-            var token = Guid.NewGuid().ToString("N");
+            // RandomNumberGenerator, e nao Guid.NewGuid(): este token autoriza
+            // conceder cargo, aplicar timeout, DM em massa e push no GitHub. O
+            // GUID v4 do .NET e imprevisivel na pratica, mas a API nao da essa
+            // garantia - e o codigo de login logo acima ja usa o gerador certo.
+            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .Replace("+", "-").Replace("/", "_").TrimEnd('=');
             var session = new DashboardSession
             {
                 Token = token,
@@ -478,10 +541,14 @@ namespace CornwallUtilities.Services
 
         private async Task HandleAuditAsync(HttpListenerContext ctx)
         {
-            var session = TryGetSession(ctx.Request);
+            // RequirePermissionAsync, e nao TryGetSession puro: esta rota
+            // devolve o log de auditoria do painel (ids, nomes e o que cada um
+            // fez). Com a sessao crua, quem perdesse o cargo continuava lendo
+            // ate a sessao expirar - o que pode levar 4 horas.
+            var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
-                await WriteJsonAsync(ctx.Response, 401, new { error = "Sessão inválida." });
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
                 return;
             }
 
@@ -524,7 +591,15 @@ namespace CornwallUtilities.Services
                 var chunkCount = 0;
                 foreach (var chunk in SplitMessageForDiscord(message))
                 {
-                    await channel.SendMessageAsync(chunk);
+                    // Cargo e usuario continuam pingaveis - e para isso que a
+                    // rota serve. @everyone/@here nao: sem esta restricao um
+                    // nivel 1, o mais baixo, fazia o bot avisar o servidor
+                    // inteiro, o que esta fora da fronteira que o README define
+                    // para esse nivel.
+                    var builder = new DiscordMessageBuilder()
+                        .WithContent(chunk)
+                        .WithAllowedMentions(new IMention[] { new RoleMention(), new UserMention() });
+                    await channel.SendMessageAsync(builder);
                     chunkCount++;
                 }
 
@@ -533,7 +608,8 @@ namespace CornwallUtilities.Services
             }
             catch (Exception ex)
             {
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar mensagem.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar mensagem." });
             }
         }
 
@@ -541,10 +617,21 @@ namespace CornwallUtilities.Services
         {
             const int maxLength = 2000;
 
-            for (var index = 0; index < message.Length; index += maxLength)
+            var index = 0;
+            while (index < message.Length)
             {
                 var length = Math.Min(maxLength, message.Length - index);
+
+                // message.Length conta unidades UTF-16. Cortar no meio de um par
+                // substituto - o que qualquer emoji na fronteira dos 2000 faz -
+                // produzia duas partes com metades soltas: a primeira ia, a
+                // segunda o Discord rejeitava com 400. Recuar um caractere
+                // mantem o par inteiro.
+                if (index + length < message.Length && char.IsHighSurrogate(message[index + length - 1]))
+                    length--;
+
                 yield return message.Substring(index, length);
+                index += length;
             }
         }
 
@@ -591,7 +678,8 @@ namespace CornwallUtilities.Services
             }
             catch (Exception ex)
             {
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao alterar cargo.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao alterar cargo." });
             }
         }
 
@@ -611,8 +699,9 @@ namespace CornwallUtilities.Services
             // TryReadCount, e nao `(int?)body?[...]`: o cast do Newtonsoft
             // lanca FormatException quando o campo chega como texto nao
             // numerico, e o painel recebia 500 "erro interno" no lugar do 400
-            // que descreve o problema. Ausente conta como 0 e cai no mesmo 400.
-            if (!userId.HasValue || !TryReadCount(body, "durationMinutes", out var durationMinutes) || durationMinutes <= 0)
+            // que descreve o problema. Ausente vem como null e cai no mesmo 400.
+            if (!userId.HasValue || !TryReadCount(body, "durationMinutes", out var durationMinutes)
+                || durationMinutes is null or <= 0)
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "userId e durationMinutes válidos são obrigatórios." });
                 return;
@@ -624,7 +713,7 @@ namespace CornwallUtilities.Services
                 var guild = await _client.GetGuildAsync(config.guildId);
                 var member = await guild.GetMemberAsync(userId.Value);
 
-                await member.TimeoutAsync(DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(durationMinutes, 1, 40320)), reason);
+                await member.TimeoutAsync(DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(durationMinutes.Value, 1, 40320)), reason);
 
                 await TrySendPunishmentDmAsync(member, "Timeout", reason);
                 await AuditAsync(session, "TIMEOUT", $"Aplicou timeout em {userId} por {durationMinutes} minuto(s).");
@@ -632,7 +721,8 @@ namespace CornwallUtilities.Services
             }
             catch (Exception ex)
             {
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao aplicar timeout.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao aplicar timeout." });
             }
         }
 
@@ -676,7 +766,8 @@ namespace CornwallUtilities.Services
             }
             catch (Exception ex)
             {
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao remover usuário do regimento.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao remover usuário do regimento." });
             }
         }
 
@@ -951,9 +1042,9 @@ namespace CornwallUtilities.Services
                     {
                         before ??= entry.Clone();
                         entry.username = newName;
-                        entry.kills = kills;
-                        entry.deaths = deaths;
-                        entry.assists = assists;
+                        if (kills.HasValue) entry.kills = kills.Value;
+                        if (deaths.HasValue) entry.deaths = deaths.Value;
+                        if (assists.HasValue) entry.assists = assists.Value;
                         found = true;
                     }
 
@@ -971,10 +1062,12 @@ namespace CornwallUtilities.Services
 
                 before = target.Clone();
                 target.username = newName;
-                target.kills = kills;
-                target.deaths = deaths;
-                target.assists = assists;
-                target.battles = battles;
+                // So grava o que veio no corpo. Campo ausente mantem o valor
+                // atual, em vez de virar zero.
+                if (kills.HasValue) target.kills = kills.Value;
+                if (deaths.HasValue) target.deaths = deaths.Value;
+                if (assists.HasValue) target.assists = assists.Value;
+                if (battles.HasValue) target.battles = battles.Value;
                 return null;
             });
 
@@ -1213,7 +1306,8 @@ namespace CornwallUtilities.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"[dashboard] falha ao enviar deployment: {ex}");
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar o deployment.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao enviar o deployment." });
             }
         }
 
@@ -1290,7 +1384,8 @@ namespace CornwallUtilities.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"[dashboard] falha ao iniciar DM em massa: {ex}");
-                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao iniciar o envio.", details = ex.Message });
+                Console.WriteLine($"[dashboard] {ctx.Request.HttpMethod} {ctx.Request.Url?.AbsolutePath}: {ex}");
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Falha ao iniciar o envio." });
             }
         }
 
@@ -1416,23 +1511,37 @@ namespace CornwallUtilities.Services
         }
 
         /// <summary>Contador nao negativo vindo do corpo JSON. Ausente = 0.</summary>
-        private static bool TryReadCount(JObject? body, string field, out int value)
+        /// <summary>
+        /// Le um contador do corpo distinguindo AUSENTE de ZERO.
+        ///
+        /// A versao anterior devolvia 0 para campo ausente, e o chamador
+        /// gravava os quatro contadores incondicionalmente - entao uma
+        /// atualizacao parcial zerava silenciosamente o que nao tinha sido
+        /// mandado. Como batalhas alimentam a escada de promocoes, um campo
+        /// vazio no painel apagava a elegibilidade do jogador sem aviso.
+        /// </summary>
+        private static bool TryReadCount(JObject? body, string field, out int? value)
         {
-            value = 0;
+            value = null;
             var token = body?[field];
             if (token is null || token.Type == JTokenType.Null)
                 return true;
 
             if (token.Type == JTokenType.Integer)
             {
-                value = token.Value<int>();
-                return value >= 0;
+                var parsedInt = token.Value<int>();
+                if (parsedInt < 0)
+                    return false;
+                value = parsedInt;
+                return true;
             }
 
             if (token.Type == JTokenType.String && int.TryParse(token.Value<string>()?.Trim(), out var parsed))
             {
+                if (parsed < 0)
+                    return false;
                 value = parsed;
-                return value >= 0;
+                return true;
             }
 
             return false;
@@ -1572,10 +1681,27 @@ namespace CornwallUtilities.Services
         /// Conta a tentativa de login da origem. Devolve false quando a janela
         /// ja estourou o limite.
         /// </summary>
+        /// <summary>
+        /// Teto de chaves distintas no dicionario de tentativas. Existe porque a
+        /// poda em CleanupExpiredSessions so roda a partir de TryGetSession, e o
+        /// login NAO passa por la: sem isto, quem variasse a chave a cada
+        /// requisicao crescia o dicionario sem limite, e ele so encolhia se por
+        /// acaso chegasse um request ja autenticado.
+        /// </summary>
+        private const int MaxTrackedLoginKeys = 4096;
+
         private bool RegisterLoginAttempt(HttpListenerRequest request)
         {
             var key = ClientKey(request);
             var now = DateTimeOffset.UtcNow;
+
+            PruneLoginAttempts(now);
+
+            // Cheio de chaves ainda dentro da janela: recusa em vez de crescer.
+            // Degrada para "ninguem loga por ate 5 minutos", que e o lado certo
+            // para errar num limitador.
+            if (_loginAttempts.Count >= MaxTrackedLoginKeys && !_loginAttempts.ContainsKey(key))
+                return false;
 
             var attempts = _loginAttempts.GetOrAdd(key, _ => new LoginAttempts { WindowStart = now });
 
@@ -1615,15 +1741,60 @@ namespace CornwallUtilities.Services
         /// que e a leitura convencional, entregaria justamente o valor escolhido
         /// pelo atacante, permitindo trocar de identidade a cada tentativa.
         /// </summary>
-        private static string ClientKey(HttpListenerRequest request)
+        /// <summary>Header que o Worker injeta para se identificar. Ver 'tunnelSecret'.</summary>
+        private const string TunnelSecretHeader = "X-Ccore-Tunnel";
+
+        /// <summary>
+        /// Chave do limitador de login.
+        ///
+        /// CF-Connecting-IP so vale quando o request VEIO mesmo pelo Worker, e a
+        /// unica prova disso e o segredo compartilhado. Sem essa checagem,
+        /// qualquer um que alcance 127.0.0.1:5056 - outro processo local, um
+        /// segundo tunnel, um SSRF em outro ponto da maquina - mandava um
+        /// CF-Connecting-IP diferente por requisicao e tinha tentativas de login
+        /// ilimitadas; e, pior, dava para queimar de proposito as 10 tentativas
+        /// do IP de outra pessoa.
+        ///
+        /// Sem segredo configurado o comportamento e o de antes do tunnel: todo
+        /// mundo cai na mesma chave. Limitador global e ruim, mas e conservador -
+        /// erra fechando.
+        /// </summary>
+        private string ClientKey(HttpListenerRequest request)
         {
-            var cloudflareIp = request.Headers["CF-Connecting-IP"];
-            if (!string.IsNullOrWhiteSpace(cloudflareIp))
+            if (IsFromTunnel(request))
             {
-                return cloudflareIp.Trim();
+                var cloudflareIp = request.Headers["CF-Connecting-IP"];
+                if (!string.IsNullOrWhiteSpace(cloudflareIp))
+                    return cloudflareIp.Trim();
             }
 
             return request.RemoteEndPoint?.Address?.ToString() ?? "desconhecido";
+        }
+
+        private bool IsFromTunnel(HttpListenerRequest request)
+        {
+            if (string.IsNullOrEmpty(_tunnelSecret))
+                return false;
+
+            var supplied = request.Headers[TunnelSecretHeader];
+            if (string.IsNullOrEmpty(supplied))
+                return false;
+
+            // Comparacao de tempo fixo: o segredo e estavel entre requisicoes,
+            // entao vazar o tamanho do prefixo correto por tempo seria util a
+            // quem estivesse medindo.
+            return CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(supplied),
+                Encoding.UTF8.GetBytes(_tunnelSecret));
+        }
+
+        /// <summary>
+        /// Lancada quando o corpo passa de <see cref="MaxRequestBodyBytes"/>.
+        /// Vira 413 no tratador, e nao 400: o cliente precisa saber que o
+        /// problema e tamanho, nao sintaxe.
+        /// </summary>
+        private sealed class BodyTooLargeException : Exception
+        {
         }
 
         private static async Task<JObject?> ReadBodyAsJsonAsync(HttpListenerRequest request)
@@ -1631,8 +1802,32 @@ namespace CornwallUtilities.Services
             if (!request.HasEntityBody)
                 return null;
 
-            using var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
-            var raw = await reader.ReadToEndAsync();
+            // O Content-Length e so o primeiro filtro: com Transfer-Encoding
+            // chunked ele vem -1, e um cliente hostil pode simplesmente mentir.
+            // Por isso a leitura abaixo tambem para no teto, em vez de confiar.
+            if (request.ContentLength64 > MaxRequestBodyBytes)
+                throw new BodyTooLargeException();
+
+            var encoding = request.ContentEncoding ?? Encoding.UTF8;
+            var buffer = new byte[8192];
+            using var accumulated = new MemoryStream();
+
+            while (true)
+            {
+                var read = await request.InputStream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false);
+                if (read <= 0)
+                    break;
+
+                if (accumulated.Length + read > MaxRequestBodyBytes)
+                    throw new BodyTooLargeException();
+
+                accumulated.Write(buffer, 0, read);
+            }
+
+            if (accumulated.Length == 0)
+                return null;
+
+            var raw = encoding.GetString(accumulated.GetBuffer(), 0, (int)accumulated.Length);
             if (string.IsNullOrWhiteSpace(raw))
                 return null;
 
@@ -1774,8 +1969,16 @@ namespace CornwallUtilities.Services
                     _sessions.TryRemove(kv.Key, out _);
             }
 
-            // A janela de tentativas tambem precisa de poda: sem isso o
-            // dicionario cresceria um item por endereco que ja tentou logar.
+            PruneLoginAttempts(now);
+        }
+
+        /// <summary>
+        /// Poda a janela de tentativas. Chamada tanto pela limpeza periodica
+        /// quanto pelo proprio caminho de login - que e o unico que faz o
+        /// dicionario crescer.
+        /// </summary>
+        private void PruneLoginAttempts(DateTimeOffset now)
+        {
             foreach (var kv in _loginAttempts)
             {
                 if (now - kv.Value.WindowStart >= LoginAttemptWindow)
