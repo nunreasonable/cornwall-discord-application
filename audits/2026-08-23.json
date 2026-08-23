@@ -1,0 +1,194 @@
+{
+  "batches": [
+    {
+      "batchId": "ae3ce19b8628",
+      "createdUtc": "2026-08-23T15:18:20.1618158+00:00",
+      "submittedByUserId": 576147349789736960,
+      "submittedByUsername": "mzfox",
+      "entries": [
+        {
+          "username": "thales8541",
+          "kills": 60,
+          "deaths": 57,
+          "assists": 26,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.05"
+        },
+        {
+          "username": "RafaOdebrecht",
+          "kills": 46,
+          "deaths": 38,
+          "assists": 7,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.21"
+        },
+        {
+          "username": "HikaruBRZ",
+          "kills": 42,
+          "deaths": 57,
+          "assists": 29,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.74"
+        },
+        {
+          "username": "sem_indentidadee",
+          "kills": 35,
+          "deaths": 58,
+          "assists": 12,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.60"
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 52,
+          "deaths": 54,
+          "assists": 28,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.96"
+        },
+        {
+          "username": "AkanaOdebrecht",
+          "kills": 31,
+          "deaths": 54,
+          "assists": 4,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.57"
+        },
+        {
+          "username": "loi980gt",
+          "kills": 87,
+          "deaths": 53,
+          "assists": 32,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.64"
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 45,
+          "deaths": 42,
+          "assists": 13,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.07"
+        },
+        {
+          "username": "AlanOdebrecht",
+          "kills": 47,
+          "deaths": 74,
+          "assists": 17,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.64"
+        },
+        {
+          "username": "MazziN_0171",
+          "kills": 59,
+          "deaths": 57,
+          "assists": 24,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.04"
+        },
+        {
+          "username": "lipao000",
+          "kills": 21,
+          "deaths": 61,
+          "assists": 13,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.34"
+        },
+        {
+          "username": "AzureOdebrecht",
+          "kills": 63,
+          "deaths": 50,
+          "assists": 21,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.26"
+        },
+        {
+          "username": "gabe_28q",
+          "kills": 54,
+          "deaths": 53,
+          "assists": 16,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "1.02"
+        },
+        {
+          "username": "dogcaramelomaronba",
+          "kills": 38,
+          "deaths": 57,
+          "assists": 15,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.67"
+        },
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 43,
+          "deaths": 54,
+          "assists": 11,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.80"
+        },
+        {
+          "username": "santiag0904",
+          "kills": 30,
+          "deaths": 44,
+          "assists": 18,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.68"
+        },
+        {
+          "username": "Alpine_Castle",
+          "kills": 45,
+          "deaths": 53,
+          "assists": 33,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.85"
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 24,
+          "deaths": 39,
+          "assists": 8,
+          "battles": 1,
+          "rank": "",
+          "KdRatio": "0.62"
+        }
+      ],
+      "rawLines": [
+        "thales8541 60 57 26",
+        "RafaOdebrecht 46 38 7",
+        "HikaruBRZ 42 57 29",
+        "sem_indentidadee 35 58 12",
+        "XequeOdebrecht 52 54 28",
+        "AkanaOdebrecht 31 54 4",
+        "loi980gt 87 53 32",
+        "Brunoalexandrino 45 42 13",
+        "AlanOdebrecht 47 74 17",
+        "MazziN_0171 59 57 24",
+        "lipao000 21 61 13",
+        "AzureOdebrecht 63 50 21",
+        "gabe_28q 54 53 16",
+        "dogcaramelomaronba 38 57 15",
+        "FelipeiroOdebrecht 43 54 11",
+        "santiag0904 30 44 18",
+        "Alpine_Castle 45 53 33",
+        "luizgugumo431 24 39 8"
+      ]
+    }
+  ]
+}
