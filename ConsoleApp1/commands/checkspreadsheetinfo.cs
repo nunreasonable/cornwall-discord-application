@@ -39,11 +39,24 @@ namespace CornwallUtilities.commands
         [SlashCommand("checkspreadsheetinfo", "Verifica as informações da planilha Regimental")]
         public async Task CheckSpreadsheetInfoCommand(InteractionContext ctx, [Option("username", "Seu nome de usuário na planilha.")] string username)
         {
-            // Defer response while we fetch the spreadsheet and prepare the embed
-            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
+            // Efemero: a resposta traz todas as colunas da linha da planilha
+            // regimental (observacoes internas, avaliacoes, dados pessoais), que
+            // nao devem ser despejadas no canal para qualquer um ver.
+            await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource,
+                new DiscordInteractionResponseBuilder().AsEphemeral());
 
             var config = new JSONReader();
             await config.ReadJSON();
+
+            // Mesmo portao de staff dos demais comandos que leem a planilha
+            // (/botlogs, /promocoes, /messagestoragestatus): sem ele, qualquer
+            // membro consultava qualquer nome e recebia a linha inteira.
+            var denied = AuditPermissions.CheckStaff(ctx, config);
+            if (denied is not null)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(denied));
+                return;
+            }
 
             var tabs = (config.spreadsheetInfoTabs ?? Array.Empty<SpreadsheetInfoTab>())
                 .Where(t => !string.IsNullOrWhiteSpace(t?.csvUrl))

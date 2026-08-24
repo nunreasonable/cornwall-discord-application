@@ -76,8 +76,18 @@ namespace CornwallUtilities.Services
                 ? new[] { literal }
                 : await Dns.GetHostAddressesAsync(host, ct).ConfigureAwait(false);
 
+            // Defesa SSRF: todas as URLs que passam por estes clientes vem do
+            // config (CSV de auditoria, abas da planilha, imagem de deployment) e
+            // apontam para servicos publicos. Recusar loopback/privado/link-local
+            // impede que um redirect ou uma entrada de config adulterada leve o bot
+            // a bater em 127.0.0.1, na rede interna ou no 169.254.169.254 (metadata
+            // de nuvem). Nenhum uso legitimo daqui e interno.
+            var routable = resolved.Where(a => !IsBlockedAddress(a)).ToArray();
+            if (routable.Length == 0)
+                throw new SocketException((int)SocketError.AccessDenied);
+
             // IPv4 primeiro; o IPv6 continua como fallback para redes que so tem v6.
-            var ordered = resolved
+            var ordered = routable
                 .OrderBy(a => a.AddressFamily == AddressFamily.InterNetworkV6 ? 1 : 0)
                 .ToArray();
 
@@ -114,6 +124,67 @@ namespace CornwallUtilities.Services
             }
 
             throw lastError ?? new SocketException((int)SocketError.HostUnreachable);
+        }
+
+        /// <summary>
+        /// Recusa enderecos que nao devem ser alcancados a partir de uma URL de
+        /// config: loopback, "qualquer", privados (RFC 1918), link-local
+        /// (169.254/16, inclusive o 169.254.169.254 de metadata) e o equivalente
+        /// IPv6 (loopback, ULA fc00::/7, link-local fe80::/10, e enderecos
+        /// IPv4-mapeados que reintroduziriam os ranges acima).
+        /// </summary>
+        private static bool IsBlockedAddress(IPAddress address)
+        {
+            if (IPAddress.IsLoopback(address))
+                return true;
+
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                if (address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.IsIPv6UniqueLocal)
+                    return true;
+
+                if (address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.IPv6None))
+                    return true;
+
+                // Um IPv4 embrulhado em IPv6 (::ffff:a.b.c.d) e avaliado pelas
+                // regras de IPv4.
+                if (address.IsIPv4MappedToIPv6)
+                    return IsBlockedAddress(address.MapToIPv4());
+
+                return false;
+            }
+
+            if (address.Equals(IPAddress.Any) || address.Equals(IPAddress.None) || address.Equals(IPAddress.Broadcast))
+                return true;
+
+            var octets = address.GetAddressBytes();
+            if (octets.Length != 4)
+                return false;
+
+            // 10.0.0.0/8
+            if (octets[0] == 10)
+                return true;
+
+            // 172.16.0.0/12
+            if (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31)
+                return true;
+
+            // 192.168.0.0/16
+            if (octets[0] == 192 && octets[1] == 168)
+                return true;
+
+            // 169.254.0.0/16 (link-local, inclui o metadata 169.254.169.254)
+            if (octets[0] == 169 && octets[1] == 254)
+                return true;
+
+            // 100.64.0.0/10 (CGNAT) e 127.0.0.0/8 (loopback, alem do IsLoopback)
+            if (octets[0] == 100 && octets[1] >= 64 && octets[1] <= 127)
+                return true;
+
+            if (octets[0] == 127)
+                return true;
+
+            return false;
         }
     }
 }

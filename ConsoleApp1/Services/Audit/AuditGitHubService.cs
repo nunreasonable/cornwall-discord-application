@@ -60,16 +60,26 @@ namespace CornwallUtilities.Services.Audit
 
         // O GitHubClient carrega um HttpClient proprio: reaproveitar evita o mesmo
         // acumulo de sockets que o HttpClientProvider resolve no resto do bot.
+        //
+        // Na rotacao de token NAO se constroi um cliente novo: o GitHubClient nao
+        // e IDisposable, entao o antigo (com seu HttpClient interno) ficava
+        // abandonado sem descarte, vazando o pool de conexoes. Trocar so as
+        // Credentials no mesmo cliente elimina o vazamento.
         private static GitHubClient GetClient(string token)
         {
             lock (s_clientLock)
             {
-                if (s_client is null || !string.Equals(s_clientToken, token, StringComparison.Ordinal))
+                if (s_client is null)
                 {
                     s_client = new GitHubClient(new ProductHeaderValue("cornwall-bot"))
                     {
                         Credentials = new Credentials(token)
                     };
+                    s_clientToken = token;
+                }
+                else if (!string.Equals(s_clientToken, token, StringComparison.Ordinal))
+                {
+                    s_client.Credentials = new Credentials(token);
                     s_clientToken = token;
                 }
 

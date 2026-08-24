@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
 using CornwallUtilities.Services;
@@ -15,7 +12,6 @@ using DisCatSharp.ApplicationCommands;
 using DisCatSharp.Enums;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.ApplicationCommands.Attributes;
-using Newtonsoft.Json.Linq;
 
 namespace CornwallUtilities.commands
 {
@@ -42,6 +38,14 @@ namespace CornwallUtilities.commands
         private const string Brasileiro = "br";
         private const string Sim = "sim";
         private const string Nao = "nao";
+
+        /// <summary>
+        /// Cooldown por usuario. Sem ele, um membro repetia /alistar-se em laco e
+        /// martelava a API do ROBLOX (uma consulta de perfil + amigos por
+        /// execucao) - o alvo classico de rate limit e de banimento de IP.
+        /// </summary>
+        private static readonly TimeSpan s_enlistCooldown = TimeSpan.FromSeconds(30);
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, DateTimeOffset> s_lastEnlistAttempt = new();
 
         [SlashCommand("alistar-se", "Aliste-se usando verificação automática de conta ROBLOX + formulário.")]
         public async Task RobloxEnlistCommand(InteractionContext ctx)
@@ -80,6 +84,16 @@ namespace CornwallUtilities.commands
                     "Este comando só pode ser utilizado no canal de alistamento.");
                 return;
             }
+
+            var now = DateTimeOffset.UtcNow;
+            if (s_lastEnlistAttempt.TryGetValue(ctx.User.Id, out var last) && now - last < s_enlistCooldown)
+            {
+                var wait = s_enlistCooldown - (now - last);
+                await DenyAsync(ctx, "Aguarde um momento",
+                    $"Você iniciou um alistamento há pouco. Tente de novo em {Math.Ceiling(wait.TotalSeconds)}s.");
+                return;
+            }
+            s_lastEnlistAttempt[ctx.User.Id] = now;
 
             DiscordMember targetMember = ctx.Member!;
 
@@ -237,317 +251,75 @@ namespace CornwallUtilities.commands
             // "digite 'nao sei' para pular" que o formulario por DM precisava.
             var recruiterAnswer = (ModalUtil.ReadModalValue(modalInteraction, "enlist_recruiter") ?? string.Empty).Trim();
 
-            int badgeCount= 0;
-            int friendsCount;
-            TimeSpan accountAge;
-            long robloxUserId;
-            bool badgesAvailable = true;
-
-            // Cliente compartilhado: criar um HttpClient por comando acumula
-            // sockets em TIME_WAIT. Nao alterar Timeout aqui - lanca excecao
-            // depois do primeiro request.
+            // Verificacao ROBLOX, cargos, apelido e log saem todos do
+            // EnlistmentService - o mesmo caminho de /enlistuser e de
+            // POST /api/enlist.
+            //
+            // Ate agosto/2026 este comando trazia sua propria copia de ~270
+            // linhas disso, e ela ja tinha divergido: nao conferia se o bot tem
+            // ManageRoles/ManageNicknames, nao comparava a hierarquia de cargos
+            // antes de conceder, e engolia falha de GrantRoleAsync com catch {}
+            // vazio - um alistamento que nao concedeu cargo nenhum terminava
+            // dizendo "Alistamento concluido".
+            var check = await EnlistmentService.VerifyRobloxAsync(robloxName);
+            if (!check.Ok)
             {
-                var http = HttpClientProvider.Shared;
-
-                try
-                {
-                    // Resolve username -> userId
-                    var lookupPayload = new JObject
-                    {
-                        ["usernames"] = new JArray(robloxName),
-                        ["excludeBannedUsers"] = true
-                    };
-
-                    using (var content = new StringContent(lookupPayload.ToString(), Encoding.UTF8, "application/json"))
-                    {
-                        var usernameResponse = await http.PostAsync("https://users.roblox.com/v1/usernames/users", content);
-                        if (!usernameResponse.IsSuccessStatusCode)
-                        {
-                            var errLookup = new DiscordEmbedBuilder()
-                                .WithTitle("Erro ao consultar ROBLOX")
-                                .WithDescription("Não foi possível encontrar uma conta ROBLOX com esse nome. Verifique se o nome foi digitado corretamente.")
-                                .WithColor(DiscordColor.IndianRed);
-
-                            await ReplyAsync(errLookup);
-                            return;
-                        }
-
-                        var usernameJson = JObject.Parse(await usernameResponse.Content.ReadAsStringAsync());
-                        var dataArrayLookup = usernameJson["data"] as JArray;
-                        if (dataArrayLookup == null || dataArrayLookup.Count == 0)
-                        {
-                            var notFound = new DiscordEmbedBuilder()
-                                .WithTitle("Conta ROBLOX não encontrada")
-                                .WithDescription("Nenhuma conta ROBLOX foi encontrada com o nome informado.")
-                                .WithColor(DiscordColor.IndianRed);
-
-                            await ReplyAsync(notFound);
-                            return;
-                        }
-
-                        robloxUserId = (long?)dataArrayLookup[0]?["id"] ?? 0;
-                        if (robloxUserId <= 0)
-                        {
-                            var invalidLookup = new DiscordEmbedBuilder()
-                                .WithTitle("Conta ROBLOX inválida")
-                                .WithDescription("Não foi possível determinar o ID da conta ROBLOX a partir do nome informado.")
-                                .WithColor(DiscordColor.IndianRed);
-
-                            await ReplyAsync(invalidLookup);
-                            return;
-                        }
-                    }
-
-                    // Dados básicos (inclui data de criação)
-                    var userInfoResponse = await http.GetAsync($"https://users.roblox.com/v1/users/{robloxUserId}");
-                    if (!userInfoResponse.IsSuccessStatusCode)
-                    {
-                        var errEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("Erro ao consultar ROBLOX")
-                            .WithDescription("Não foi possível obter as informações da conta ROBLOX.")
-                            .WithColor(DiscordColor.IndianRed);
-
-                        await ReplyAsync(errEmbed);
-                        return;
-                    }
-
-                    var userInfoJson = JObject.Parse(await userInfoResponse.Content.ReadAsStringAsync());
-                    var createdToken = userInfoJson["created"];
-                    var createdStr = createdToken?.Value<string>()?.Trim();
-                    if (string.IsNullOrWhiteSpace(createdStr) ||
-                        !DateTimeOffset.TryParse(createdStr, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var createdAt))
-                    {
-                        var errEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("Erro ao ler data de criação")
-                            .WithDescription("Não foi possível determinar a data de criação da conta ROBLOX.")
-                            .WithColor(DiscordColor.IndianRed);
-
-                        await ReplyAsync(errEmbed);
-                        return;
-                    }
-
-                    accountAge = DateTimeOffset.UtcNow - createdAt;
-
-                    // Contagem de amigos
-                    var friendsResponse = await http.GetAsync($"https://friends.roblox.com/v1/users/{robloxUserId}/friends/count");
-                    if (!friendsResponse.IsSuccessStatusCode)
-                    {
-                        var errEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("Erro ao consultar amigos ROBLOX")
-                            .WithDescription("Não foi possível obter a quantidade de amigos da conta ROBLOX.")
-                            .WithColor(DiscordColor.IndianRed);
-
-                        await ReplyAsync(errEmbed);
-                        return;
-                    }
-
-                    var friendsJson = JObject.Parse(await friendsResponse.Content.ReadAsStringAsync());
-                    friendsCount = (int?)friendsJson["count"] ?? 0;
-
-                    // Badges (opcional)
-                    try
-                    {
-                        var badgesResponse = await http.GetAsync($"https://badges.roblox.com/v1/users/{robloxUserId}/badges?limit=100&sortOrder=Asc");
-                        if (!badgesResponse.IsSuccessStatusCode)
-                        {
-                            badgesAvailable = false;
-                        }
-                        else
-                        
-                        {
-                            var badgesJson = JObject.Parse(await badgesResponse.Content.ReadAsStringAsync());
-                            var dataArray = badgesJson["data"] as JArray;
-                            badgeCount = dataArray?.Count ?? 0;
-                        }
-                    }
-                    catch
-                    {
-                        badgesAvailable = false;
-                    }
-                }
-                catch (TaskCanceledException)
-                {
-                    var timeoutEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("Tempo excedido")
-                        .WithDescription("A consulta à API do ROBLOX demorou demais. Tente novamente em instantes.")
-                        .WithColor(DiscordColor.IndianRed);
-
-                    await ReplyAsync(timeoutEmbed);
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    var err = ex.Message ?? string.Empty;
-                    if (err.Length > 150)
-                        err = err[..147] + "...";
-
-                    var genericEmbed = new DiscordEmbedBuilder()
-                        .WithTitle("Erro ao consultar ROBLOX")
-                        .WithDescription($"Ocorreu um erro inesperado ao consultar a conta ROBLOX: `{err}`")
-                        .WithColor(DiscordColor.IndianRed);
-
-                    await ReplyAsync(genericEmbed);
-                    return;
-                }
-            }
-
-            // Critérios principais para NÃO ser alt
-            var minAccountAge = TimeSpan.FromDays(90); // > 3 meses
-            const int minFriends = 1;
-
-            var passesAge = accountAge >= minAccountAge;
-            var passesFriends = friendsCount >= minFriends;
-            var badgesDisplay = badgesAvailable ? badgeCount.ToString() : "Indisponível";
-
-            // A decisão de ALT usa apenas idade da conta + amigos.
-            // Badges contam apenas como informação/bônus, não bloqueiam o alistamento.
-            var isLikelyMain = passesAge && passesFriends;
-
-            if (!isLikelyMain)
-            {
-                var deniedEmbed = new DiscordEmbedBuilder()
-                    .WithTitle("Alistamento negado - Conta provavelmente ALT")
-                    .WithDescription("A conta ROBLOX fornecida não atende aos critérios mínimos de confiabilidade.")
-                    .WithColor(DiscordColor.IndianRed)
-                    .AddField(new DiscordEmbedField("Idade da conta", $"{accountAge.Days} dias", true))
-                    .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                    .AddField(new DiscordEmbedField("Badges (bônus)", badgesDisplay, true));
-
-                await ReplyAsync(deniedEmbed);
+                await FailAsync("Erro ao consultar ROBLOX", check.Error ?? "Falha desconhecida.");
                 return;
             }
 
-            // Adiciona cargos ao membro (ignorando cargos que ele já possui)
-            var addedRoles = new List<DiscordRole>();
-            if (config.enlistTargetRoleIds != null && config.enlistTargetRoleIds.Length > 0)
+            if (!check.IsLikelyMain)
             {
-                foreach (var roleId in config.enlistTargetRoleIds)
-                {
-                    if (!ctx.Guild.Roles.TryGetValue(roleId, out var role))
-                        continue;
-
-                    if (targetMember.Roles.Any(r => r.Id == roleId))
-                        continue;
-
-                    try
-                    {
-                        await targetMember.GrantRoleAsync(role, "Alistamento via robloxenlist");
-                        addedRoles.Add(role);
-                    }
-                    catch
-                    {
-                    }
-                }
+                await ReplyAsync(new DiscordEmbedBuilder()
+                    .WithTitle("Alistamento negado - Conta provavelmente ALT")
+                    .WithDescription("A conta ROBLOX fornecida não atende aos critérios mínimos de confiabilidade.")
+                    .WithColor(DiscordColor.IndianRed)
+                    .AddField(new DiscordEmbedField("Idade da conta", $"{check.AccountAge.Days} dias", true))
+                    .AddField(new DiscordEmbedField("Amigos", check.FriendsCount.ToString(), true))
+                    .AddField(new DiscordEmbedField("Badges (bônus)", check.BadgesDisplay, true)));
+                return;
             }
 
-            if (wantsSocialRole)
-            {
-                if (!config.enlistSocialRoleId.HasValue || config.enlistSocialRoleId.Value == 0)
-                {
-                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social não está configurado. Verifique o `enlistSocialRoleId` no config.jsonc.");
-                }
-                else if (!ctx.Guild.Roles.TryGetValue(config.enlistSocialRoleId.Value, out var socialRoleEntity))
-                {
-                    await ctx.Channel.SendMessageAsync("⚠️ **Aviso**: O cargo social configurado não foi encontrado no servidor. Verifique o `enlistSocialRoleId` no config.jsonc.");
-                }
-                else if (!targetMember.Roles.Any(r => r.Id == socialRoleEntity.Id))
-                {
-                    try
-                    {
-                        await targetMember.GrantRoleAsync(socialRoleEntity, "Cargo social via robloxenlist");
-                        addedRoles.Add(socialRoleEntity);
-                    }
-                    catch (Exception ex)
-                    {
-                        var err = ex.Message ?? "";
-                        if (err.Length > 150) err = err[..147] + "...";
-                        await ctx.Channel.SendMessageAsync($"⚠️ **Aviso**: Falha ao adicionar o cargo social. Erro: {err}");
-                    }
-                }
-            }
+            // ctx.Channel como escopo: e nele que o bot precisa das permissoes.
+            var applied = await EnlistmentService.ApplyAsync(
+                ctx.Client, ctx.Guild, targetMember, config, wantsSocialRole, ctx.Channel);
 
-            // Atualiza nickname adicionando o prefixo [12°] se ainda não existir
-            var currentNick = targetMember.Nickname ?? targetMember.Username;
-            if (!NicknameUtil.HasPrefix(currentNick))
-            {
-                // WithPrefix corta o nome quando necessario: o Discord recusa
-                // apelido com mais de 32 caracteres.
-                var newNick = NicknameUtil.WithPrefix(currentNick);
-                try
+            var logEmbed = EnlistmentService.BuildLogEmbed(
+                ctx.Client,
+                targetMember,
+                ctx.User.Mention,
+                robloxName,
+                check,
+                applied,
+                wantsSocialRole,
+                title: "12° Regiment - Recruit Log (ROBLOX)",
+                description: "Registro de alistamento realizado com verificação automática de conta ROBLOX.",
+                extraFields: new[]
                 {
-                    await targetMember.ModifyAsync(m => m.Nickname = newNick);
-                }
-                catch
-                {
-                }
-            }
+                    ("Idioma", languageAnswer),
+                    ("Pertence a outros grupos?", groupsAnswer),
+                    ("Quem recrutou?", recruiterAnswer)
+                });
 
-            // Log no canal de logs (reutiliza enlistLogChannelId)
-            if (config.enlistLogChannelId.HasValue)
-            {
-                try
-                {
-                    var logChannel = await ctx.Client.GetChannelAsync(config.enlistLogChannelId.Value);
-                    if (logChannel is not null && logChannel.GuildId == ctx.Guild.Id)
-                    {
-                        var logEmbed = new DiscordEmbedBuilder()
-                            .WithTitle("12° Regiment - Recruit Log (ROBLOX)")
-                            .WithDescription("Registro de alistamento realizado com verificação automática de conta ROBLOX.")
-                            .WithColor(DiscordColor.Blurple)
-                            .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
-                            .WithFooter("Recruit log gerado por CornwallBot", ctx.Client.CurrentUser.AvatarUrl)
-                            .WithTimestamp(DateTimeOffset.UtcNow)
-                            .AddField(new DiscordEmbedField("Executor / Alistado", ctx.User.Mention, true))
-                            .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
-                            .AddField(new DiscordEmbedField("ROBLOX ID", robloxUserId.ToString(), true))
-                            .AddField(new DiscordEmbedField("Idioma", string.IsNullOrWhiteSpace(languageAnswer) ? "N/A" : languageAnswer, true))
-                            .AddField(new DiscordEmbedField("Pendendo aos grupos?", string.IsNullOrWhiteSpace(groupsAnswer) ? "N/A" : groupsAnswer, true))
-                            .AddField(new DiscordEmbedField("Quem recrutou?", string.IsNullOrWhiteSpace(recruiterAnswer) ? "N/A" : recruiterAnswer, true))
-                            .AddField(new DiscordEmbedField("Cargo social?", string.IsNullOrWhiteSpace(socialRoleAnswer) ? "N/A" : socialRoleAnswer, true))
-                            .AddField(new DiscordEmbedField("Idade da conta (dias)", accountAge.Days.ToString(), true))
-                            .AddField(new DiscordEmbedField("Amigos", friendsCount.ToString(), true))
-                            .AddField(new DiscordEmbedField("Badges", badgesDisplay, true))
-                            .AddField(new DiscordEmbedField("Cargos adicionados", addedRoles.Count > 0 ? string.Join(", ", addedRoles.Select(r => r.Mention)) : "Nenhum", false))
-                            .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true));
+            var warnings = new List<string>(applied.Warnings);
+            warnings.AddRange(await EnlistmentService.AnnounceAsync(
+                ctx.Client, ctx.Guild, config, logEmbed, targetMember));
 
-                        await logChannel.SendMessageAsync(new DiscordMessageBuilder().AddEmbed(logEmbed));
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            if (config.enlistWelcomeChannelId.HasValue && config.enlistWelcomeChannelId.Value != 0)
-            {
-                try
-                {
-                    var welcomeChannel = await ctx.Client.GetChannelAsync(config.enlistWelcomeChannelId.Value);
-                    if (welcomeChannel is not null && welcomeChannel.GuildId == ctx.Guild.Id)
-                    {
-                        await welcomeChannel.SendMessageAsync($"Bem-vindo ao 12°, {targetMember.Mention}!");
-                    }
-                    else if (welcomeChannel is null)
-                    {
-                        await ctx.Channel.SendMessageAsync("Não consegui encontrar o canal de boas-vindas (ID inválido ou canal de outro servidor?). Verifique o `enlistWelcomeChannelId` no config.json.");
-                    }
-                    else
-                    {
-                        await ctx.Channel.SendMessageAsync("O canal de boas-vindas configurado pertence a outro servidor. Verifique o `enlistWelcomeChannelId` no config.json.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var err = ex.Message ?? "";
-                    if (err.Length > 150) err = err[..147] + "...";
-                    await ctx.Channel.SendMessageAsync($"Erro ao enviar boas-vindas no canal geral: **{err}**. Verifique se o ID do canal está correto e se o bot tem permissão **Ver canal** e **Enviar mensagens** nesse canal.");
-                }
-            }
-
+            // Aviso nao vira excecao, mas tambem nao some: o alistamento pode ter
+            // terminado sem conceder cargo nenhum, e quem se alistou precisa saber
+            // disso em vez de ver so "concluido".
             var successEmbed = new DiscordEmbedBuilder()
-                .WithTitle("Alistamento concluido")
+                .WithTitle(warnings.Count == 0 ? "Alistamento concluido" : "Alistamento concluido com avisos")
                 .WithDescription("Verificacao ROBLOX aprovada. Bem-vindo ao 12°.")
-                .WithColor(DiscordColor.Green);
+                .WithColor(warnings.Count == 0 ? DiscordColor.Green : DiscordColor.Orange);
+
+            if (warnings.Count > 0)
+            {
+                successEmbed.AddField(new DiscordEmbedField(
+                    "Avisos",
+                    AuditEmbeds.FieldValue(warnings),
+                    false));
+            }
 
             await ReplyAsync(successEmbed);
         }

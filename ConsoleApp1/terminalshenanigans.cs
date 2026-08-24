@@ -103,7 +103,9 @@ namespace CornwallUtilities
 
                 try
                 {
-                    if (!HandleCommand(session, input))
+                    // Thread dedicada, fora do ThreadPool: bloquear aqui e o unico
+                    // lugar onde e aceitavel, entao GetResult nao afeta o gateway.
+                    if (!HandleCommandAsync(session, input).GetAwaiter().GetResult())
                         break;
                 }
                 catch (Exception ex)
@@ -117,8 +119,10 @@ namespace CornwallUtilities
 
         /// <summary>
         /// Executa um comando do terminal. Retorna false quando a sessao deve encerrar.
+        /// As chamadas REST sao aguardadas de verdade: bloquear uma thread do pool
+        /// com GetResult, como antes, tirava recursos do heartbeat do gateway.
         /// </summary>
-        private static bool HandleCommand(TerminalSession session, string input)
+        private static async Task<bool> HandleCommandAsync(TerminalSession session, string input)
         {
             var output = session.Output;
 
@@ -131,7 +135,7 @@ namespace CornwallUtilities
                     try
                     {
                         ulong id = ulong.Parse(cmd.Split(' ')[1]);
-                        session.Channel = client!.GetChannelAsync(id).GetAwaiter().GetResult();
+                        session.Channel = await client!.GetChannelAsync(id);
                         output.WriteLine($"Canal definido: {session.Channel?.Name}");
                     }
                     catch
@@ -161,7 +165,7 @@ namespace CornwallUtilities
                     return true;
                 }
 
-                session.Channel.SendMessageAsync(input).GetAwaiter().GetResult();
+                await session.Channel.SendMessageAsync(input);
             }
 
             return true;
@@ -287,10 +291,9 @@ namespace CornwallUtilities
 
                     try
                     {
-                        // O interpretador bloqueia (GetAwaiter().GetResult() nas
-                        // chamadas REST), entao roda fora do ThreadPool loop
-                        // desta task via Task.Run para nao segurar o worker.
-                        var keepGoing = await Task.Run(() => HandleCommand(session, input));
+                        // O interpretador agora e assincrono de verdade, entao basta
+                        // await - nada bloqueia uma thread do pool.
+                        var keepGoing = await HandleCommandAsync(session, input);
 
                         if (!keepGoing)
                             break;

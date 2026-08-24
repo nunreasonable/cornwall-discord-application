@@ -8,10 +8,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CornwallUtilities.commands;
 using CornwallUtilities.config;
 using CornwallUtilities.Services.Audit;
 using DisCatSharp;
 using DisCatSharp.Entities;
+using DisCatSharp.Enums;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -61,6 +63,15 @@ namespace CornwallUtilities.Services
         /// </summary>
         private static readonly TimeSpan PermissionRetryBackoff = TimeSpan.FromSeconds(30);
         private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Cargos que /api/roles/* pode conceder ou remover. Vazio recusa tudo.
+        /// Ver HandleRoleChangeAsync para o motivo de a lista existir.
+        /// </summary>
+        private HashSet<ulong> _grantableRoleIds = new();
+
+        /// <summary>Teto de caracteres de POST /api/messages/send.</summary>
+        private const int MaxSendMessageLength = 4000;
         private string _tunnelSecret = string.Empty;
 
         private CancellationTokenSource? _cts;
@@ -91,21 +102,40 @@ namespace CornwallUtilities.Services
             if (string.IsNullOrEmpty(_tunnelSecret))
                 Console.WriteLine("[dashboard] tunnelSecret vazio: o limite de login volta a ser global. Ver README.");
 
-            _allowedOrigins = config.allowedOrigins
+            _allowedOrigins = (config.allowedOrigins ?? Array.Empty<string>())
                 .Where(o => !string.IsNullOrWhiteSpace(o))
                 .Select(o => o.Trim())
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+            // O curinga nao e mais honrado, e sim recusado.
+            //
+            // CSRF nunca foi exploravel aqui (a autenticacao e Bearer, nunca
+            // cookie, e Allow-Credentials jamais e emitido), mas "*" deixava
+            // qualquer site ler as rotas publicas - e, se um token vazasse,
+            // pilotar a API inteira do navegador da vitima. A rede de seguranca
+            // antiga so olhava para lista VAZIA, entao um config com "*" escrito
+            // - inclusive o que o proprio reader gravava num deploy novo -
+            // passava direto.
+            if (_allowedOrigins.Contains("*"))
+            {
+                throw new InvalidOperationException(
+                    "allowedOrigins contem \"*\" em dashboard_auth.json. Liste as origens reais " +
+                    "(https://dashboard.daeese.me e https://ccore.daeese.me) em vez do curinga.");
+            }
+
             if (_allowedOrigins.Count == 0)
             {
-                // Antes o padrao era "*". CSRF nunca foi exploravel aqui (a
-                // autenticacao e Bearer, nunca cookie, e Allow-Credentials
-                // jamais e emitido), mas o curinga deixava qualquer site ler as
-                // rotas publicas - e, se um token vazasse, pilotar a API
-                // inteira do navegador da vitima. Estes sao os dois consumidores
-                // reais, conforme o README.
+                // Estes sao os dois consumidores reais, conforme o README.
                 _allowedOrigins.Add("https://dashboard.daeese.me");
                 _allowedOrigins.Add("https://ccore.daeese.me");
+            }
+
+            _grantableRoleIds = (config.grantableRoleIds ?? Array.Empty<ulong>()).ToHashSet();
+            if (_grantableRoleIds.Count == 0)
+            {
+                Console.WriteLine(
+                    "[dashboard] grantableRoleIds vazio: /api/roles/add e /api/roles/remove vao recusar tudo. " +
+                    "Liste em dashboard_auth.json os cargos que o painel pode conceder.");
             }
 
             _listener.Prefixes.Clear();
@@ -259,6 +289,27 @@ namespace CornwallUtilities.Services
                     return;
                 }
 
+                // Limite de taxa das rotas que MUDAM alguma coisa.
+                //
+                // O login ja tinha o seu; o resto nao tinha nenhum, entao uma
+                // sessao valida podia martelar /api/dm ou /api/audit/push (que
+                // bate na API do GitHub) a vontade. Fica aqui no dispatch, e nao
+                // em cada handler, para nao depender de alguem lembrar de
+                // chama-lo ao criar uma rota nova.
+                if (ctx.Request.HttpMethod == "POST" && path != "/api/auth/login" && path != "/api/auth/logout")
+                {
+                    var budget = ExpensiveRoutes.Contains(path) ? ExpensiveRouteBudget : DefaultRouteBudget;
+                    if (!TryConsumeRouteBudget(ctx.Request, path, budget, out var retryAfter))
+                    {
+                        ctx.Response.Headers["Retry-After"] = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+                        await WriteJsonAsync(ctx.Response, 429, new
+                        {
+                            error = "Muitas requisições nesta rota. Espere um pouco e tente de novo."
+                        });
+                        return;
+                    }
+                }
+
                 if (ctx.Request.HttpMethod == "POST" && path == "/api/auth/login")
                 {
                     await HandleLoginAsync(ctx);
@@ -376,6 +427,12 @@ namespace CornwallUtilities.Services
                 if (ctx.Request.HttpMethod == "GET" && path == "/api/dm/status")
                 {
                     await HandleDmStatusAsync(ctx);
+                    return;
+                }
+
+                if (ctx.Request.HttpMethod == "POST" && path == "/api/dm/cancel")
+                {
+                    await HandleDmCancelAsync(ctx);
                     return;
                 }
 
@@ -574,6 +631,18 @@ namespace CornwallUtilities.Services
                 return;
             }
 
+            // Teto proprio, bem abaixo dos 64 KB do corpo. Sem ele um unico
+            // request virava ate 32 mensagens encadeadas no canal, e nao existe
+            // limite de taxa por sessao para segurar isso.
+            if (message.Length > MaxSendMessageLength)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new
+                {
+                    error = $"A mensagem tem {message.Length} caracteres; o limite é {MaxSendMessageLength}."
+                });
+                return;
+            }
+
             try
             {
                 var channel = await _client.GetChannelAsync(channelId.Value);
@@ -585,6 +654,22 @@ namespace CornwallUtilities.Services
                 if (channel is null || channel.GuildId != config.guildId)
                 {
                     await WriteJsonAsync(ctx.Response, 400, new { error = "Canal não pertence ao servidor do regimento." });
+                    return;
+                }
+
+                // Estar no servidor certo nao basta: nivel 1 e o mais baixo, e
+                // "qualquer canal do servidor" inclui anuncios e canais de staff.
+                // Com allowedSendChannelIds preenchido, nivel 1 fica restrito a
+                // essa lista e o resto exige nivel 2. Lista vazia mantem o
+                // comportamento antigo, para nao quebrar quem ainda nao a
+                // preencheu - por isso o aviso no StartAsync.
+                var allowed = config.allowedSendChannelIds ?? Array.Empty<ulong>();
+                if (allowed.Length > 0 && !allowed.Contains(channelId.Value) && session.PermissionLevel < 2)
+                {
+                    await WriteJsonAsync(ctx.Response, 403, new
+                    {
+                        error = "Este canal não está na lista liberada para o seu nível."
+                    });
                     return;
                 }
 
@@ -635,10 +720,87 @@ namespace CornwallUtilities.Services
             }
         }
 
+        /// <summary>
+        /// Diz se um cargo pode ser tocado por /api/roles/add e /remove.
+        ///
+        /// A rota exige nivel 2, mas nivel 2 nao e o topo: sem allowlist, uma
+        /// sessao nivel 2 podia conceder A SI MESMA um cargo de level3RoleIds e
+        /// virar nivel 3, ou arrancar cargos de quem esta acima dela.
+        ///
+        /// A allowlist sozinha ja bastaria. O resto existe porque a allowlist e
+        /// digitada a mao num arquivo de config, e o erro provavel nao e listar
+        /// um cargo aleatorio - e listar justamente o cargo "de staff", que num
+        /// servidor pequeno costuma ser UM so cargo acumulando tudo. Aqui e
+        /// exatamente esse: 1487945889581629582 e ao mesmo tempo level1RoleIds,
+        /// enlistPermissionRoleId (o portao de /enlistuser e de todos os
+        /// /audit-*) e deploymentAllowedRoleIds (deployment e DM em massa).
+        /// Conceder esse unico cargo entrega o regimento inteiro.
+        ///
+        /// Por isso a recusa e por PAPEL, e nao por lista: qualquer cargo que
+        /// mande em alguma coisa em qualquer lugar da config fica de fora,
+        /// mesmo que alguem o coloque em grantableRoleIds.
+        /// </summary>
+        private bool IsRoleGrantable(
+            DiscordRole role,
+            DashboardConfigStructure config,
+            JSONReader botConfig,
+            out string reason)
+        {
+            if (!_grantableRoleIds.Contains(role.Id))
+            {
+                reason = "Este cargo não está em grantableRoleIds.";
+                return false;
+            }
+
+            // Niveis do painel. level1 NAO pode faltar aqui: ele e o portao dos
+            // comandos de staff, e a versao anterior desta checagem so olhava
+            // level2 e level3.
+            if (Has(config.level1RoleIds, role.Id)
+                || Has(config.level2RoleIds, role.Id)
+                || Has(config.level3RoleIds, role.Id))
+            {
+                reason = "Este cargo dá acesso ao próprio painel.";
+                return false;
+            }
+
+            // Portoes que vivem no config do bot, nao no do painel.
+            if (botConfig.enlistPermissionRoleId == role.Id)
+            {
+                reason = "Este cargo é o portão dos comandos de staff.";
+                return false;
+            }
+
+            if (Has(botConfig.deploymentAllowedRoleIds, role.Id))
+            {
+                reason = "Este cargo autoriza deployment e DM em massa.";
+                return false;
+            }
+
+            // Marcadores de bloqueio: conceder ou REMOVER um destes mexe em quem
+            // pode se realistar, o que e decisao de comando, nao de painel.
+            if (Has(botConfig.robloxEnlistBlockedRoleIds, role.Id))
+            {
+                reason = "Este cargo controla quem pode se alistar.";
+                return false;
+            }
+
+            const Permissions dangerous = Permissions.Administrator | Permissions.ManageRoles | Permissions.ManageGuild;
+            if ((role.Permissions & dangerous) != 0)
+            {
+                reason = "Este cargo carrega Administrator, Manage Roles ou Manage Server.";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool Has(ulong[]? ids, ulong id) => ids is not null && Array.IndexOf(ids, id) >= 0;
+
+        // Cargo entra e sai por aqui; conceder cargo pode escalar privilegio.
         private async Task HandleRoleChangeAsync(HttpListenerContext ctx, bool add)
         {
-            var session = await // Cargo entra e sai por aqui; conceder cargo pode escalar privilegio.
-            RequirePermissionAsync(ctx.Request, 2);
+            var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
                 await WriteAuthFailureAsync(ctx, "Permissão insuficiente para gerenciar cargos.");
@@ -665,6 +827,20 @@ namespace CornwallUtilities.Services
                 if (role is null)
                 {
                     await WriteJsonAsync(ctx.Response, 400, new { error = $"Cargo {roleId} não existe neste servidor." });
+                    return;
+                }
+
+                var botConfig = new JSONReader();
+                await botConfig.ReadJSON();
+
+                if (!IsRoleGrantable(role, config, botConfig, out var refusal))
+                {
+                    // 403 e nao 400: o pedido esta bem formado, o que falta e
+                    // autorizacao para ESTE cargo especifico.
+                    Console.WriteLine($"[dashboard] {session.Username} tentou {(add ? "conceder" : "remover")} o cargo {roleId} ({role.Name}): recusado - {refusal}");
+                    await AuditAsync(session, add ? "ADD_ROLE_DENIED" : "REMOVE_ROLE_DENIED",
+                        $"Recusado: cargo {roleId} ({role.Name}) para o usuário {userId}. {refusal}");
+                    await WriteJsonAsync(ctx.Response, 403, new { error = $"Cargo não permitido pelo painel. {refusal}" });
                     return;
                 }
 
@@ -1077,10 +1253,19 @@ namespace CornwallUtilities.Services
                 return;
             }
 
+            // Campo ausente no corpo mantem o valor antigo (ver o UpdateAsync
+            // acima), entao o "depois" tem que cair no antigo tambem. Interpolar
+            // o int? cru fazia um campo omitido virar string vazia, e a trilha
+            // saia como "Editou X: 5/2/1 (10 bat.) → X //  ( bat.)".
+            var afterKills = kills ?? before?.kills;
+            var afterDeaths = deaths ?? before?.deaths;
+            var afterAssists = assists ?? before?.assists;
+            var afterBattles = editingPending ? before?.battles : (battles ?? before?.battles);
+
             var details =
                 $"Editou **{username}** em `{scopeLabel}`: " +
                 $"{before?.kills}/{before?.deaths}/{before?.assists} ({before?.battles} bat.) → " +
-                $"{newName} {kills}/{deaths}/{assists} ({(editingPending ? before?.battles : battles)} bat.)";
+                $"{newName} {afterKills}/{afterDeaths}/{afterAssists} ({afterBattles} bat.)";
 
             await AuditLog.RecordAsync(session.UserId, session.Username, AuditLog.ActionEdit, details);
             await AuditAsync(session, "AUDIT_EDIT", details);
@@ -1088,11 +1273,13 @@ namespace CornwallUtilities.Services
             await WriteJsonAsync(ctx.Response, 200, new { ok = true, username = newName });
         }
 
-        /// <summary>Define a patente de um ou mais jogadores. Campo vazio remove.</summary>
+        /// <summary>
+        /// Define a patente de um ou mais jogadores. Campo vazio remove.
+        /// Nivel 1 basta: e digitacao de dado, nao da cargo no Discord nem remove nada.
+        /// </summary>
         private async Task HandleAuditRanksAsync(HttpListenerContext ctx)
         {
-            var session = await // Definir patente e digitacao de dado: nao da cargo no Discord nem remove nada.
-            RequirePermissionAsync(ctx.Request, 1);
+            var session = await RequirePermissionAsync(ctx.Request, 1);
             if (session is null)
             {
                 await WriteAuthFailureAsync(ctx, "Permissão insuficiente para definir patentes.");
@@ -1319,10 +1506,10 @@ namespace CornwallUtilities.Services
         /// espacamento, entao os 500 do teto levam ~35 minutos. Manter o request
         /// aberto durante isso so garantiria um timeout.
         /// </summary>
+        // DM em massa: ate 500 pessoas de uma vez.
         private async Task HandleDmStartAsync(HttpListenerContext ctx)
         {
-            var session = await // DM em massa: ate 500 pessoas de uma vez.
-            RequirePermissionAsync(ctx.Request, 2);
+            var session = await RequirePermissionAsync(ctx.Request, 2);
             if (session is null)
             {
                 await WriteAuthFailureAsync(ctx, "Permissão insuficiente para enviar DM em massa.");
@@ -1338,6 +1525,28 @@ namespace CornwallUtilities.Services
             if (!roleId.HasValue && !userId.HasValue)
             {
                 await WriteJsonAsync(ctx.Response, 400, new { error = "Informe roleId ou userId." });
+                return;
+            }
+
+            // Recusa aqui em vez de deixar o job nascer condenado: os dois campos
+            // viram field de embed, e o Discord recusa field acima de 1024. Sem
+            // esta checagem o corpo so era limitado pelos 64 KB da requisicao, e
+            // um texto maior fazia as 500 DMs falharem uma a uma.
+            if (message.Length > DmRolesCertainRoles.MaxDmFieldLength)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new
+                {
+                    error = $"A mensagem tem {message.Length} caracteres; o limite por DM é {DmRolesCertainRoles.MaxDmFieldLength}."
+                });
+                return;
+            }
+
+            if (code.Length > DmRolesCertainRoles.MaxDmFieldLength)
+            {
+                await WriteJsonAsync(ctx.Response, 400, new
+                {
+                    error = $"O código tem {code.Length} caracteres; o limite por DM é {DmRolesCertainRoles.MaxDmFieldLength}."
+                });
                 return;
             }
 
@@ -1375,7 +1584,12 @@ namespace CornwallUtilities.Services
                 // preview - mesmo criterio do /dmdeployment. Passar null aqui
                 // faria a DM do painel sair diferente da DM do comando.
                 var content = string.IsNullOrWhiteSpace(config.defaultGameLink) ? null : config.defaultGameLink;
-                var job = MassDmService.StartJob(members, targetName, content, embed);
+                var (job, startError) = MassDmService.StartJob(members, targetName, content, embed);
+                if (job is null)
+                {
+                    await WriteJsonAsync(ctx.Response, 429, new { error = startError });
+                    return;
+                }
 
                 await AuditAsync(session, "MASS_DM", $"Iniciou envio de DM para {members.Count} destinatário(s) ({targetName}) — job {job.JobId}.");
 
@@ -1414,6 +1628,35 @@ namespace CornwallUtilities.Services
             }
 
             await WriteJsonAsync(ctx.Response, 200, new { job });
+        }
+
+        /// <summary>Cancela um envio em massa em andamento.</summary>
+        private async Task HandleDmCancelAsync(HttpListenerContext ctx)
+        {
+            var session = await RequirePermissionAsync(ctx.Request, 2);
+            if (session is null)
+            {
+                await WriteAuthFailureAsync(ctx, "Permissão insuficiente.");
+                return;
+            }
+
+            var body = await ReadBodyAsJsonAsync(ctx.Request);
+            var jobId = ReadString(body, "jobId")?.Trim();
+            if (string.IsNullOrWhiteSpace(jobId))
+            {
+                await WriteJsonAsync(ctx.Response, 400, new { error = "Informe jobId." });
+                return;
+            }
+
+            var cancelled = MassDmService.CancelJob(jobId);
+            if (!cancelled)
+            {
+                await WriteJsonAsync(ctx.Response, 404, new { error = "Job não encontrado ou já finalizado." });
+                return;
+            }
+
+            await AuditAsync(session, "MASS_DM_CANCEL", $"Solicitou cancelamento do envio de DM — job {jobId}.");
+            await WriteJsonAsync(ctx.Response, 200, new { ok = true, job = MassDmService.GetJob(jobId) });
         }
 
         /// <summary>Alista um usuario, com a mesma verificacao ROBLOX do /enlistuser.</summary>
@@ -1633,6 +1876,81 @@ namespace CornwallUtilities.Services
             await WriteJsonAsync(ctx.Response, 403, new { error = forbiddenMessage });
         }
 
+        /// <summary>
+        /// Rotas caras o bastante para merecer um teto mais apertado: /api/dm
+        /// dispara ate 500 DMs e /api/audit/push escreve no GitHub.
+        /// </summary>
+        private static readonly HashSet<string> ExpensiveRoutes = new(StringComparer.Ordinal)
+        {
+            "/api/dm",
+            "/api/audit/push"
+        };
+
+        /// <summary>Balde de tokens: quantos pedidos cabem na janela.</summary>
+        private const int DefaultRouteBudget = 30;
+
+        private const int ExpensiveRouteBudget = 3;
+
+        private static readonly TimeSpan RouteBudgetWindow = TimeSpan.FromMinutes(1);
+
+        /// <summary>Teto de chaves rastreadas, pelo mesmo motivo do MaxTrackedLoginKeys.</summary>
+        private const int MaxTrackedRouteKeys = 4096;
+
+        private readonly ConcurrentDictionary<string, RouteBudget> _routeBudgets = new();
+
+        private sealed class RouteBudget
+        {
+            public DateTimeOffset WindowStart { get; set; }
+            public int Count { get; set; }
+        }
+
+        /// <summary>
+        /// Consome um token do balde da dupla (quem, rota). Falso quando estourou.
+        ///
+        /// A chave e a sessao quando existe uma, e o IP quando nao existe: sem
+        /// isso, quem nao esta logado compartilharia um balde so e um unico
+        /// curioso derrubaria a rota para todo mundo.
+        /// </summary>
+        private bool TryConsumeRouteBudget(HttpListenerRequest request, string path, int budget, out TimeSpan retryAfter)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var session = TryGetSession(request);
+            var who = session?.Token ?? ClientKey(request);
+            var key = $"{who}|{path}";
+
+            retryAfter = RouteBudgetWindow;
+
+            // Balde novo em dicionario cheio: descarta o mais antigo para abrir
+            // espaco, em vez de RECUSAR a chave nova. Recusar transformava o
+            // limitador em vetor de DoS: um atacante com 4096 IPs distintos (uma
+            // botnet, ou simplesmente IPv6) enchia o dicionario e travava a rota
+            // para todo cliente legitimo novo. Descartar o balde mais velho
+            // sempre deixa o pedido legitimo entrar.
+            if (_routeBudgets.Count >= MaxTrackedRouteKeys && !_routeBudgets.ContainsKey(key))
+                EvictOldest(_routeBudgets, b => b.WindowStart);
+
+            var bucket = _routeBudgets.GetOrAdd(key, _ => new RouteBudget { WindowStart = now });
+            lock (bucket)
+            {
+                if (now - bucket.WindowStart >= RouteBudgetWindow)
+                {
+                    bucket.WindowStart = now;
+                    bucket.Count = 0;
+                }
+
+                if (bucket.Count >= budget)
+                {
+                    retryAfter = RouteBudgetWindow - (now - bucket.WindowStart);
+                    if (retryAfter < TimeSpan.Zero)
+                        retryAfter = TimeSpan.Zero;
+                    return false;
+                }
+
+                bucket.Count++;
+                return true;
+            }
+        }
+
         private async Task<DashboardSession?> RequirePermissionAsync(HttpListenerRequest request, int minLevel)
         {
             var session = TryGetSession(request);
@@ -1641,10 +1959,19 @@ namespace CornwallUtilities.Services
 
             if (DateTimeOffset.UtcNow >= session.NextPermissionCheckAt)
             {
-                var current = await _auth.ResolvePermissionLevelAsync(_client, session.UserId);
-
-                if (current.HadLookupFailure)
+                await session.RefreshGate.WaitAsync();
+                try
                 {
+                    // Double-check dentro do gate: se outra requisicao ja
+                    // reconferiu enquanto esperavamos, o carimbo ja foi adiado e
+                    // nao ha por que consultar o Discord de novo.
+                    if (DateTimeOffset.UtcNow < session.NextPermissionCheckAt)
+                        return session.PermissionLevel >= minLevel ? session : null;
+
+                    var current = await _auth.ResolvePermissionLevelAsync(_client, session.UserId);
+
+                    if (current.HadLookupFailure)
+                    {
                     /*
                      * Discord fora do ar nao derruba ninguem: o nivel conhecido
                      * continua valendo, porque expulsar todo mundo numa
@@ -1659,18 +1986,23 @@ namespace CornwallUtilities.Services
                      * de requests. Com o adiamento curto, o custo da
                      * indisponibilidade e pago uma vez a cada 30 segundos.
                      */
-                    session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRetryBackoff);
-                }
-                else
-                {
-                    session.PermissionLevel = current.PermissionLevel;
-                    session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRefreshInterval);
-
-                    if (current.PermissionLevel <= 0)
-                    {
-                        _sessions.TryRemove(session.Token, out _);
-                        return null;
+                        session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRetryBackoff);
                     }
+                    else
+                    {
+                        session.PermissionLevel = current.PermissionLevel;
+                        session.NextPermissionCheckAt = DateTimeOffset.UtcNow.Add(PermissionRefreshInterval);
+
+                        if (current.PermissionLevel <= 0)
+                        {
+                            _sessions.TryRemove(session.Token, out _);
+                            return null;
+                        }
+                    }
+                }
+                finally
+                {
+                    session.RefreshGate.Release();
                 }
             }
 
@@ -1697,11 +2029,14 @@ namespace CornwallUtilities.Services
 
             PruneLoginAttempts(now);
 
-            // Cheio de chaves ainda dentro da janela: recusa em vez de crescer.
-            // Degrada para "ninguem loga por ate 5 minutos", que e o lado certo
-            // para errar num limitador.
+            // Cheio de chaves ainda dentro da janela: descarta a mais antiga em
+            // vez de RECUSAR a nova. Recusar degradava para "ninguem loga por ate
+            // 5 minutos" - com tunnelSecret configurado, a chave e o
+            // CF-Connecting-IP real, entao um atacante com 4096 IPs (IPv6 basta)
+            // enchia o balde e trancava o login de todos os administradores. A
+            // evicção LRU sempre abre espaco para a tentativa legitima.
             if (_loginAttempts.Count >= MaxTrackedLoginKeys && !_loginAttempts.ContainsKey(key))
-                return false;
+                EvictOldest(_loginAttempts, a => a.WindowStart);
 
             var attempts = _loginAttempts.GetOrAdd(key, _ => new LoginAttempts { WindowStart = now });
 
@@ -1865,12 +2200,11 @@ namespace CornwallUtilities.Services
 
         private void AddCorsHeaders(HttpListenerRequest request, HttpListenerResponse response)
         {
+            // Sem ramo para "*": StartAsync recusa subir se o curinga estiver no
+            // config, entao emiti-lo aqui era codigo morto que sugeria um
+            // comportamento que nao existe. So origem explicita da allowlist.
             var origin = request.Headers["Origin"];
-            if (_allowedOrigins.Contains("*"))
-            {
-                response.Headers["Access-Control-Allow-Origin"] = "*";
-            }
-            else if (!string.IsNullOrWhiteSpace(origin) && _allowedOrigins.Contains(origin))
+            if (!string.IsNullOrWhiteSpace(origin) && _allowedOrigins.Contains(origin))
             {
                 response.Headers["Access-Control-Allow-Origin"] = origin;
                 response.Headers["Vary"] = "Origin";
@@ -1970,6 +2304,42 @@ namespace CornwallUtilities.Services
             }
 
             PruneLoginAttempts(now);
+            PruneRouteBudgets(now);
+        }
+
+        /// <summary>
+        /// Remove a entrada de menor carimbo (a "mais antiga") para abrir espaco
+        /// quando o dicionario bate o teto. Best-effort: sob concorrencia o
+        /// dicionario pode passar do teto por um instante, o que e aceitavel - o
+        /// objetivo e nunca RECUSAR uma chave nova por estar cheio.
+        /// </summary>
+        private static void EvictOldest<T>(ConcurrentDictionary<string, T> map, Func<T, DateTimeOffset> stampOf)
+        {
+            string? oldestKey = null;
+            var oldestStamp = DateTimeOffset.MaxValue;
+
+            foreach (var kv in map)
+            {
+                var stamp = stampOf(kv.Value);
+                if (stamp < oldestStamp)
+                {
+                    oldestStamp = stamp;
+                    oldestKey = kv.Key;
+                }
+            }
+
+            if (oldestKey is not null)
+                map.TryRemove(oldestKey, out _);
+        }
+
+        /// <summary>Descarta baldes cuja janela ja passou, para o dicionario nao so crescer.</summary>
+        private void PruneRouteBudgets(DateTimeOffset now)
+        {
+            foreach (var kv in _routeBudgets)
+            {
+                if (now - kv.Value.WindowStart >= RouteBudgetWindow)
+                    _routeBudgets.TryRemove(kv.Key, out _);
+            }
         }
 
         /// <summary>
@@ -2013,6 +2383,15 @@ namespace CornwallUtilities.Services
             /// (PermissionRetryBackoff).
             /// </summary>
             public DateTimeOffset NextPermissionCheckAt { get; set; }
+
+            /// <summary>
+            /// Serializa a reconferencia de permissao. Sem ele, com o painel
+            /// aberto em varias abas (ate 64 requests em voo), duas requisicoes
+            /// passando de NextPermissionCheckAt ao mesmo tempo disparavam duas
+            /// consultas ao Discord (cada uma com ate 3 tentativas e delays) e
+            /// podiam gravar niveis fora de ordem.
+            /// </summary>
+            public SemaphoreSlim RefreshGate { get; } = new(1, 1);
         }
 
         private sealed class LoginAttempts

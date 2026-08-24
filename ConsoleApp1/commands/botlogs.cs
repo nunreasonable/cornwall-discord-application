@@ -37,12 +37,14 @@ namespace CornwallUtilities.commands
             [Choice("Apenas avisos", LevelWarn)]
             [Choice("Apenas informativos", LevelInfo)]
             [Option("nivel", "Filtrar por severidade")] string nivel = LevelAll,
-            [Option("filtro", "Mostrar apenas linhas que contenham este texto")] string? filtro = null,
-            [Option("privado", "Mostrar apenas para você")] bool privado = true)
+            [Option("filtro", "Mostrar apenas linhas que contenham este texto")] string? filtro = null)
         {
-            var deferBuilder = new DiscordInteractionResponseBuilder();
-            if (privado)
-                deferBuilder.AsEphemeral();
+            // Sempre efemero: os logs carregam ids de usuario, mensagens de
+            // excecao e caminhos da maquina. Antes havia a opcao `privado:false`,
+            // que despejava esse conteudo no canal para qualquer um ver - nao ha
+            // motivo legitimo para publica-lo, entao a opcao foi removida.
+            const bool privado = true;
+            var deferBuilder = new DiscordInteractionResponseBuilder().AsEphemeral();
 
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, deferBuilder);
 
@@ -151,7 +153,7 @@ namespace CornwallUtilities.commands
             {
                 pages.Add(AuditEmbeds.Fit(new DiscordEmbedBuilder()
                     .WithTitle("Logs do bot")
-                    .WithDescription($"{scope}\n```\n{chunks[i]}```")
+                    .WithDescription($"{scope}\n```\n{AuditEmbeds.FenceSafe(chunks[i])}```")
                     .WithColor(DiscordColor.Blurple)
                     .WithFooter($"Página {i + 1}/{chunks.Count} — mais recente primeiro")
                     .WithTimestamp(DateTimeOffset.UtcNow)));

@@ -18,9 +18,16 @@ namespace CornwallUtilities.Services.Audit
         public static DiscordEmbed Denied(string description) =>
             Error("Permissão negada", description);
 
-        /// <summary>Uma linha do relatorio: "Nome K D A Batalhas Cargo".</summary>
+        /// <summary>
+        /// Uma linha do relatorio: "Nome K D A Batalhas Cargo".
+        ///
+        /// username e rank passam por FenceSafe: sem isso uma crase tripla no nome
+        /// (a validacao de /audit-check so barra virgula e &gt;32 chars) fechava a
+        /// cerca do bloco de codigo e escapava do relatorio. Para nomes normais o
+        /// FenceSafe nao muda nada.
+        /// </summary>
         public static string FormatEntry(AuditEntry e) =>
-            $"{Trim(e.username, 18).PadRight(18)} {e.kills,-5} {e.deaths,-5} {e.assists,-5} {e.battles,-5} {Trim(string.IsNullOrWhiteSpace(e.rank) ? "-" : e.rank, 18)}";
+            $"{FenceSafe(Trim(e.username, 18)).PadRight(18)} {e.kills,-5} {e.deaths,-5} {e.assists,-5} {e.battles,-5} {FenceSafe(Trim(string.IsNullOrWhiteSpace(e.rank) ? "-" : e.rank, 18))}";
 
         public static string Header() =>
             $"{"Nome".PadRight(18)} {"K",-5} {"D",-5} {"A",-5} {"Bat",-5} Cargo";
@@ -120,6 +127,21 @@ namespace CornwallUtilities.Services.Audit
 
             return embed;
         }
+
+        /// <summary>
+        /// Deixa um texto seguro para ir DENTRO de um bloco ```.
+        ///
+        /// Uma crase tripla no conteudo fecha a cerca e o resto do embed vira
+        /// markdown solto - uma linha de log ou um nome digitado pelo usuario
+        /// podem conter exatamente isso. Nao e injecao (o Discord so renderiza
+        /// markdown), mas embaralha a saida justamente quando se esta lendo log
+        /// para entender um problema.
+        ///
+        /// A crase e separada por um zero-width space: continua legivel e para de
+        /// casar com o fechamento da cerca.
+        /// </summary>
+        public static string FenceSafe(string? value) =>
+            (value ?? string.Empty).Replace("```", "`\u200b`\u200b`");
 
         public static string Trim(string? value, int max)
         {

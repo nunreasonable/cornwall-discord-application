@@ -140,7 +140,9 @@ namespace CornwallUtilities.Services
             try
             {
                 using var proc = Process.GetCurrentProcess();
-                var span = DateTime.Now - proc.StartTime;
+                // UTC nos dois lados: DateTime.Now - StartTime (ambos locais) erra
+                // em 1 hora numa transicao de horario de verao.
+                var span = DateTime.UtcNow - proc.StartTime.ToUniversalTime();
                 return span < TimeSpan.Zero ? TimeSpan.Zero : span;
             }
             catch (Exception)
@@ -156,7 +158,7 @@ namespace CornwallUtilities.Services
                 using var proc = Process.GetCurrentProcess();
                 return new List<(string, string)>
                 {
-                    ("Uptime do bot", FormatSpan(DateTime.Now - proc.StartTime)),
+                    ("Uptime do bot", FormatSpan(DateTime.UtcNow - proc.StartTime.ToUniversalTime())),
                     ("Memória residente", $"{proc.WorkingSet64 / (1024.0 * 1024.0):F1} MB"),
                     ("Threads", proc.Threads.Count.ToString())
                 };

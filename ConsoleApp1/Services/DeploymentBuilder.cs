@@ -27,6 +27,17 @@ namespace CornwallUtilities.Services
     /// </summary>
     internal static class DeploymentBuilder
     {
+        /// <summary>
+        /// Remove os caracteres que quebrariam o markdown do embed: crases (fecham
+        /// o code span), colchetes e parenteses (forjam um segundo hyperlink no
+        /// rotulo do link), e os demais marcadores de enfase. O codigo e uma
+        /// string curta de jogo, entao remove-los nao tira nada legitimo.
+        /// </summary>
+        private static string SanitizeInline(string? value) =>
+            new string((value ?? string.Empty)
+                .Where(c => c is not ('`' or '[' or ']' or '(' or ')' or '*' or '_' or '~' or '|' or '\\'))
+                .ToArray());
+
         public static DeploymentMessage Build(JSONReader config, DiscordGuild? guild, string codigo)
         {
             var gameLink = !string.IsNullOrWhiteSpace(config.deploymentGameLink)
@@ -104,12 +115,18 @@ namespace CornwallUtilities.Services
                 descriptionLines.Add(cleanedMentions);
                 descriptionLines.Add(string.Empty);
             }
+            // O codigo vem cru do usuario (opcao do /deployment ou corpo do POST
+            // /api/deployment). Sem sanitizar, uma crase fecha o code span e um
+            // "](https://evil)" dentro do rotulo forja um segundo hyperlink na
+            // mensagem de deployment - justamente a mensagem que o regimento
+            // inteiro clica. A URL do link ja e validada; o rotulo nao era.
+            var codigoSafe = SanitizeInline(codigo);
             descriptionLines.Add($"**Voice Channel:** {voiceChannelDisplay}");
-            descriptionLines.Add($"**Code:** `{codigo}`");
+            descriptionLines.Add($"**Code:** `{codigoSafe}`");
             descriptionLines.Add(string.Empty);
             descriptionLines.Add(string.IsNullOrWhiteSpace(quickLaunchLink)
-                ? $"**Quick Launch Link:** Join & Enter {codigo}"
-                : $"**Quick Launch Link:** [Join & Enter {codigo}]({quickLaunchLink})");
+                ? $"**Quick Launch Link:** Join & Enter {codigoSafe}"
+                : $"**Quick Launch Link:** [Join & Enter {codigoSafe}]({quickLaunchLink})");
 
             if (!string.IsNullOrWhiteSpace(imageWarning))
             {

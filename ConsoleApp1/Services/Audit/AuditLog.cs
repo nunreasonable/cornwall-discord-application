@@ -130,7 +130,21 @@ namespace CornwallUtilities.Services.Audit
             var json = JsonConvert.SerializeObject(file, Formatting.Indented);
             var tmp = s_path + ".tmp";
 
-            await File.WriteAllTextAsync(tmp, json).ConfigureAwait(false);
+            // fsync do conteudo antes do rename (durabilidade) e 0600 no .tmp
+            // antes do move: o historico traz IDs e nomes e nascia 0644.
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            await using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await stream.WriteAsync(bytes).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+
             File.Move(tmp, s_path, overwrite: true);
         }
     }

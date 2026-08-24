@@ -99,8 +99,13 @@ namespace CornwallUtilities.Services
                     response = response[..1997] + "...";
                 }
 
+                // Sem WithAllowedMentions(Mentions.None) um @everyone ou @cargo no
+                // responseMessage do config (que ainda passa por {mention}/{term})
+                // seria disparado a cada infracao. O texto e informativo; nao deve
+                // pingar ninguem.
                 await message.Channel.SendMessageAsync(new DiscordMessageBuilder()
                     .WithContent(response)
+                    .WithAllowedMentions(Mentions.None)
                     .WithReply(message.Id));
             }
 
