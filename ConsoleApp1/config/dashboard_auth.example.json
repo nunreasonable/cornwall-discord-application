@@ -25,6 +25,10 @@
     0,
     0
   ],
+  "grantableRoleIds": [
+    0
+  ],
+  "allowedSendChannelIds": [],
   "linkCodeLifetimeMinutes": 10,
   "sessionLifetimeMinutes": 60,
   "tunnelSecret": ""

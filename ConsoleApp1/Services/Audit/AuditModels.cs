@@ -23,6 +23,13 @@ namespace CornwallUtilities.Services.Audit
             rank = rank
         };
 
+        /// <summary>
+        /// So para exibicao. [JsonIgnore] porque e derivado de kills/deaths: sem
+        /// ele o Newtonsoft gravava o campo no audit.json publicado no GitHub,
+        /// onde ele so podia ficar desatualizado (a leitura o ignora) e ainda
+        /// entrava na comparacao de "mudou alguma coisa?" do AuditStore.
+        /// </summary>
+        [Newtonsoft.Json.JsonIgnore]
         public string KdRatio => deaths == 0
             ? kills.ToString()
             : ((double)kills / deaths).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);

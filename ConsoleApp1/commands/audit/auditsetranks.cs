@@ -239,7 +239,7 @@ namespace CornwallUtilities.commands
 
                 var parsed = RankBlockParser.Parse(block);
 
-                var index = roster.ToDictionary(e => e.username, e => e, StringComparer.OrdinalIgnoreCase);
+                var index = AuditMerger.BuildIndex(roster);
                 var updates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var unknown = new List<string>();
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
 using CornwallUtilities.Services;
+using CornwallUtilities.Services.Audit;
 using DisCatSharp.ApplicationCommands;
 using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
@@ -85,16 +86,26 @@ namespace CornwallUtilities.commands
             await InteractionReply.SafeEditAsync(ctx, summary.Build());
         }
 
+        /// <summary>Teto do Discord para o valor de um field de embed.</summary>
+        public const int MaxDmFieldLength = 1024;
+
         /// <summary>
         /// Embed da DM de deployment. Publico porque o dashboard envia
         /// exatamente a mesma mensagem por POST /api/dm.
+        ///
+        /// Os dois campos sao cortados em 1024: pelo dashboard eles so eram
+        /// limitados pelo teto de 64 KB do corpo da requisicao, e um texto maior
+        /// fazia TODO SendMessageAsync do mass DM voltar 400 - o job entao
+        /// reportava 100% de falha com um motivo que nao explicava nada.
         /// </summary>
         public static DiscordEmbed BuildDeploymentDm(string targetName, string code, string messageBody) =>
             new DiscordEmbedBuilder()
                 .WithTitle($"Mensagem para {targetName}")
                 .WithColor(DiscordColor.Blurple)
-                .AddField(new DiscordEmbedField("Código", string.IsNullOrWhiteSpace(code) ? "(nenhum)" : code, true))
-                .AddField(new DiscordEmbedField("Mensagem", string.IsNullOrWhiteSpace(messageBody) ? "(nenhuma mensagem extra)" : messageBody, false))
+                .AddField(new DiscordEmbedField("Código",
+                    string.IsNullOrWhiteSpace(code) ? "(nenhum)" : AuditEmbeds.Trim(code, MaxDmFieldLength), true))
+                .AddField(new DiscordEmbedField("Mensagem",
+                    string.IsNullOrWhiteSpace(messageBody) ? "(nenhuma mensagem extra)" : AuditEmbeds.Trim(messageBody, MaxDmFieldLength), false))
                 .Build();
 
         private static Task ReplyErrorAsync(InteractionContext ctx, string title, string description) =>

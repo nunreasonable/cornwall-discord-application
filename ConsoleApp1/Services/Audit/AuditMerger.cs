@@ -180,10 +180,22 @@ namespace CornwallUtilities.Services.Audit
             return report;
         }
 
-        public static Dictionary<string, AuditEntry> BuildIndex(AuditFile audit)
+        public static Dictionary<string, AuditEntry> BuildIndex(AuditFile audit) =>
+            BuildIndex(audit.entries);
+
+        /// <summary>
+        /// Indexa por username, sem diferenciar maiuscula de minuscula.
+        ///
+        /// Ultimo vence em caso de nome repetido, em vez de lancar. Um
+        /// ToDictionary aqui explodiria com ArgumentException se o audit.json
+        /// tivesse dois nomes que so diferem na caixa - e o arquivo e editavel a
+        /// mao e restauravel do branch publico, entao isso e entrada, nao
+        /// invariante.
+        /// </summary>
+        public static Dictionary<string, AuditEntry> BuildIndex(IEnumerable<AuditEntry> entries)
         {
             var index = new Dictionary<string, AuditEntry>(StringComparer.OrdinalIgnoreCase);
-            foreach (var entry in audit.entries)
+            foreach (var entry in entries)
             {
                 if (!string.IsNullOrWhiteSpace(entry.username))
                     index[entry.username] = entry;

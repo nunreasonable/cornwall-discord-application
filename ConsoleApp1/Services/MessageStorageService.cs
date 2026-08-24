@@ -25,7 +25,10 @@ namespace CornwallUtilities.Services
         {
             _client = client;
             _targetChannelId = targetChannelId;
-            _repostIntervalMinutes = repostIntervalMinutes;
+            // Piso de 1 minuto: repostIntervalMinutes vem do config, e um 0 ou
+            // negativo faria ScheduleNextRepost pedir um intervalo invalido ao
+            // Random.
+            _repostIntervalMinutes = Math.Max(1, repostIntervalMinutes);
             _messageRetentionHours = messageRetentionHours;
             _minimumMessagesForRepost = minimumMessagesForRepost;
             _messageQueue = new ConcurrentQueue<StoredMessage>();
@@ -239,8 +242,16 @@ namespace CornwallUtilities.Services
 
         private void ScheduleNextRepost()
         {
-            // Random interval between 2 hours and 4 hours to ensure minimum 2 hour gap
-            var nextInterval = Random.Shared.Next(120, 241);
+            // Intervalo aleatorio entre repostIntervalMinutes e o dobro dele.
+            //
+            // Antes isto era Random.Shared.Next(120, 241) fixo e o campo
+            // _repostIntervalMinutes nunca era lido, entao o
+            // "repostIntervalMinutes" do config.jsonc nao tinha efeito nenhum -
+            // mexer nele nao mudava nada e nao havia como perceber.
+            //
+            // A aleatoriedade continua: o repost e para parecer espontaneo, e um
+            // periodo exato deixaria obvio que e um bot.
+            var nextInterval = Random.Shared.Next(_repostIntervalMinutes, (_repostIntervalMinutes * 2) + 1);
             var due = TimeSpan.FromMinutes(nextInterval);
 
             // Um unico timer reaproveitado via Change(). Antes o timer era
@@ -318,8 +329,7 @@ namespace CornwallUtilities.Services
 
                     Console.WriteLine($"Reposted exact message from {randomMessage.AuthorUsername}");
                     
-                    // Set cooldown for 2 hours
-                    _nextRepostTime = DateTime.UtcNow.AddHours(2);
+                    _nextRepostTime = DateTime.UtcNow.AddMinutes(_repostIntervalMinutes);
                 }
             }
             catch (Exception ex)
@@ -415,9 +425,8 @@ namespace CornwallUtilities.Services
 
                     Console.WriteLine("Manual repost triggered: exact message content sent");
                     
-                    // Set cooldown for 2 hours
-                    _nextRepostTime = DateTime.UtcNow.AddHours(2);
-                    
+                    _nextRepostTime = DateTime.UtcNow.AddMinutes(_repostIntervalMinutes);
+
                     return true;
                 }
             }

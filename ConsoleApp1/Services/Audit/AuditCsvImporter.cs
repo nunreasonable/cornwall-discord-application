@@ -52,7 +52,10 @@ namespace CornwallUtilities.Services.Audit
 
             var result = new CsvImportResult
             {
-                HasKda = columns.kills >= 0 || columns.deaths >= 0 || columns.assists >= 0
+                // E, e nao OU: com so uma das tres colunas mapeada, o HasKda
+                // ficava true e um MergeImport com overwrite zerava as outras
+                // duas a partir dos -1 lidos como 0.
+                HasKda = columns.kills >= 0 && columns.deaths >= 0 && columns.assists >= 0
             };
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

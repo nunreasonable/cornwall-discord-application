@@ -125,7 +125,7 @@ namespace CornwallUtilities.commands
 
             var embed = new DiscordEmbedBuilder()
                 .WithTitle("Auditoria registrada na fila")
-                .WithDescription($"```\n{"Nome".PadRight(18)} {"K",-5} {"D",-5} {"A",-5}\n{preview}\n```")
+                .WithDescription($"```\n{"Nome".PadRight(18)} {"K",-5} {"D",-5} {"A",-5}\n{AuditEmbeds.FenceSafe(preview)}\n```")
                 .WithColor(hasProblems ? DiscordColor.Orange : DiscordColor.Green)
                 .WithTimestamp(DateTimeOffset.UtcNow)
                 .AddField(new DiscordEmbedField("Jogadores", batch.entries.Count.ToString(), true))

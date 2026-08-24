@@ -35,6 +35,16 @@ namespace CornwallUtilities.commands
 
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, deferBuilder);
 
+            var permConfig = new JSONReader();
+            await permConfig.ReadJSON();
+
+            var denied = AuditPermissions.CheckStaff(ctx, permConfig);
+            if (denied is not null)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(denied));
+                return;
+            }
+
             var (audit, pending) = await AuditStore.Instance.ReadBothAsync();
 
             if (!string.IsNullOrWhiteSpace(jogador))

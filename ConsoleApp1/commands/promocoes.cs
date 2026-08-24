@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CornwallUtilities.config;
 using CornwallUtilities.Services;
 using CornwallUtilities.Services.Audit;
 using DisCatSharp.ApplicationCommands;
@@ -31,6 +32,16 @@ namespace CornwallUtilities.commands
                 deferBuilder.AsEphemeral();
 
             await ctx.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource, deferBuilder);
+
+            var permConfig = new JSONReader();
+            await permConfig.ReadJSON();
+
+            var denied = AuditPermissions.CheckStaff(ctx, permConfig);
+            if (denied is not null)
+            {
+                await ctx.EditResponseAsync(new DiscordWebhookBuilder().AddEmbed(denied));
+                return;
+            }
 
             var audit = await AuditStore.Instance.ReadAuditAsync();
 

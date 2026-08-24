@@ -3,6 +3,7 @@ using DisCatSharp.ApplicationCommands.Attributes;
 using DisCatSharp.ApplicationCommands.Context;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
+using CornwallUtilities.config;
 using CornwallUtilities.Services;
 using System.Threading.Tasks;
 
@@ -13,6 +14,19 @@ namespace CornwallUtilities.commands
         [SlashCommand("messages", "Check message storage status and statistics")]
         public async Task ExecuteStatus(InteractionContext ctx)
         {
+            // Mesmo portao dos /audit-*: isto expoe estado interno do bot e o
+            // botao de repost manual logo abaixo, entao nao e para membro comum.
+            var permConfig = new JSONReader();
+            await permConfig.ReadJSON();
+
+            var denied = AuditPermissions.CheckStaff(ctx, permConfig);
+            if (denied is not null)
+            {
+                await ctx.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                    new DiscordInteractionResponseBuilder().AddEmbed(denied).AsEphemeral());
+                return;
+            }
+
             // Get the message storage service
             var messageStorage = Program.MessageStorage;
 

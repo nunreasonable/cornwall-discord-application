@@ -1,7 +1,28 @@
+# Config real: carrega o token do bot, o PAT do GitHub e o tunnelSecret.
+# So os .example sao versionados.
 ConsoleApp1/config/config.jsonc
 ConsoleApp1/config/dashboard_auth.json
 ConsoleApp1/config/dashboard_whitelisted_users.json
 ConsoleApp1/config/dashboard_audit_log.json
-ConsoleApp1/bin/
-ConsoleApp1/obj/
+
+# Dados gravados em execucao (auditoria, fila de lotes, log do painel).
 ConsoleApp1/data/
+
+# Sem ancora de diretorio de proposito: as entradas eram
+# `ConsoleApp1/bin/` e `ConsoleApp1/obj/`, entao um projeto novo ao lado
+# - ou um build na raiz - passava batido.
+bin/
+obj/
+
+# Escrita atomica dos stores JSON: .tmp + File.Move. Se o processo morrer no
+# meio, o .tmp fica no disco com o conteudo inteiro do arquivo.
+*.json.tmp
+
+# Backups manuais dos arquivos de dados.
+*.backup-*
+
+# Editor / SO
+.vs/
+*.user
+*.suo
+.DS_Store

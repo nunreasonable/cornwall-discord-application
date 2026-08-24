@@ -1,6 +1,10 @@
 {
     "token": "",
     "prefix": "-",
+    // Servidores onde os comandos de guild sao registrados. Comando de guild
+    // aparece na hora; global leva ate uma hora para propagar. Lista vazia
+    // registra so os comandos globais.
+    "guildIds": [],
     "spreadsheetCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=0",
     "spreadsheetRosterCsvUrl": "https://docs.google.com/spreadsheets/d/1zME1G3vJ-pwKZ_h6pm7G48qfPQDZQdijCD90j1XSvzs/export?format=csv&gid=827170318",
     // Abas da planilha regimental que o /checkspreadsheetinfo varre. A busca
@@ -60,7 +64,15 @@
     "messageReposting": {
         "enabled": true,
         "targetChannelId": 1487939783182516407,
-        "repostIntervalMinutes": 60,
+        // Intervalo base do repost. O agendamento sorteia entre este valor e o
+        // dobro dele, entao 120 significa "entre 2h e 4h".
+        //
+        // Ficou em 120 e nao em 60 de proposito: ate agosto/2026 este campo era
+        // lido do config e nunca usado - o agendador tinha 120..240 fixo no
+        // codigo. Passar a honrar o 60 que estava aqui dobraria a frequencia de
+        // repost sem ninguem ter pedido. 120 preserva o comportamento real de
+        // sempre; agora da para baixar e de fato mudar alguma coisa.
+        "repostIntervalMinutes": 120,
         "messageRetentionHours": 24,
         "minimumMessagesForRepost": 50
     },

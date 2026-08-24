@@ -10,8 +10,13 @@ namespace CornwallUtilities.config
     {
         public string? token { get; private set; }
         public string? prefix { get; private set; }
-        public string? spreadsheetCsvUrl { get; private set; }
-        public string? spreadsheetRosterCsvUrl { get; private set; }
+
+        /// <summary>
+        /// Servidores onde os comandos de guild sao registrados. Antes eram dois
+        /// literais dentro do Program.Main, com um comentario dizendo que vinham
+        /// do config - o que nunca foi verdade.
+        /// </summary>
+        public ulong[]? guildIds { get; private set; }
         public SpreadsheetInfoTab[]? spreadsheetInfoTabs { get; private set; }
         public string? defaultGameLink { get; private set; }
 
@@ -19,7 +24,6 @@ namespace CornwallUtilities.config
         public ulong? enlistPermissionRoleId { get; private set; }
         public ulong? enlistLogChannelId { get; private set; }
         public ulong? enlistWelcomeChannelId { get; private set; }
-        public string? enlistAltCheckUrl { get; private set; }
         public ulong[]? enlistTargetRoleIds { get; private set; }
         public ulong? enlistSocialRoleId { get; private set; }
 
@@ -45,7 +49,6 @@ namespace CornwallUtilities.config
         public int? messageRepostingIntervalMinutes { get; private set; }
         public int? messageRepostingRetentionHours { get; private set; }
         public int? messageRepostingMinimumMessages { get; private set; }
-        public ulong[]? messageRepostingExcludedChannelIds { get; private set; }
 
         // Config used by message blacklist detection
         public MessageBlacklistConfig? messageBlacklist { get; private set; }
@@ -72,15 +75,14 @@ namespace CornwallUtilities.config
 
             token = data?.token;
             prefix = data?.prefix;
-            spreadsheetCsvUrl = data?.spreadsheetCsvUrl;
-            spreadsheetRosterCsvUrl = data?.spreadsheetRosterCsvUrl;
             spreadsheetInfoTabs = data?.spreadsheetInfoTabs;
             defaultGameLink = data?.defaultGameLink;
+
+            guildIds = data?.guildIds;
 
             enlistPermissionRoleId = data?.enlistPermissionRoleId;
             enlistLogChannelId = data?.enlistLogChannelId;
             enlistWelcomeChannelId = data?.enlistWelcomeChannelId;
-            enlistAltCheckUrl = data?.enlistAltCheckUrl;
             enlistTargetRoleIds = data?.enlistTargetRoleIds;
             enlistSocialRoleId = data?.enlistSocialRoleId;
 
@@ -103,7 +105,6 @@ namespace CornwallUtilities.config
             messageRepostingIntervalMinutes = data?.messageReposting?.repostIntervalMinutes;
             messageRepostingRetentionHours = data?.messageReposting?.messageRetentionHours;
             messageRepostingMinimumMessages = data?.messageReposting?.minimumMessagesForRepost;
-            messageRepostingExcludedChannelIds = data?.messageReposting?.excludedChannelIds;
 
             messageBlacklist = data?.messageBlacklist;
             audit = data?.audit;
@@ -145,8 +146,7 @@ namespace CornwallUtilities.config
     {
         public string? token { get; set; }
         public string? prefix { get; set; }
-        public string? spreadsheetCsvUrl { get; set; }
-        public string? spreadsheetRosterCsvUrl { get; set; }
+        public ulong[]? guildIds { get; set; }
         public SpreadsheetInfoTab[]? spreadsheetInfoTabs { get; set; }
         public string? defaultGameLink { get; set; }
 
@@ -154,7 +154,6 @@ namespace CornwallUtilities.config
         public ulong? enlistPermissionRoleId { get; set; }
         public ulong? enlistLogChannelId { get; set; }
         public ulong? enlistWelcomeChannelId { get; set; }
-        public string? enlistAltCheckUrl { get; set; }
         public ulong[]? enlistTargetRoleIds { get; set; }
         public ulong? enlistSocialRoleId { get; set; }
 
@@ -191,7 +190,6 @@ namespace CornwallUtilities.config
         public int repostIntervalMinutes { get; set; }
         public int messageRetentionHours { get; set; }
         public int minimumMessagesForRepost { get; set; }
-        public ulong[]? excludedChannelIds { get; set; }
     }
 
     internal sealed class MessageBlacklistConfig
@@ -199,7 +197,6 @@ namespace CornwallUtilities.config
         public bool enabled { get; set; }
         public string[]? blacklistedTerms { get; set; }
         public string? responseMessage { get; set; }
-        public string? responseMessage2Term { get; set; }
         public string[]? responseMessage2Terms { get; set; }
         public string? responseMessage2 { get; set; }
         public ulong[]? notifyUserIds { get; set; }

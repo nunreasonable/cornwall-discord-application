@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CornwallUtilities.config;
+using CornwallUtilities.Services.Audit;
 using DisCatSharp;
 using DisCatSharp.Entities;
 using DisCatSharp.Enums;
@@ -303,7 +304,15 @@ namespace CornwallUtilities.Services
                 : botMember.Permissions.HasPermission(permission);
         }
 
-        /// <summary>Embed do canal de log de alistamento.</summary>
+        /// <summary>
+        /// Embed do canal de log de alistamento.
+        ///
+        /// <paramref name="title"/>, <paramref name="description"/> e
+        /// <paramref name="extraFields"/> existem para o /alistar-se, que registra
+        /// as mesmas informacoes mais as tres respostas do formulario (idioma,
+        /// outros grupos, quem recrutou). Sem eles aquele comando precisaria de um
+        /// embed proprio - que foi exatamente como a duplicacao comecou.
+        /// </summary>
         public static DiscordEmbed BuildLogEmbed(
             DiscordClient client,
             DiscordMember targetMember,
@@ -311,10 +320,14 @@ namespace CornwallUtilities.Services
             string robloxName,
             RobloxCheck check,
             EnlistApplyResult applied,
-            bool socialRole) =>
-            new DiscordEmbedBuilder()
-                .WithTitle("12° Regiment - Recruit Log")
-                .WithDescription("Registro de alistamento realizado com sucesso.")
+            bool socialRole,
+            string? title = null,
+            string? description = null,
+            IEnumerable<(string Name, string Value)>? extraFields = null)
+        {
+            var embed = new DiscordEmbedBuilder()
+                .WithTitle(title ?? "12° Regiment - Recruit Log")
+                .WithDescription(description ?? "Registro de alistamento realizado com sucesso.")
                 .WithColor(DiscordColor.Blurple)
                 .WithThumbnail(targetMember.GetAvatarUrl(MediaFormat.Auto))
                 .WithFooter("Recruit log gerado por CornwallBot", client.CurrentUser.AvatarUrl)
@@ -322,7 +335,17 @@ namespace CornwallUtilities.Services
                 .AddField(new DiscordEmbedField("Executor", executorMention, true))
                 .AddField(new DiscordEmbedField("Alistado", targetMember.Mention, true))
                 .AddField(new DiscordEmbedField("Nome no ROBLOX", robloxName, true))
-                .AddField(new DiscordEmbedField("ROBLOX ID", check.RobloxUserId.ToString(), true))
+                .AddField(new DiscordEmbedField("ROBLOX ID", check.RobloxUserId.ToString(), true));
+
+            foreach (var (name, value) in extraFields ?? Enumerable.Empty<(string, string)>())
+            {
+                embed.AddField(new DiscordEmbedField(
+                    name,
+                    string.IsNullOrWhiteSpace(value) ? "N/A" : AuditEmbeds.Trim(value, 1024),
+                    true));
+            }
+
+            return embed
                 .AddField(new DiscordEmbedField("Idade da conta (dias)", check.AccountAge.Days.ToString(), true))
                 .AddField(new DiscordEmbedField("Amigos", check.FriendsCount.ToString(), true))
                 .AddField(new DiscordEmbedField("Badges", check.BadgesDisplay, true))
@@ -330,6 +353,7 @@ namespace CornwallUtilities.Services
                 .AddField(new DiscordEmbedField("Cargo social?", socialRole ? "Sim" : "Não", true))
                 .AddField(new DiscordEmbedField("Verificação de alt", "Automática (aprovado)", true))
                 .Build();
+        }
 
         /// <summary>
         /// Publica o log e a boas-vindas. Falhas viram avisos, nunca excecao: o

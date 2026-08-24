@@ -31,6 +31,12 @@ namespace CornwallUtilities
         public static MessageBlacklistService? MessageBlacklist { get; private set; }
         public static DashboardHttpService? DashboardHttp { get; private set; }
 
+        /// <summary>
+        /// O mesmo servico de autenticacao que o DashboardHttp usa. Exposto para
+        /// o /dashboardlink poder recusar de cara quem nao tem nivel no painel.
+        /// </summary>
+        public static DashboardAuthService? DashboardAuth { get; private set; }
+
         private static Timer? s_threadPoolCanary;
 
         static async Task Main(string[] args)
@@ -129,11 +135,19 @@ namespace CornwallUtilities
             slashCommands.RegisterGlobalCommands<RepostMessage>();
             Console.WriteLine("Global commands registered.");
             
-            // Register guild commands for faster registration (no rate limits for guild commands)
-            var guildId = (ulong)1487938282200236224;
-            var guildId2 = (ulong)1397973799105855570; // Your guild ID from config
+            // Comando de guild aparece na hora; global leva ate uma hora para
+            // propagar. Os IDs vem do config: antes eram dois literais aqui, com
+            // um comentario afirmando que vinham do config - trocar de servidor
+            // exigia recompilar.
+            var guildIds = jsonReader.guildIds ?? Array.Empty<ulong>();
+            if (guildIds.Length == 0)
+            {
+                Console.WriteLine("[config] guildIds vazio: nenhum comando de guild sera registrado. " +
+                                  "Preencha \"guildIds\" no config.jsonc.");
+            }
+
             Console.WriteLine("Registering guild commands...");
-            foreach (var gid in new[] { guildId, guildId2 })
+            foreach (var gid in guildIds)
             {
                 slashCommands.RegisterGuildCommands<UtilitySlashCommands>(gid);
                 slashCommands.RegisterGuildCommands<CheckSpreadsheetInfo>(gid);
@@ -177,9 +191,7 @@ namespace CornwallUtilities
                     Client,
                     jsonReader.messageBlacklist.blacklistedTerms ?? Array.Empty<string>(),
                     jsonReader.messageBlacklist.responseMessage ?? string.Empty,
-                    jsonReader.messageBlacklist.responseMessage2Terms ?? (string.IsNullOrWhiteSpace(jsonReader.messageBlacklist.responseMessage2Term)
-                        ? Array.Empty<string>()
-                        : new[] { jsonReader.messageBlacklist.responseMessage2Term }),
+                    jsonReader.messageBlacklist.responseMessage2Terms ?? Array.Empty<string>(),
                     jsonReader.messageBlacklist.responseMessage2,
                     jsonReader.messageBlacklist.notifyUserIds,
                     jsonReader.messageBlacklist.dmAlertCooldownMinutes
@@ -190,7 +202,8 @@ namespace CornwallUtilities
             // Consumidor unico das mensagens que exigem chamadas REST.
             MessagePipeline.Start(ProcessMessageAsync);
 
-            DashboardHttp = new DashboardHttpService(Client, new DashboardAuthService("config/dashboard_auth.json"));
+            DashboardAuth = new DashboardAuthService("config/dashboard_auth.json");
+            DashboardHttp = new DashboardHttpService(Client, DashboardAuth);
             try
             {
                 await DashboardHttp.StartAsync();
@@ -203,12 +216,68 @@ namespace CornwallUtilities
                 // alistamento, tudo - por causa de uma funcionalidade auxiliar.
                 Console.WriteLine($"[dashboard] nao subiu, o bot segue sem ele: {ex.Message}");
                 DashboardHttp = null;
+                DashboardAuth = null;
             }
 
             StartThreadPoolCanary();
 
             await Client.ConnectAsync();
-            await Task.Delay(-1);
+
+            // Espera ate o SIGINT/SIGTERM em vez de Task.Delay(-1) para sempre.
+            //
+            // A unit do systemd manda SIGINT no stop, e antes o processo
+            // simplesmente morria: o listener do dashboard e o MessageStorage
+            // (que e IDisposable) nunca eram fechados, e uma escrita de arquivo
+            // em andamento podia ser interrompida no meio do File.Move.
+            var shutdown = new TaskCompletionSource();
+            Console.CancelKeyPress += (_, e) =>
+            {
+                // Cancel = true: quem encerra e o codigo abaixo, nao o runtime
+                // matando o processo na hora.
+                e.Cancel = true;
+                shutdown.TrySetResult();
+            };
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => shutdown.TrySetResult();
+
+            await shutdown.Task;
+
+            Console.WriteLine("Encerrando...");
+            await ShutdownAsync();
+        }
+
+        /// <summary>
+        /// Fecha o que foi aberto no arranque. Cada passo e independente: uma
+        /// falha em fechar o dashboard nao pode impedir a desconexao do gateway.
+        /// </summary>
+        private static async Task ShutdownAsync()
+        {
+            try
+            {
+                DashboardHttp?.Stop();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[shutdown] dashboard: {ex.Message}");
+            }
+
+            try
+            {
+                MessageStorage?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[shutdown] message storage: {ex.Message}");
+            }
+
+            try
+            {
+                if (Client is not null)
+                    await Client.DisconnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[shutdown] gateway: {ex.Message}");
+            }
         }
 
         /// <summary>
