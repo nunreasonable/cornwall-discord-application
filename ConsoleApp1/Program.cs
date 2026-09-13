@@ -229,7 +229,12 @@ namespace CornwallUtilities
             // simplesmente morria: o listener do dashboard e o MessageStorage
             // (que e IDisposable) nunca eram fechados, e uma escrita de arquivo
             // em andamento podia ser interrompida no meio do File.Move.
-            var shutdown = new TaskCompletionSource();
+            // RunContinuationsAsynchronously: sem isso, todo o ShutdownAsync - que
+            // faz I/O de rede - roda INLINE na thread que chama TrySetResult, ou
+            // seja, dentro do proprio handler de sinal.
+            var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var shutdownComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
             Console.CancelKeyPress += (_, e) =>
             {
                 // Cancel = true: quem encerra e o codigo abaixo, nao o runtime
@@ -237,23 +242,62 @@ namespace CornwallUtilities
                 e.Cancel = true;
                 shutdown.TrySetResult();
             };
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => shutdown.TrySetResult();
+
+            // O ProcessExit precisa SEGURAR o processo ate o desligamento acabar.
+            // Com a continuacao agora assincrona, devolver o controle aqui deixaria
+            // o runtime derrubar tudo com o ShutdownAsync ainda no meio. A espera e
+            // limitada, e so nao se auto-trava porque a continuacao roda em outra
+            // thread - por isso ela anda junto com a opcao la de cima.
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            {
+                shutdown.TrySetResult();
+                shutdownComplete.Task.Wait(TimeSpan.FromSeconds(10));
+            };
 
             await shutdown.Task;
 
             Console.WriteLine("Encerrando...");
             await ShutdownAsync();
+            shutdownComplete.TrySetResult();
+        }
+
+        /// <summary>
+        /// Teto de tempo do desligamento inteiro.
+        ///
+        /// A unit do systemd da 30s antes do SIGABRT e depois do SIGKILL. Em
+        /// 29/08/2026 o processo estourou esse prazo e morreu de SIGKILL. Cada
+        /// passo do ShutdownCoreAsync ja tem o seu proprio limite; este teto e a
+        /// rede embaixo da rede, para que um passo novo sem limite nunca mais
+        /// consiga entregar o processo ao SIGKILL.
+        /// </summary>
+        private static readonly TimeSpan ShutdownBudget = TimeSpan.FromSeconds(10);
+
+        private static async Task ShutdownAsync()
+        {
+            var core = ShutdownCoreAsync();
+            if (await Task.WhenAny(core, Task.Delay(ShutdownBudget)) == core)
+                return;
+
+            // Flush antes de sair, ou a linha se perde e o journal fica sem
+            // explicacao nenhuma para a saida abrupta.
+            Console.WriteLine($"[shutdown] teto de {ShutdownBudget.TotalSeconds:0}s estourado, saindo a forca.");
+            Console.Out.Flush();
+
+            // Exit(0) e nao Exit(1): a saida e deliberada, e o systemd registra
+            // sucesso em vez de 'Failed with result'.
+            Environment.Exit(0);
         }
 
         /// <summary>
         /// Fecha o que foi aberto no arranque. Cada passo e independente: uma
         /// falha em fechar o dashboard nao pode impedir a desconexao do gateway.
         /// </summary>
-        private static async Task ShutdownAsync()
+        private static async Task ShutdownCoreAsync()
         {
             try
             {
-                DashboardHttp?.Stop();
+                if (DashboardHttp is not null)
+                    await DashboardHttp.StopAsync();
             }
             catch (Exception ex)
             {
@@ -271,8 +315,19 @@ namespace CornwallUtilities
 
             try
             {
+                // WaitAsync porque o DisconnectAsync nao tem limite proprio: ele
+                // espera o laco de recepcao do websocket terminar, e num socket
+                // meio-aberto - servidor sumiu sem FIN nem RST - essa leitura nao
+                // volta nunca. Era o suspeito numero um do travamento de 29/08.
+                //
+                // Abandonar a espera nao cancela a operacao, mas aqui tudo bem: o
+                // socket ja esta morto e o processo esta de saida.
                 if (Client is not null)
-                    await Client.DisconnectAsync();
+                    await Client.DisconnectAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                Console.WriteLine("[shutdown] gateway nao respondeu em 5s, seguindo.");
             }
             catch (Exception ex)
             {

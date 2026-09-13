@@ -76,6 +76,12 @@ namespace CornwallUtilities.Services
 
         private CancellationTokenSource? _cts;
 
+        /// <summary>
+        /// O laco de aceitacao. Guardado - e nao disparado e esquecido - para que
+        /// StopAsync consiga esperar ele morrer antes de devolver o controle.
+        /// </summary>
+        private Task? _acceptLoop;
+
         /// <summary>Cache do retrato publico de status - ver GetCachedPublicStatus.</summary>
         private static readonly TimeSpan StatusCacheTtl = TimeSpan.FromSeconds(10);
         private readonly object _statusCacheLock = new();
@@ -143,20 +149,63 @@ namespace CornwallUtilities.Services
             _listener.Start();
 
             _cts = new CancellationTokenSource();
-            _ = Task.Run(() => AcceptLoopAsync(_cts.Token));
+            _acceptLoop = Task.Run(() => AcceptLoopAsync(_cts.Token));
 
             Console.WriteLine($"Dashboard API online at {prefix}");
         }
 
-        public void Stop()
+        /// <summary>
+        /// Encerra o listener e espera o que ficou em voo, com teto de tempo.
+        ///
+        /// A versao anterior era sincrona e nao esperava nada: cancelava o token,
+        /// parava o listener e devolvia na hora, deixando o laco de aceitacao e as
+        /// requisicoes em voo soltos enquanto o resto do desligamento seguia.
+        ///
+        /// A ordem importa. Parar o listener ANTES de cancelar faz o
+        /// GetContextAsync lancar de imediato; cancelar primeiro nao o acorda,
+        /// porque ele nao aceita CancellationToken.
+        ///
+        /// Os tetos sao curtos de proposito: o processo inteiro tem 30s no
+        /// systemd antes do SIGKILL, e o dashboard e so o primeiro passo do
+        /// desligamento. Esperar aqui e cortesia com quem esta no meio de uma
+        /// requisicao, nao uma garantia.
+        /// </summary>
+        public async Task StopAsync()
         {
             try
             {
-                _cts?.Cancel();
                 _listener.Stop();
             }
             catch
             {
+            }
+
+            try
+            {
+                _cts?.Cancel();
+            }
+            catch
+            {
+            }
+
+            if (_acceptLoop is not null)
+            {
+                try
+                {
+                    await _acceptLoop.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            }
+
+            // Drena as requisicoes em voo tomando o semaforo inteiro. Cada slot
+            // adquirido e uma requisicao que terminou; o timeout curto faz o laco
+            // desistir em vez de segurar o desligamento por causa de uma travada.
+            for (var i = 0; i < MaxInFlightRequests; i++)
+            {
+                if (!await _inFlight.WaitAsync(TimeSpan.FromMilliseconds(50)).ConfigureAwait(false))
+                    break;
             }
         }
 
@@ -229,8 +278,19 @@ namespace CornwallUtilities.Services
 
                     // Sem esta pausa, um listener que falha sem parar de escutar
                     // punha o laco a girar sozinho consumindo uma CPU inteira.
+                    //
+                    // A pausa respeita o token: com CancellationToken.None ela
+                    // segurava o desligamento por ate um segundo a cada volta.
                     Console.WriteLine($"[dashboard] falha ao aceitar conexao: {ex.Message}");
-                    await Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None);
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1), ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+
                     continue;
                 }
 
@@ -247,7 +307,9 @@ namespace CornwallUtilities.Services
         /// gateway e derruba a conexao do bot com o Discord. O painel e um
         /// punhado de requisicoes por minuto; 64 e folga de sobra.
         /// </summary>
-        private readonly SemaphoreSlim _inFlight = new(64, 64);
+        private const int MaxInFlightRequests = 64;
+
+        private readonly SemaphoreSlim _inFlight = new(MaxInFlightRequests, MaxInFlightRequests);
 
         private async Task ProcessContextGuardedAsync(HttpListenerContext ctx)
         {
