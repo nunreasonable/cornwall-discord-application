@@ -1,0 +1,60 @@
+# Roda o ccore como servico de usuario.
+#
+# Copia versionada da unit. A que roda de verdade fica em
+# ~/.config/systemd/user/ccore-bot.service - esta existe para que a
+# configuracao nao viva so na maquina.
+#
+# Instalar:
+#   cp ccore-bot.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now ccore-bot.service
+#
+# E servico DE USUARIO, nao de sistema, de proposito: o SELinux esta Enforcing e
+# o binario mora em /home (contexto user_home_t). Um servico de sistema o
+# executaria como init_t, transicao que a politica padrao do Fedora bloqueia.
+# Como contrapartida o Linger precisa estar ligado para sobreviver ao logout:
+#   sudo loginctl enable-linger daeese
+
+[Unit]
+Description=ccore - chavinhoCORE Discord bot
+Documentation=https://daeese.me/cornwallcore/
+# NAO use After/Wants=network-online.target aqui: esse target so existe no
+# systemd de SISTEMA. No gerenciador de usuario ele nao existe, entao as duas
+# diretivas viravam no-op silencioso - o bot subia com a rede ainda no ar e o
+# primeiro contato com discord.com falhava com "Resource temporarily
+# unavailable". O gate de DNS abaixo e o substituto que de fato funciona.
+
+[Service]
+Type=simple
+
+# Espera o DNS resolver antes de subir, no maximo 60s. O prefixo "-" faz o
+# systemd ignorar o codigo de saida: se estourar o tempo, o bot sobe assim
+# mesmo e o retry do DSharpPlus assume - igual ao comportamento antigo, so que
+# sem o erro garantido no boot.
+ExecStartPre=-/usr/bin/timeout 60 /usr/bin/bash -c 'until getent ahostsv4 discord.com >/dev/null 2>&1; do sleep 1; done'
+
+# O bot resolve config/ e data/ a partir do cwd - caminhos relativos crus
+# ("config/config.jsonc", Path.Combine("data", ...)). Diferente do CommunityBot,
+# que usa AppContext.BaseDirectory: aqui trocar Debug<->Release no ExecStart NAO
+# move o diretorio de estado, porque ele esta preso ao WorkingDirectory abaixo.
+WorkingDirectory=/home/daeese/daeesewrkspc/cornwall-discord-application/ConsoleApp1
+
+# Release, nao Debug: Debug sai sem otimizacao de JIT e com as assercoes ligadas.
+# Reconstruir com `dotnet build ConsoleApp1 -c Release` antes de reiniciar.
+ExecStart=/home/daeese/daeesewrkspc/cornwall-discord-application/ConsoleApp1/bin/Release/net9.0/ConsoleApp1
+
+# O IPv6 de saida desta maquina nao funciona; sem isto o .NET perde tempo
+# em timeouts ao falar com a API do Discord.
+Environment=DOTNET_SYSTEM_NET_DISABLEIPV6=1
+Environment=DOTNET_ENVIRONMENT=Production
+
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# O servico ocupa a porta 5056. Rodar `dotnet run` a mao em paralelo falha com
+# HttpListenerException (98): Address already in use. Pare o servico antes.
+
+[Install]
+WantedBy=default.target
