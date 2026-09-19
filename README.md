@@ -236,18 +236,96 @@ Sem isso o limite de 10 tentativas de login por IP era contornável: quem alcan�
 `CF-Connecting-IP` diferente por requisição e tinha tentativas ilimitadas; e, ao contrário,
 dava para queimar de propósito as 10 tentativas do IP de outra pessoa.
 
-Para trocar o segredo, os dois lados têm que mudar juntos:
+Para trocar o segredo, os dois lados têm que mudar juntos.
 
-```bash
-NOVO=$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')
-# 1. no Worker
-cd nunreasonable.github.io/cloudflare/api-proxy-worker && echo "$NOVO" | npx wrangler secret put TUNNEL_SECRET
-# 2. no bot: grave em dashboard_auth.json e reinicie
-systemctl --user restart ccore-bot
+Os comandos abaixo passam o segredo por um **arquivo temporário** em vez de uma variável de
+shell. Isso não é firula: `NOVO=$(...)` é sintaxe de bash e **não funciona em fish**, onde a
+linha vira um erro e `$NOVO` expande para nada. Uma rotação feita assim em fish já gravou a
+string literal `$NOVO` no `tunnelSecret` e mandou lixo para o Worker — e, como campo errado
+não derruba nada (ver o fim desta seção), ninguém percebeu. Um arquivo `600` é entendido
+igual por bash, fish, zsh e sh.
+
+**1. Gerar o segredo** (sem `\n` no fim — o que o Worker guarda vai literal no header):
+
+```
+python3 -c 'import os, secrets
+fd = os.open("/tmp/ccore-tunnel-secret", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.write(fd, secrets.token_urlsafe(32).encode())
+os.close(fd)'
 ```
 
+**2. Mandar para o Worker:**
+
+```
+cd nunreasonable.github.io/cloudflare/api-proxy-worker
+npx wrangler secret put TUNNEL_SECRET < /tmp/ccore-tunnel-secret
+```
+
+**3. Gravar no `dashboard_auth.json`.** O comando troca **só** o literal do campo
+`tunnelSecret` e reescreve o arquivo por truncamento, então o resto do JSON fica byte a byte
+como estava e o modo `0600` (e o inode) é preservado — o que um `mv` de arquivo temporário
+por cima perderia:
+
+```
+python3 -c 'import json, pathlib
+alvo = pathlib.Path("ConsoleApp1/config/dashboard_auth.json")
+novo = pathlib.Path("/tmp/ccore-tunnel-secret").read_text().strip()
+txt = alvo.read_text()
+chave = json.dumps("tunnelSecret")
+antigo = json.dumps(json.loads(txt)["tunnelSecret"])
+i = txt.index(antigo, txt.index(chave) + len(chave))
+saida = txt[:i] + json.dumps(novo) + txt[i + len(antigo):]
+assert json.loads(saida)["tunnelSecret"] == novo
+alvo.write_text(saida)'
+```
+
+**4. Reiniciar e apagar o temporário:**
+
+```
+systemctl --user restart ccore-bot
+rm /tmp/ccore-tunnel-secret
+```
+
+#### Conferir que os dois lados combinam
+
+`curl /api/health` **não serve**. O health é atendido em `DashboardHttpService.cs:348`, antes
+de qualquer limite de taxa, e devolve `200` sem nunca chamar `ClientKey` — ou seja, responde
+igual com o segredo certo, errado ou vazio.
+
+O que prova é o **orçamento por rota** (`DashboardHttpService.cs:361`): ele roda **antes** da
+autenticação, então requisição não autenticada também conta, e `/api/dm` é rota cara, com teto
+de 3 por minuto. A chave do balde é `ClientKey(request)|/api/dm` — e `ClientKey` só devolve o
+`CF-Connecting-IP` real quando o header do tunnel bate.
+
+Primeiro, esgote o balde do `127.0.0.1` batendo direto no bot, sem header de tunnel (4 vezes,
+esperado `401, 401, 401, 429`):
+
+```
+curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
+curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
+curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
+curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
+```
+
+Agora, **dentro do mesmo minuto**, uma requisição pela borda:
+
+```
+curl -s -o /dev/null -w "borda %{http_code}\n" -X POST https://daeese.me/api/dm
+```
+
+- **`401`** → caiu em outro balde, chaveado pelo `CF-Connecting-IP` real. Os dois lados
+  combinam: o bot confia na borda.
+- **`429`** → dividiu o balde do `127.0.0.1`. Os segredos **não** batem e o rate limit está
+  degradado, com um balde global para todo o tráfego da borda.
+
+Esses POSTs param no `RequirePermissionAsync` de `HandleDmStartAsync` e devolvem `401` antes de
+ler o corpo, então nenhuma DM é enviada. Os baldes expiram em 1 minuto, e o teste precisa rodar
+**sem sessão** — autenticado, o balde é chaveado pelo token e não pelo IP. `curl` sem cookie já
+resolve.
+
 Campo vazio **não** é erro: o bot avisa no log e o limite volta a ser global — conservador,
-porque erra fechando.
+porque erra fechando. O preço disso é que erro de rotação é silencioso, e é exatamente por isso
+que o passo de conferência acima não é opcional.
 
 `config.jsonc` e `dashboard_auth.json` **não são versionados** (contêm token e IDs do
 servidor). Para montar um ambiente novo, copie os modelos e preencha:
