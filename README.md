@@ -138,6 +138,48 @@ O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações d
   e a janela de silêncio entre esses alertas (infrações dentro da janela viram uma DM única
   de resumo, para o bot não ser sinalizado como spam)
 
+### Blacklist de mensagens
+
+A lista é **curta de propósito**. Hoje são três termos:
+
+```jsonc
+"blacklistedTerms": ["traveco", "trany", "estuprei"],
+```
+
+Ela já teve 17, e a maioria era fala corriqueira do servidor — `desgraçado`, `filho da puta`,
+`vai se fuder`. Regra que todo mundo ignora não modera nada: ensina a ignorar o bot. O critério
+agora é **slur contra grupo** e **confissão de violência sexual**, e mais nada. O resto é
+trabalho de moderador humano.
+
+Dois cortes que valem explicação, porque parecem perdas e não são:
+
+- **`assediar`, `assediado`, `estuprar`, `estuprado`, `estrup`** eram o vocabulário que a
+  **vítima** usa para relatar. Com eles na lista, quem escrevesse "ele me assediou" recebia
+  *"não vou hesitar em te punir"*. O bot punia quem denuncia. `estuprei` ficou por ser primeira
+  pessoa — confissão, ou piada com ela, não relato.
+- **`nazi`, `nazista`, `fascista`** e diminutivos são rótulo político, não slur. "isso é
+  fascista" é crítica corrente, e apologia de verdade não cabe em casar palavra solta.
+
+#### O match exige palavra inteira
+
+`MessageBlacklistService` compila cada termo numa `Regex` com `\b` nas pontas, sobre uma forma
+normalizada (minúscula, sem acento).
+
+Antes era `Contains` cru, e substring pega palavra de dentro de palavra: com `fascista` na
+lista, quem escrevesse **`antifascista`** — o oposto do que a regra quer punir — levava a
+punição. O mesmo valia para `antinazista`. A normalização fecha o outro buraco: o
+`OrdinalIgnoreCase` antigo não mexia em acento, então `desgracado` sem cedilha passava direto
+por `desgraçado`.
+
+**Ao adicionar um termo, escreva a palavra completa.** Fragmento como `estrup`, que existia
+para pegar `estrupador`, não funciona mais.
+
+Isso não torna a lista à prova de quem *quer* burlar — separar com ponto, trocar letra por
+número e por aí vai continua passando. A blacklist é lombada, não cerca.
+
+> A lista viva fica no `config.jsonc`, que **não é versionado**. Se o bot roda em mais de uma
+> máquina, cada uma tem a sua cópia e o corte precisa ser repetido à mão em todas.
+
 ## Interface de terminal
 
 Além dos comandos do Discord, o bot aceita comandos em texto
@@ -157,7 +199,7 @@ Para abrir uma sessão no bot que já está rodando, basta rodar o próprio bin�
 cliente:
 
 ```bash
-ConsoleApp1/bin/Debug/net9.0/ConsoleApp1 --terminal
+ConsoleApp1/bin/Release/net9.0/ConsoleApp1 --terminal
 ```
 
 O socket fica em `$XDG_RUNTIME_DIR/ccore-bot/terminal.sock` (modo `0600`, dentro de um
@@ -360,6 +402,58 @@ Serve para exigir uma verificação feita pelo bot (por exemplo, conta do ROBLOX
 confirmada) como requisito de um cargo do servidor. A infraestrutura HTTP
 necessária já existe — ver a seção do dashboard acima — mas nada foi
 implementado ainda.
+
+## Colocar para rodar como serviço
+
+A unit é versionada no repositório (`ccore-bot.service`, na raiz). Até 19/09/2026 ela existia
+**só** na máquina, e a configuração de produção não tinha cópia em lugar nenhum.
+
+```bash
+dotnet build ConsoleApp1 -c Release
+cp ccore-bot.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now ccore-bot
+journalctl --user -u ccore-bot -f
+```
+
+**É serviço de usuário, não de sistema, de propósito.** O SELinux está `Enforcing` e o binário
+mora em `/home` (contexto `user_home_t`); um serviço de sistema o executaria como `init_t`, uma
+transição que a política padrão do Fedora bloqueia. Em troca, o `Linger` precisa estar ligado
+para o bot sobreviver ao logout:
+
+```bash
+sudo loginctl enable-linger $USER
+```
+
+**O `-c Release` não é detalhe.** A unit aponta para `bin/Release/net9.0/ConsoleApp1`; até
+19/09/2026 ela apontava para o build de **Debug**, que roda sem otimização de JIT e com as
+asserções ligadas. Aqui a troca é segura porque o ccore resolve `config/` e `data/` por caminho
+relativo cru, preso ao `WorkingDirectory` — o diretório de estado não se move junto com o
+binário. (No CommunityBot é o contrário: lá os caminhos saem de `AppContext.BaseDirectory`, e
+trocar Debug por Release sem mover o `data/` faz o bot subir com o estado zerado.)
+
+### Sobre `network-online.target`
+
+A unit **não** usa `After=network-online.target`. Esse target só existe no systemd de
+**sistema** — no gerenciador de usuário ele não existe, e `Wants=` para unidade inexistente não
+é erro, é ignorado calado. As duas diretivas ficaram ali sem ordenar nada, e o sintoma era o bot
+tomar `Resource temporarily unavailable (discord.com:443)` em todo boot, recuperando só no retry
+de 7s do DisCatSharp.
+
+No lugar entrou um gate de DNS de verdade:
+
+```ini
+ExecStartPre=-/usr/bin/timeout 60 /usr/bin/bash -c 'until getent ahostsv4 discord.com >/dev/null 2>&1; do sleep 1; done'
+```
+
+O prefixo `-` é deliberado: se os 60s estourarem, o bot sobe assim mesmo e o retry volta a ser a
+rede de segurança. O gate melhora o caso comum sem inventar um jeito novo de o bot não subir.
+
+### Atenção ao desenvolver
+
+O serviço ocupa a porta **5056**. Rodar `dotnet run` à mão em paralelo falha com
+`HttpListenerException (98): Address already in use` — pare o serviço antes
+(`systemctl --user stop ccore-bot`).
 
 ## Requisitos
 

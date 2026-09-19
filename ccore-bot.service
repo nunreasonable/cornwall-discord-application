@@ -29,7 +29,7 @@ Type=simple
 
 # Espera o DNS resolver antes de subir, no maximo 60s. O prefixo "-" faz o
 # systemd ignorar o codigo de saida: se estourar o tempo, o bot sobe assim
-# mesmo e o retry do DSharpPlus assume - igual ao comportamento antigo, so que
+# mesmo e o retry do DisCatSharp assume - igual ao comportamento antigo, so que
 # sem o erro garantido no boot.
 ExecStartPre=-/usr/bin/timeout 60 /usr/bin/bash -c 'until getent ahostsv4 discord.com >/dev/null 2>&1; do sleep 1; done'
 
