@@ -2,8 +2,10 @@ using DisCatSharp;
 using DisCatSharp.Entities;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CornwallUtilities.Services
@@ -13,8 +15,8 @@ namespace CornwallUtilities.Services
         private static readonly TimeSpan DefaultDmAlertCooldown = TimeSpan.FromMinutes(5);
 
         private readonly DiscordClient _client;
-        private readonly string[] _blacklistedTerms;
-        private readonly string[] _responseMessage2Terms;
+        private readonly BlacklistTerm[] _blacklistedTerms;
+        private readonly BlacklistTerm[] _responseMessage2Terms;
         private readonly string _responseMessage;
         private readonly string? _responseMessage2;
         private readonly ulong[] _notifyUserIds;
@@ -41,20 +43,10 @@ namespace CornwallUtilities.Services
             int? dmAlertCooldownMinutes = null)
         {
             _client = client;
-            _blacklistedTerms = blacklistedTerms
-                .Where(term => !string.IsNullOrWhiteSpace(term))
-                .Select(term => term.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            _blacklistedTerms = CompileTerms(blacklistedTerms);
 
             _responseMessage = responseMessage ?? string.Empty;
-            _responseMessage2Terms = responseMessage2Terms == null
-                ? Array.Empty<string>()
-                : responseMessage2Terms
-                    .Where(term => !string.IsNullOrWhiteSpace(term))
-                    .Select(term => term.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
+            _responseMessage2Terms = CompileTerms(responseMessage2Terms);
             _responseMessage2 = string.IsNullOrWhiteSpace(responseMessage2) ? null : responseMessage2;
             _notifyUserIds = (notifyUserIds ?? Array.Empty<ulong>())
                 .Where(id => id != 0)
@@ -123,20 +115,93 @@ namespace CornwallUtilities.Services
         /// </summary>
         private (string Term, bool UseSecondary)? FindMatch(string content)
         {
+            // Normaliza UMA vez: o mesmo texto e testado contra todos os termos.
+            var normalized = Normalize(content);
+
             if (_responseMessage2 is not null)
             {
-                var secondary = _responseMessage2Terms.FirstOrDefault(term =>
-                    content.Contains(term, StringComparison.OrdinalIgnoreCase));
+                var secondary = _responseMessage2Terms.FirstOrDefault(term => term.Matcher.IsMatch(normalized));
                 if (secondary is not null)
                 {
-                    return (secondary, true);
+                    return (secondary.Original, true);
                 }
             }
 
-            var primary = _blacklistedTerms.FirstOrDefault(term =>
-                content.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var primary = _blacklistedTerms.FirstOrDefault(term => term.Matcher.IsMatch(normalized));
 
-            return primary is null ? null : (primary, false);
+            return primary is null ? null : (primary.Original, false);
+        }
+
+        /// <summary>
+        /// Monta os termos com a forma normalizada ja compilada, preservando o texto original
+        /// para o {term} da resposta e para os alertas.
+        /// </summary>
+        private static BlacklistTerm[] CompileTerms(IEnumerable<string>? terms)
+        {
+            if (terms is null)
+            {
+                return Array.Empty<BlacklistTerm>();
+            }
+
+            return terms
+                .Where(term => !string.IsNullOrWhiteSpace(term))
+                .Select(term => term.Trim())
+                // A deduplicacao usa a forma normalizada: "fascista" e "fáscista" viram o
+                // mesmo matcher, e manter os dois so gastaria uma passada de regex a mais.
+                .GroupBy(Normalize, StringComparer.Ordinal)
+                .Select(group => new { Original = group.First(), Matcher = BuildMatcher(group.Key) })
+                .Where(candidate => candidate.Matcher is not null)
+                .Select(candidate => new BlacklistTerm(candidate.Original, candidate.Matcher!))
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Exige fronteira de palavra nas pontas que sao letra ou digito.
+        ///
+        /// Antes isto era um <c>Contains</c> cru, e substring pega palavra de dentro de palavra:
+        /// com "fascista" na lista, quem escrevesse "antifascista" — o oposto do que a regra quer
+        /// punir — levava a punicao. O mesmo valia para "antinazista".
+        ///
+        /// A condicional nas pontas existe porque \b so faz sentido colado a caractere de palavra.
+        /// Um termo que comece ou termine com pontuacao teria a fronteira nunca satisfeita, e o
+        /// termo simplesmente nao pegaria nada.
+        /// </summary>
+        private static Regex? BuildMatcher(string normalizedTerm)
+        {
+            if (string.IsNullOrEmpty(normalizedTerm))
+            {
+                return null;
+            }
+
+            var prefix = char.IsLetterOrDigit(normalizedTerm[0]) ? @"\b" : string.Empty;
+            var suffix = char.IsLetterOrDigit(normalizedTerm[^1]) ? @"\b" : string.Empty;
+
+            return new Regex(
+                prefix + Regex.Escape(normalizedTerm) + suffix,
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        }
+
+        /// <summary>
+        /// Minuscula e sem acento. O <c>OrdinalIgnoreCase</c> de antes nao normalizava acento,
+        /// entao "desgracado" sem cedilha passava direto por "desgraçado" — desvio que qualquer
+        /// um acha por acidente. Isto nao torna a lista a prova de quem quer burlar (separar com
+        /// ponto, trocar letra por numero e por ai vai continua passando); a blacklist e lombada,
+        /// nao cerca, e a moderacao de verdade e humana.
+        /// </summary>
+        private static string Normalize(string value)
+        {
+            var decomposed = value.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(decomposed.Length);
+
+            foreach (var ch in decomposed)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(ch);
+                }
+            }
+
+            return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
         }
 
         private string BuildResponse(DiscordMessage message, string matchedTerm, bool useSecondary)
@@ -336,6 +401,12 @@ namespace CornwallUtilities.Services
 
             return sb.ToString();
         }
+
+        /// <summary>
+        /// Um termo da lista: o texto como veio do config (usado no {term} e nos alertas) e o
+        /// matcher ja compilado sobre a forma normalizada.
+        /// </summary>
+        private sealed record BlacklistTerm(string Original, Regex Matcher);
 
         private sealed record BlacklistInfraction(
             DateTimeOffset Timestamp,

@@ -79,7 +79,26 @@
 
     "messageBlacklist": {
         "enabled": true,
-        "blacklistedTerms": ["desgraçado", "filho da puta", "retardado", "vai se fuder", "traveco", "trany", "assediar", "assediado", "assediei" ,"estuprei", "estuprar", "estuprado", "nazi", "nazista", "fascista", "gozei na sua boca", "nazistinha", "fascistinha" ],
+        // A lista e curta DE PROPOSITO - so o que e grave de verdade: slur contra
+        // grupo e confissao de violencia sexual. Xingamento comum do dia a dia saiu
+        // porque ninguem no servidor trata aquilo como ofensa, e regra que todo mundo
+        // ignora so ensina a ignorar o bot.
+        //
+        // O que saiu e por que, para nao voltar sem querer:
+        //   - desgraçado, filho da puta, vai se fuder, retardado, gozei na sua boca:
+        //     xingamento corriqueiro, resolvido por moderador quando passa do ponto.
+        //   - nazi, nazista, fascista, nazistinha, fascistinha: rotulo politico, nao
+        //     slur. "isso e fascista" e critica, e apologia de verdade nao cabe em
+        //     casar palavra solta.
+        //   - assediar, assediado, estuprar, estuprado, estrup: e o vocabulario que a
+        //     VITIMA usa para relatar. O efeito pratico era punir quem denuncia.
+        //
+        // "estuprei" fica por ser primeira pessoa: confissao, ou piada com ela - nao
+        // e o termo de quem relata o que sofreu.
+        //
+        // ATENCAO ao adicionar: o match exige PALAVRA INTEIRA. Fragmento como "estrup"
+        // para pegar "estrupador" nao funciona mais - escreva a palavra completa.
+        "blacklistedTerms": ["traveco", "trany", "estuprei"],
         "responseMessage": "Vai com calma, nao vou hesitar em te punir.",
         "responseMessage2Terms": ["pesou o clima", "pesou o ambiente", "pesou o chat", "pesou a call", "Rafael Gordo"],
         "responseMessage2": "Meu advogado disse pra nao falar uma certa palavra pra vc por motivos de ética.....",

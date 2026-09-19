@@ -21,6 +21,13 @@ obj/
 # Backups manuais dos arquivos de dados.
 *.backup-*
 
+# Qualquer variacao ao lado dos configs reais. As regras la em cima casam o
+# nome EXATO, entao um `config.jsonc.bak`, `.old` ou `.orig` - que carrega o
+# mesmo token do original - passava batido e podia ser commitado por um
+# `git add -A` distraido.
+ConsoleApp1/config/config.jsonc.*
+ConsoleApp1/config/dashboard_auth.json.*
+
 # Editor / SO
 .vs/
 *.user
