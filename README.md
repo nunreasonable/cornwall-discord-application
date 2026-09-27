@@ -199,7 +199,7 @@ Para abrir uma sessão no bot que já está rodando, basta rodar o próprio bin�
 cliente:
 
 ```bash
-ConsoleApp1/bin/Release/net9.0/ConsoleApp1 --terminal
+ConsoleApp1/bin/Release/net10.0/ConsoleApp1 --terminal
 ```
 
 O socket fica em `$XDG_RUNTIME_DIR/ccore-bot/terminal.sock` (modo `0600`, dentro de um
@@ -425,12 +425,13 @@ para o bot sobreviver ao logout:
 sudo loginctl enable-linger $USER
 ```
 
-**O `-c Release` não é detalhe.** A unit aponta para `bin/Release/net9.0/ConsoleApp1`; até
+**O `-c Release` não é detalhe.** A unit aponta para `bin/Release/net10.0/ConsoleApp1`; até
 19/09/2026 ela apontava para o build de **Debug**, que roda sem otimização de JIT e com as
 asserções ligadas. Aqui a troca é segura porque o ccore resolve `config/` e `data/` por caminho
 relativo cru, preso ao `WorkingDirectory` — o diretório de estado não se move junto com o
-binário. (No CommunityBot é o contrário: lá os caminhos saem de `AppContext.BaseDirectory`, e
-trocar Debug por Release sem mover o `data/` faz o bot subir com o estado zerado.)
+binário. Pelo mesmo motivo a subida de `net9.0` para `net10.0` não exigiu mover nada. (No
+CommunityBot é o contrário: lá os caminhos saem de `AppContext.BaseDirectory`, e trocar Debug por
+Release, ou o TFM, sem mover o `data/` faz o bot subir com o estado zerado.)
 
 ### Sobre `network-online.target`
 
@@ -457,7 +458,9 @@ O serviço ocupa a porta **5056**. Rodar `dotnet run` à mão em paralelo falha 
 
 ## Requisitos
 
-- .NET 9.0 (o projeto tem `TargetFramework` `net9.0`; `global.json` fixa o SDK em 9.0.x)
+- .NET 10 (LTS). O projeto tem `TargetFramework` `net10.0` e o `global.json` fixa o SDK em
+  10.0.x; no Fedora, `sudo dnf install dotnet-sdk-10.0`. Até setembro/2026 era .NET 9, que é STS
+  e perde o suporte em 10/11/2026.
 - DisCatSharp
 - Configuração adequada no `config.jsonc`
 - Permissões do bot no servidor Discord

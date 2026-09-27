@@ -35,13 +35,14 @@ ExecStartPre=-/usr/bin/timeout 60 /usr/bin/bash -c 'until getent ahostsv4 discor
 
 # O bot resolve config/ e data/ a partir do cwd - caminhos relativos crus
 # ("config/config.jsonc", Path.Combine("data", ...)). Diferente do CommunityBot,
-# que usa AppContext.BaseDirectory: aqui trocar Debug<->Release no ExecStart NAO
-# move o diretorio de estado, porque ele esta preso ao WorkingDirectory abaixo.
+# que usa AppContext.BaseDirectory: aqui trocar Debug<->Release (ou o TFM, como na
+# subida net9.0 -> net10.0) no ExecStart NAO move o diretorio de estado,
+# porque ele esta preso ao WorkingDirectory abaixo.
 WorkingDirectory=/home/daeese/daeesewrkspc/cornwall-discord-application/ConsoleApp1
 
 # Release, nao Debug: Debug sai sem otimizacao de JIT e com as assercoes ligadas.
 # Reconstruir com `dotnet build ConsoleApp1 -c Release` antes de reiniciar.
-ExecStart=/home/daeese/daeesewrkspc/cornwall-discord-application/ConsoleApp1/bin/Release/net9.0/ConsoleApp1
+ExecStart=/home/daeese/daeesewrkspc/cornwall-discord-application/ConsoleApp1/bin/Release/net10.0/ConsoleApp1
 
 # O IPv6 de saida desta maquina nao funciona; sem isto o .NET perde tempo
 # em timeouts ao falar com a API do Discord.
