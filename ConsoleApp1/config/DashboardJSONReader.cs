@@ -216,6 +216,7 @@ namespace CornwallUtilities.config
                 allowedOrigins = coreConfig.allowedOrigins,
                 guildId = coreConfig.guildId,
                 level4UserIds = coreConfig.level4UserIds,
+                level2UserIds = coreConfig.level2UserIds,
                 level3RoleIds = coreConfig.level3RoleIds,
                 level2RoleIds = coreConfig.level2RoleIds,
                 level1RoleIds = coreConfig.level1RoleIds,
@@ -238,6 +239,7 @@ namespace CornwallUtilities.config
                 allowedOrigins = data.allowedOrigins,
                 guildId = data.guildId,
                 level4UserIds = data.level4UserIds,
+                level2UserIds = data.level2UserIds,
                 level3RoleIds = data.level3RoleIds,
                 level2RoleIds = data.level2RoleIds,
                 level1RoleIds = data.level1RoleIds,
@@ -343,6 +345,13 @@ namespace CornwallUtilities.config
         public string tunnelSecret { get; set; } = string.Empty;
         public ulong guildId { get; set; }
         public ulong[] level4UserIds { get; set; } = Array.Empty<ulong>();
+
+        /// <summary>
+        /// Nivel 2 por ID, para quem precisa do painel sem ter um cargo de
+        /// level2RoleIds. E piso, nao teto: um cargo de level3RoleIds ainda
+        /// sobe o usuario para nivel 3.
+        /// </summary>
+        public ulong[] level2UserIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level3RoleIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level2RoleIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level1RoleIds { get; set; } = Array.Empty<ulong>();
@@ -385,6 +394,13 @@ namespace CornwallUtilities.config
         public string tunnelSecret { get; set; } = string.Empty;
         public ulong guildId { get; set; }
         public ulong[] level4UserIds { get; set; } = Array.Empty<ulong>();
+
+        /// <summary>
+        /// Nivel 2 por ID, para quem precisa do painel sem ter um cargo de
+        /// level2RoleIds. E piso, nao teto: um cargo de level3RoleIds ainda
+        /// sobe o usuario para nivel 3.
+        /// </summary>
+        public ulong[] level2UserIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level3RoleIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level2RoleIds { get; set; } = Array.Empty<ulong>();
         public ulong[] level1RoleIds { get; set; } = Array.Empty<ulong>();
