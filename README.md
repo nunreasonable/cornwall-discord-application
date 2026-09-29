@@ -330,44 +330,43 @@ rm /tmp/ccore-tunnel-secret
 
 #### Conferir que os dois lados combinam
 
-`curl /api/health` **não serve**. O health é atendido em `DashboardHttpService.cs:348`, antes
-de qualquer limite de taxa, e devolve `200` sem nunca chamar `ClientKey` — ou seja, responde
-igual com o segredo certo, errado ou vazio.
-
-O que prova é o **orçamento por rota** (`DashboardHttpService.cs:361`): ele roda **antes** da
-autenticação, então requisição não autenticada também conta, e `/api/dm` é rota cara, com teto
-de 3 por minuto. A chave do balde é `ClientKey(request)|/api/dm` — e `ClientKey` só devolve o
-`CF-Connecting-IP` real quando o header do tunnel bate.
-
-Primeiro, esgote o balde do `127.0.0.1` batendo direto no bot, sem header de tunnel (4 vezes,
-esperado `401, 401, 401, 429`):
+Desde 29/09/2026 basta o health pela borda:
 
 ```
-curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
-curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
-curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
-curl -s -o /dev/null -w "local %{http_code}\n" -X POST http://127.0.0.1:5056/api/dm
+curl -s -o /dev/null -w "borda %{http_code}\n" https://daeese.me/api/health
 ```
 
-Agora, **dentro do mesmo minuto**, uma requisição pela borda:
+- **`200`** → os dois lados combinam.
+- **`403`** com `Acesso direto à API recusado.` → os segredos **não** batem.
 
-```
-curl -s -o /dev/null -w "borda %{http_code}\n" -X POST https://daeese.me/api/dm
-```
+Isso vale porque o bot passou a **recusar** toda requisição que chega pela Cloudflare (tem
+`CF-Ray`/`CF-Connecting-IP`) sem o `X-Ccore-Tunnel` certo — é a trava contra quem chama
+`api.daeese.me` direto e pula o Worker. A consequência para a rotação é que erro de segredo
+deixou de ser silencioso: antes ele só degradava o rate limit para um balde global; agora
+derruba a API inteira pela borda até os dois lados baterem. Por isso a conferência continua
+não sendo opcional — mas agora ela aparece.
 
-- **`401`** → caiu em outro balde, chaveado pelo `CF-Connecting-IP` real. Os dois lados
-  combinam: o bot confia na borda.
-- **`429`** → dividiu o balde do `127.0.0.1`. Os segredos **não** batem e o rate limit está
-  degradado, com um balde global para todo o tráfego da borda.
+Campo vazio **não** é erro: o bot avisa no log, o limite de login volta a ser global, o
+orçamento geral por cliente fica desligado (seria um balde só para o mundo inteiro) e a trava de
+acesso direto deixa de valer. É o modo de desenvolvimento, não o de produção.
 
-Esses POSTs param no `RequirePermissionAsync` de `HandleDmStartAsync` e devolvem `401` antes de
-ler o corpo, então nenhuma DM é enviada. Os baldes expiram em 1 minuto, e o teste precisa rodar
-**sem sessão** — autenticado, o balde é chaveado pelo token e não pelo IP. `curl` sem cookie já
-resolve.
+### Limites da API
 
-Campo vazio **não** é erro: o bot avisa no log e o limite volta a ser global — conservador,
-porque erra fechando. O preço disso é que erro de rotação é silencioso, e é exatamente por isso
-que o passo de conferência acima não é opcional.
+Todos por cliente (`ClientKey`: o `CF-Connecting-IP` quando o segredo bate, com IPv6 agrupado
+no /64), e todos com `Retry-After` na resposta:
+
+| Limite | Valor | Resposta |
+|---|---|---|
+| Qualquer requisição | 240 por minuto | 429 |
+| POST por rota (por sessão, ou por IP sem sessão) | 30 por minuto | 429 |
+| `/api/dm`, `/api/audit/push`, `/api/deployment` | 3 por minuto | 429 |
+| Login | 10 tentativas a cada 5 minutos | 429 |
+| Requisições em voo | 64, espera de até 10 s por vaga | 503 |
+| Corpo | 64 KB | 413 |
+| Tempo para o corpo chegar inteiro | 10 s | 408 |
+
+Na frente disto ainda há o rate limit do Worker `daese-api-proxy` (120 por minuto por IP) e a
+regra de rate limit do WAF da zona — ver a seção 16 do `INFRA.md` do `nunreasonable.github.io`.
 
 `config.jsonc` e `dashboard_auth.json` **não são versionados** (contêm token e IDs do
 servidor). Para montar um ambiente novo, copie os modelos e preencha:

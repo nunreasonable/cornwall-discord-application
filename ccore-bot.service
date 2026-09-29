@@ -60,6 +60,15 @@ RestartSec=10
 KillSignal=SIGINT
 TimeoutStopSec=30
 
+# Tetos de recurso. A API do painel e alcancavel da internet; se algum dia uma
+# enxurrada passar pelos limites da borda e do proprio bot, o estrago fica
+# contido no bot em vez de levar a maquina junto (clips, tunnels, o outro bot).
+# Medido em 29/09/2026: ~130 MB em uso, pico de 137 MB, 14 threads. O GC do
+# .NET le o MemoryMax do cgroup e aperta a coleta antes de chegar nele; se
+# chegar, o OOM mata e o Restart=on-failure traz de volta em 10 s.
+MemoryMax=768M
+TasksMax=512
+
 # O servico ocupa a porta 5056. Rodar `dotnet run` a mao em paralelo falha com
 # HttpListenerException (98): Address already in use. Pare o servico antes.
 

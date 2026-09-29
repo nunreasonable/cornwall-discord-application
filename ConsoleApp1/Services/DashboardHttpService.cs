@@ -106,7 +106,9 @@ namespace CornwallUtilities.Services
 
             _tunnelSecret = config.tunnelSecret?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(_tunnelSecret))
-                Console.WriteLine("[dashboard] tunnelSecret vazio: o limite de login volta a ser global. Ver README.");
+                Console.WriteLine(
+                    "[dashboard] tunnelSecret vazio: o limite de login volta a ser global, o orcamento por cliente " +
+                    "fica desligado e o acesso direto a api.daeese.me (sem passar pelo Worker) deixa de ser recusado. Ver README.");
 
             _allowedOrigins = (config.allowedOrigins ?? Array.Empty<string>())
                 .Where(o => !string.IsNullOrWhiteSpace(o))
@@ -315,6 +317,18 @@ namespace CornwallUtilities.Services
         {
             if (!await _inFlight.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false))
             {
+                // Com CORS, senao o painel nao consegue nem ler o motivo e mostra
+                // erro de rede generico.
+                try
+                {
+                    AddCorsHeaders(ctx.Request, ctx.Response);
+                    ctx.Response.Headers["Retry-After"] = "5";
+                }
+                catch
+                {
+                    // conexao ja caiu
+                }
+
                 await TryWriteJsonAsync(ctx.Response, 503, new { error = "Dashboard ocupado, tente de novo." });
                 return;
             }
@@ -334,10 +348,41 @@ namespace CornwallUtilities.Services
             try
             {
                 AddCorsHeaders(ctx.Request, ctx.Response);
+
+                // Trava do acesso direto. api.daeese.me e hostname publico do
+                // tunnel: quem chama direto nele pula o Worker inteiro - o rate
+                // limit, o teto de URL, a checagem de travessia. Veio pela
+                // Cloudflare (tem CF-Ray/CF-Connecting-IP) mas sem o segredo do
+                // Worker? Entao nao veio pelo Worker, e morre aqui antes de
+                // qualquer trabalho. Desenvolvimento local fala direto com
+                // 127.0.0.1:5056 sem esses headers e nao e afetado.
+                //
+                // A regra daeese-api-direct do WAF ja barra isso na borda; esta
+                // e a segunda trava, para o dia em que a regra sumir do painel.
+                if (!string.IsNullOrEmpty(_tunnelSecret) && CameThroughCloudflare(ctx.Request) && !IsFromTunnel(ctx.Request))
+                {
+                    await WriteJsonAsync(ctx.Response, 403, new { error = "Acesso direto à API recusado." });
+                    return;
+                }
+
                 if (ctx.Request.HttpMethod.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
                 {
                     ctx.Response.StatusCode = 204;
                     ctx.Response.Close();
+                    return;
+                }
+
+                // Orcamento geral por cliente, para QUALQUER metodo. O de rota
+                // abaixo so cobre POST; os GETs nao tinham teto nenhum, e um GET
+                // sem sessao ainda custa duas varreduras de dicionario na falha de
+                // autorizacao.
+                if (!TryConsumeClientBudget(ctx.Request, out var clientRetryAfter))
+                {
+                    ctx.Response.Headers["Retry-After"] = ((int)Math.Ceiling(clientRetryAfter.TotalSeconds)).ToString();
+                    await WriteJsonAsync(ctx.Response, 429, new
+                    {
+                        error = "Muitas requisições. Espere um pouco e tente de novo."
+                    });
                     return;
                 }
 
@@ -510,6 +555,10 @@ namespace CornwallUtilities.Services
             {
                 await TryWriteJsonAsync(ctx.Response, 413, new { error = "Corpo da requisição grande demais." });
             }
+            catch (BodyReadTimeoutException)
+            {
+                await TryWriteJsonAsync(ctx.Response, 408, new { error = "O corpo da requisição demorou demais para chegar." });
+            }
             catch (JsonException)
             {
                 await TryWriteJsonAsync(ctx.Response, 400, new { error = "Corpo da requisição não é um JSON válido." });
@@ -529,8 +578,9 @@ namespace CornwallUtilities.Services
             // A trava vem antes de qualquer trabalho: e ela que impede varrer
             // codigos, e nao adianta pagar leitura de config para uma tentativa
             // que ja passou do limite.
-            if (!RegisterLoginAttempt(ctx.Request))
+            if (!RegisterLoginAttempt(ctx.Request, out var loginRetryAfter))
             {
+                ctx.Response.Headers["Retry-After"] = ((int)Math.Ceiling(loginRetryAfter.TotalSeconds)).ToString();
                 await WriteJsonAsync(ctx.Response, 429, new { error = "Tentativas demais. Espere alguns minutos e tente de novo." });
                 return;
             }
@@ -1940,12 +1990,16 @@ namespace CornwallUtilities.Services
 
         /// <summary>
         /// Rotas caras o bastante para merecer um teto mais apertado: /api/dm
-        /// dispara ate 500 DMs e /api/audit/push escreve no GitHub.
+        /// dispara ate 500 DMs, /api/audit/push escreve no GitHub e
+        /// /api/deployment manda mensagem que PINGA cargos - no teto padrao,
+        /// uma sessao de nivel 1 conseguia pingar o regimento 30 vezes por
+        /// minuto.
         /// </summary>
         private static readonly HashSet<string> ExpensiveRoutes = new(StringComparer.Ordinal)
         {
             "/api/dm",
-            "/api/audit/push"
+            "/api/audit/push",
+            "/api/deployment"
         };
 
         /// <summary>Balde de tokens: quantos pedidos cabem na janela.</summary>
@@ -2003,6 +2057,58 @@ namespace CornwallUtilities.Services
                 if (bucket.Count >= budget)
                 {
                     retryAfter = RouteBudgetWindow - (now - bucket.WindowStart);
+                    if (retryAfter < TimeSpan.Zero)
+                        retryAfter = TimeSpan.Zero;
+                    return false;
+                }
+
+                bucket.Count++;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Teto geral por cliente, somando todas as rotas e metodos. O painel de
+        /// uma pessoa faz polling de 4 s e 10 s e rajadas curtas ao trocar de
+        /// aba; a pagina de status, uma leitura a cada 15 s por aba (e ainda
+        /// passa pelo cache de 10 s da borda). 240/min e folga larga para
+        /// isso, e corta quem martela a API de um IP so.
+        /// </summary>
+        private const int ClientBudget = 240;
+
+        private static readonly TimeSpan ClientBudgetWindow = TimeSpan.FromMinutes(1);
+
+        /// <summary>Dicionario separado do de rota: uma enxurrada de IPs novos nao pode despejar o balde de POST de uma sessao.</summary>
+        private readonly ConcurrentDictionary<string, RouteBudget> _clientBudgets = new();
+
+        private bool TryConsumeClientBudget(HttpListenerRequest request, out TimeSpan retryAfter)
+        {
+            retryAfter = TimeSpan.Zero;
+
+            // Sem o segredo do Worker, ClientKey e 127.0.0.1 para o mundo inteiro:
+            // o teto viraria global e alguns visitantes da pagina de status
+            // bastariam para travar o painel. Melhor nao ter teto que ter esse.
+            if (string.IsNullOrEmpty(_tunnelSecret))
+                return true;
+
+            var now = DateTimeOffset.UtcNow;
+            var key = ClientKey(request);
+
+            if (_clientBudgets.Count >= MaxTrackedRouteKeys && !_clientBudgets.ContainsKey(key))
+                EvictOldest(_clientBudgets, b => b.WindowStart);
+
+            var bucket = _clientBudgets.GetOrAdd(key, _ => new RouteBudget { WindowStart = now });
+            lock (bucket)
+            {
+                if (now - bucket.WindowStart >= ClientBudgetWindow)
+                {
+                    bucket.WindowStart = now;
+                    bucket.Count = 0;
+                }
+
+                if (bucket.Count >= ClientBudget)
+                {
+                    retryAfter = ClientBudgetWindow - (now - bucket.WindowStart);
                     if (retryAfter < TimeSpan.Zero)
                         retryAfter = TimeSpan.Zero;
                     return false;
@@ -2084,10 +2190,11 @@ namespace CornwallUtilities.Services
         /// </summary>
         private const int MaxTrackedLoginKeys = 4096;
 
-        private bool RegisterLoginAttempt(HttpListenerRequest request)
+        private bool RegisterLoginAttempt(HttpListenerRequest request, out TimeSpan retryAfter)
         {
             var key = ClientKey(request);
             var now = DateTimeOffset.UtcNow;
+            retryAfter = TimeSpan.Zero;
 
             PruneLoginAttempts(now);
 
@@ -2111,7 +2218,13 @@ namespace CornwallUtilities.Services
                 }
 
                 attempts.Count++;
-                return attempts.Count <= MaxLoginAttemptsPerWindow;
+                if (attempts.Count <= MaxLoginAttemptsPerWindow)
+                    return true;
+
+                retryAfter = LoginAttemptWindow - (now - attempts.WindowStart);
+                if (retryAfter < TimeSpan.Zero)
+                    retryAfter = TimeSpan.Zero;
+                return false;
             }
         }
 
@@ -2162,11 +2275,41 @@ namespace CornwallUtilities.Services
             {
                 var cloudflareIp = request.Headers["CF-Connecting-IP"];
                 if (!string.IsNullOrWhiteSpace(cloudflareIp))
-                    return cloudflareIp.Trim();
+                    return GroupIpv6(cloudflareIp.Trim());
             }
 
             return request.RemoteEndPoint?.Address?.ToString() ?? "desconhecido";
         }
+
+        /// <summary>
+        /// IPv6 vira o /64 dele. Provedor residencial entrega um /64 inteiro por
+        /// assinante, e quem tem um /64 escolhe um endereco novo a cada
+        /// requisicao: por endereco completo, nenhum limitador daqui repetiria
+        /// chave - e cada chave nova ainda ocupava uma das 4096 vagas. IPv4 e
+        /// IPv4 mapeado ficam como estao.
+        /// </summary>
+        private static string GroupIpv6(string ip)
+        {
+            if (!IPAddress.TryParse(ip, out var address)
+                || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6
+                || address.IsIPv4MappedToIPv6)
+            {
+                return ip;
+            }
+
+            var bytes = address.GetAddressBytes();
+            Array.Clear(bytes, 8, 8);
+            return $"{new IPAddress(bytes)}/64";
+        }
+
+        /// <summary>
+        /// A requisicao atravessou a borda da Cloudflare (e portanto o tunnel).
+        /// A borda sempre poe estes dois, e recusa com 403 quem tenta manda-los
+        /// de fora - entao a presenca deles distingue o tunnel de uma chamada
+        /// local ao 127.0.0.1:5056.
+        /// </summary>
+        private static bool CameThroughCloudflare(HttpListenerRequest request) =>
+            !string.IsNullOrEmpty(request.Headers["CF-Ray"]) || !string.IsNullOrEmpty(request.Headers["CF-Connecting-IP"]);
 
         private bool IsFromTunnel(HttpListenerRequest request)
         {
@@ -2194,6 +2337,19 @@ namespace CornwallUtilities.Services
         {
         }
 
+        /// <summary>Lancada quando o corpo nao chega inteiro em <see cref="BodyReadDeadline"/>. Vira 408.</summary>
+        private sealed class BodyReadTimeoutException : Exception
+        {
+        }
+
+        /// <summary>
+        /// Prazo para o corpo INTEIRO chegar. 64 KB em 10 s e ~6 KB/s, abaixo de
+        /// qualquer conexao real. Sem prazo, um cliente mandando um byte por
+        /// segundo segurava uma das 64 vagas de MaxInFlightRequests pelo tempo
+        /// que quisesse - 64 conexoes lentas travavam o painel inteiro.
+        /// </summary>
+        private static readonly TimeSpan BodyReadDeadline = TimeSpan.FromSeconds(10);
+
         private static async Task<JObject?> ReadBodyAsJsonAsync(HttpListenerRequest request)
         {
             if (!request.HasEntityBody)
@@ -2208,10 +2364,29 @@ namespace CornwallUtilities.Services
             var encoding = request.ContentEncoding ?? Encoding.UTF8;
             var buffer = new byte[8192];
             using var accumulated = new MemoryStream();
+            var deadline = DateTimeOffset.UtcNow + BodyReadDeadline;
 
             while (true)
             {
-                var read = await request.InputStream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false);
+                // WaitAsync, e nao um CancellationToken no ReadAsync: o stream do
+                // HttpListener gerenciado nao garante honrar o token no meio de uma
+                // leitura. A leitura abandonada morre quando a resposta fecha a
+                // conexao.
+                var remaining = deadline - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                    throw new BodyReadTimeoutException();
+
+                int read;
+                try
+                {
+                    read = await request.InputStream.ReadAsync(buffer.AsMemory(0, buffer.Length)).AsTask()
+                        .WaitAsync(remaining).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    throw new BodyReadTimeoutException();
+                }
+
                 if (read <= 0)
                     break;
 
@@ -2356,9 +2531,27 @@ namespace CornwallUtilities.Services
             }
         }
 
+        /// <summary>
+        /// Intervalo minimo entre varreduras. TryGetSession chama a limpeza em
+        /// toda requisicao, e ela percorre as sessoes e os dicionarios dos
+        /// limitadores (milhares de entradas sob enxurrada) - duas vezes numa
+        /// falha de autorizacao. A validade de cada sessao continua conferida
+        /// na hora em TryGetSession; a varredura so libera memoria.
+        /// </summary>
+        private static readonly TimeSpan CleanupInterval = TimeSpan.FromSeconds(30);
+
+        private long _lastCleanupTicks;
+
         private void CleanupExpiredSessions()
         {
             var now = DateTimeOffset.UtcNow;
+            var last = Interlocked.Read(ref _lastCleanupTicks);
+            if (now.UtcTicks - last < CleanupInterval.Ticks
+                || Interlocked.CompareExchange(ref _lastCleanupTicks, now.UtcTicks, last) != last)
+            {
+                return;
+            }
+
             foreach (var kv in _sessions)
             {
                 if (kv.Value.ExpiresAt <= now)
@@ -2367,6 +2560,7 @@ namespace CornwallUtilities.Services
 
             PruneLoginAttempts(now);
             PruneRouteBudgets(now);
+            PruneClientBudgets(now);
         }
 
         /// <summary>
@@ -2392,6 +2586,15 @@ namespace CornwallUtilities.Services
 
             if (oldestKey is not null)
                 map.TryRemove(oldestKey, out _);
+        }
+
+        private void PruneClientBudgets(DateTimeOffset now)
+        {
+            foreach (var kv in _clientBudgets)
+            {
+                if (now - kv.Value.WindowStart >= ClientBudgetWindow)
+                    _clientBudgets.TryRemove(kv.Key, out _);
+            }
         }
 
         /// <summary>Descarta baldes cuja janela ja passou, para o dicionario nao so crescer.</summary>
