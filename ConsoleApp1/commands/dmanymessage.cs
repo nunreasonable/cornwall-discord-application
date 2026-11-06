@@ -64,11 +64,21 @@ namespace CornwallUtilities.commands
                 .WithTimestamp(DateTimeOffset.UtcNow)
                 .Build();
 
-            var result = await MassDmService.SendAsync(membersToDm, content, dmEmbed);
+            DmSendResult result;
+            string? abortMessage = null;
+            try
+            {
+                result = await MassDmService.SendAsync(membersToDm, content, dmEmbed);
+            }
+            catch (MassDmAbortedException ex)
+            {
+                result = ex.Partial;
+                abortMessage = ex.Message;
+            }
 
             var summary = new DiscordEmbedBuilder()
-                .WithTitle("Envio finalizado")
-                .WithColor(DiscordColor.Green)
+                .WithTitle(abortMessage is null ? "Envio finalizado" : "Envio interrompido")
+                .WithColor(abortMessage is null ? DiscordColor.Green : DiscordColor.Orange)
                 .AddField(new DiscordEmbedField("Alvo", targetName, true))
                 .AddField(new DiscordEmbedField("Total de destinatários", result.Total.ToString(), true))
                 .AddField(new DiscordEmbedField("Mensagens enviadas", result.Sent.ToString(), true))
@@ -76,7 +86,9 @@ namespace CornwallUtilities.commands
                 .WithTimestamp(DateTimeOffset.UtcNow);
 
             var failureText = MassDmService.DescribeFailures(result);
-            if (failureText is not null)
+            if (abortMessage is not null)
+                summary.WithDescription(failureText is null ? abortMessage : $"{abortMessage}\n\n{failureText}");
+            else if (failureText is not null)
                 summary.WithDescription(failureText);
 
             // O envio pode passar dos 15 minutos de vida do token da interacao
