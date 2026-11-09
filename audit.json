@@ -1,8 +1,9 @@
 {
   "version": 1,
-  "lastUpdatedUtc": "1970-01-01T00:00:00Z",
+  "lastUpdatedUtc": "2026-11-09T22:33:23.006266808Z",
   "appliedBatchIds": [
-    "15c7e9a8780200ca"
+    "15c7e9a8780200ca",
+    "15c7ea2e610200b4"
   ],
   "entries": [
     {
@@ -10,6 +11,174 @@
       "kills": 10,
       "deaths": 5,
       "assists": 25,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "lipao000",
+      "kills": 40,
+      "deaths": 63,
+      "assists": 10,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Pimenta0905",
+      "kills": 31,
+      "deaths": 55,
+      "assists": 4,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "dinistv22",
+      "kills": 48,
+      "deaths": 63,
+      "assists": 23,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Sean1979gop",
+      "kills": 49,
+      "deaths": 41,
+      "assists": 13,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "XequeOdebrecht",
+      "kills": 22,
+      "deaths": 48,
+      "assists": 8,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Carlitoooz_bloxfruts",
+      "kills": 41,
+      "deaths": 53,
+      "assists": 15,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "mrxavier1313_2",
+      "kills": 42,
+      "deaths": 49,
+      "assists": 6,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Brunoalexandrino",
+      "kills": 46,
+      "deaths": 48,
+      "assists": 11,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "ppvrto",
+      "kills": 45,
+      "deaths": 61,
+      "assists": 5,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "luizgugumo431",
+      "kills": 51,
+      "deaths": 39,
+      "assists": 16,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Chipo1914_m",
+      "kills": 24,
+      "deaths": 45,
+      "assists": 23,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "c_affeineaddict",
+      "kills": 73,
+      "deaths": 60,
+      "assists": 11,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Underdog2_0",
+      "kills": 35,
+      "deaths": 51,
+      "assists": 10,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "1golina47",
+      "kills": 45,
+      "deaths": 60,
+      "assists": 12,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "shadowbbonnie12352",
+      "kills": 31,
+      "deaths": 40,
+      "assists": 6,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "GMADNESSG",
+      "kills": 37,
+      "deaths": 43,
+      "assists": 10,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Mr_Redd3",
+      "kills": 47,
+      "deaths": 64,
+      "assists": 8,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "sharles1231",
+      "kills": 35,
+      "deaths": 50,
+      "assists": 6,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "FelipeiroOdebrecht",
+      "kills": 54,
+      "deaths": 56,
+      "assists": 7,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "AkanaOdebrecht",
+      "kills": 35,
+      "deaths": 27,
+      "assists": 8,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "Miiiguell005",
+      "kills": 11,
+      "deaths": 14,
+      "assists": 9,
       "battles": 1,
       "rank": ""
     }
