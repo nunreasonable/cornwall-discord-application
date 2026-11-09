@@ -1,0 +1,8 @@
+{
+    // Use o token de uma aplicacao de TESTE. O registro por servidor substitui
+    // TODOS os comandos daquela aplicacao ali: com o token de producao, esta
+    // versao apagaria os comandos que ainda nao foram portados.
+    "token": "",
+    "prefix": "-",
+    "guildIds": []
+}

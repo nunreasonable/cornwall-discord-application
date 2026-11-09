@@ -1,0 +1,5 @@
+/target/
+
+# O config real carrega o token do bot.
+/config/config.jsonc
+/config/config.jsonc.*
