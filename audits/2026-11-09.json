@@ -1,0 +1,23 @@
+{
+  "batches": [
+    {
+      "batchId": "15c7e9a8780200ca",
+      "createdUtc": "2026-11-09T22:32:49.342531224Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "RafaOdebrecht",
+          "kills": 10,
+          "deaths": 5,
+          "assists": 25,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "RafaOdebrecht 10 5 25"
+      ]
+    }
+  ]
+}
