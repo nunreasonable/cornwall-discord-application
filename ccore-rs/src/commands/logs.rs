@@ -2,8 +2,9 @@ use poise::{CreateReply, serenity_prelude as serenity};
 
 use crate::{
     Context, Error,
-    log_buffer::{LogBuffer, LogLine, Severity, truncate},
-    paginate,
+    embeds::truncate,
+    log_buffer::{LogBuffer, LogLine, Severity},
+    paginate, staff,
 };
 
 const MAX_CHARS_PER_PAGE: usize = 3200;
@@ -54,7 +55,7 @@ pub async fn logs(
     // Sempre efemero: os logs carregam ids, excecoes e caminhos da maquina.
     ctx.defer_ephemeral().await?;
 
-    if let Some(denied) = check_staff(ctx).await {
+    if let Some(denied) = staff::check(ctx).await {
         ctx.send(CreateReply::default().embed(denied).ephemeral(true))
             .await?;
         return Ok(());
@@ -107,42 +108,6 @@ pub async fn logs(
         .collect();
 
     paginate::ephemeral(ctx, pages).await
-}
-
-/// None quando pode usar; senao, o embed de recusa. Mesmo criterio do portao
-/// de staff do C#: ter o cargo em `enlistPermissionRoleId`.
-async fn check_staff(ctx: Context<'_>) -> Option<serenity::CreateEmbed> {
-    let error = |title: &str, text: String| {
-        Some(
-            serenity::CreateEmbed::new()
-                .title(title)
-                .description(text)
-                .colour(serenity::Colour::new(0xCD5C5C)),
-        )
-    };
-
-    let Some(member) = ctx.author_member().await else {
-        return error(
-            "Comando indisponível",
-            "Este comando só pode ser usado dentro do servidor.".to_owned(),
-        );
-    };
-
-    let Some(role_id) = ctx.data().config.enlist_permission_role_id else {
-        return error(
-            "Configuração ausente",
-            "`enlistPermissionRoleId` não está definido no config.jsonc.".to_owned(),
-        );
-    };
-
-    if member.roles.contains(&serenity::RoleId::new(role_id)) {
-        return None;
-    }
-
-    error(
-        "Permissão negada",
-        format!("Você precisa do cargo <@&{role_id}> para usar este comando."),
-    )
 }
 
 fn scope_text(

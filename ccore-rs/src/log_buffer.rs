@@ -11,6 +11,8 @@ use tracing::{
 };
 use tracing_subscriber::layer::{Context, Layer};
 
+use crate::embeds::truncate;
+
 const CAPACITY: usize = 1000;
 const MAX_LINE_CHARS: usize = 500;
 
@@ -124,17 +126,6 @@ impl LogBuffer {
     pub fn total_seen(&self) -> u64 {
         self.lock().total_seen
     }
-}
-
-/// Corta por caractere, e nao por byte: cortar um acento ao meio daria panic.
-pub fn truncate(text: &str, max: usize) -> String {
-    if text.chars().count() <= max {
-        return text.to_owned();
-    }
-
-    let mut cut: String = text.chars().take(max.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
 }
 
 /// Faz cada evento do `tracing` cair tambem no buffer. No C# isto era um tee

@@ -1,9 +1,17 @@
 mod commands;
 mod config;
+mod embeds;
+mod enlistment;
+mod http;
 mod log_buffer;
 mod paginate;
+mod staff;
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use config::Config;
 use log_buffer::{BufferLayer, LogBuffer};
@@ -15,6 +23,9 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 pub struct Data {
     pub config: Arc<Config>,
     pub logs: Arc<LogBuffer>,
+    pub http: reqwest::Client,
+    /// Ultima tentativa de /alistar-se de cada pessoa.
+    pub enlist_attempts: Mutex<HashMap<u64, Instant>>,
 }
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -70,6 +81,8 @@ async fn main() -> Result<(), Error> {
                 Ok(Data {
                     config: data_config,
                     logs,
+                    http: http::client()?,
+                    enlist_attempts: Mutex::default(),
                 })
             })
         })

@@ -16,6 +16,28 @@ pub struct Config {
     #[serde(default)]
     pub guild_ids: Vec<u64>,
     pub enlist_permission_role_id: Option<u64>,
+    pub enlist_log_channel_id: Option<u64>,
+    pub enlist_welcome_channel_id: Option<u64>,
+    #[serde(default)]
+    pub enlist_target_role_ids: Vec<u64>,
+    pub enlist_social_role_id: Option<u64>,
+    pub roblox_enlist_channel_id: Option<u64>,
+    #[serde(default)]
+    pub roblox_enlist_blocked_role_ids: Vec<u64>,
+    #[serde(default)]
+    pub spreadsheet_info_tabs: Vec<SpreadsheetTab>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpreadsheetTab {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub csv_url: String,
+    /// Aba de historico: vira uma secao "antiga -> nova" no embed.
+    #[serde(default)]
+    pub promotions: bool,
 }
 
 fn default_prefix() -> String {

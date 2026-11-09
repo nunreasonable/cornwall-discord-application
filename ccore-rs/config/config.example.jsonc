@@ -5,6 +5,19 @@
     "token": "",
     "prefix": "-",
     "guildIds": [],
-    // Cargo de staff: quem nao tem nao usa o /logs.
-    "enlistPermissionRoleId": null
+    // Cargo de staff: quem nao tem nao usa /logs, /checkspreadsheetinfo e /enlistuser.
+    "enlistPermissionRoleId": null,
+    // Canais do alistamento. Sem o de logs ou o de boas-vindas, o anuncio e pulado.
+    "enlistLogChannelId": null,
+    "enlistWelcomeChannelId": null,
+    // Cargos que todo alistado recebe.
+    "enlistTargetRoleIds": [],
+    "enlistSocialRoleId": null,
+    // O /alistar-se so roda neste canal, e quem tem um destes cargos e recusado.
+    "robloxEnlistChannelId": null,
+    "robloxEnlistBlockedRoleIds": [],
+    // CSV publicado de cada aba. promotions: mostra "antiga -> nova".
+    "spreadsheetInfoTabs": [
+        // { "name": "Efetivo", "csvUrl": "https://docs.google.com/...", "promotions": false }
+    ]
 }
