@@ -8,6 +8,7 @@ mod check;
 mod edit;
 mod import;
 mod logs;
+mod promocoes;
 mod push;
 mod setranks;
 
@@ -20,6 +21,7 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
         logs::audit_logs(),
         push::audit_push(),
         setranks::audit_setranks(),
+        promocoes::promocoes(),
     ]
 }
 

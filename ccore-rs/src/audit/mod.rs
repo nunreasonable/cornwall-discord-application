@@ -4,6 +4,7 @@
 pub mod embeds;
 pub mod github;
 pub mod import;
+pub mod ladder;
 pub mod model;
 pub mod parse;
 pub mod publish;
