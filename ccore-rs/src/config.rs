@@ -16,6 +16,8 @@ pub struct Config {
     #[serde(default)]
     pub guild_ids: Vec<u64>,
     pub enlist_permission_role_id: Option<u64>,
+    /// Link que vai no texto da DM do /dmdeployment, para o Discord mostrar o preview.
+    pub default_game_link: Option<String>,
     pub enlist_log_channel_id: Option<u64>,
     pub enlist_welcome_channel_id: Option<u64>,
     #[serde(default)]
@@ -26,6 +28,54 @@ pub struct Config {
     pub roblox_enlist_blocked_role_ids: Vec<u64>,
     #[serde(default)]
     pub spreadsheet_info_tabs: Vec<SpreadsheetTab>,
+    pub audit: Option<AuditConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditConfig {
+    /// So um override: o normal e o token vir do `gh auth token` da maquina.
+    pub github_token: Option<String>,
+    pub github_owner: Option<String>,
+    pub github_repo: Option<String>,
+    pub github_branch: Option<String>,
+    pub audit_file_path: Option<String>,
+    pub archive_directory: Option<String>,
+    pub audit_csv_url: Option<String>,
+    #[serde(default)]
+    pub csv_columns: CsvColumns,
+    #[serde(default = "one")]
+    pub csv_header_rows: usize,
+}
+
+fn one() -> usize {
+    1
+}
+
+/// Indices (base 0) das colunas da planilha do /audit-import. -1 e uma coluna
+/// que a planilha nao tem: a planilha atual nao traz kills/deaths/assists.
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub struct CsvColumns {
+    pub username: i32,
+    pub rank: i32,
+    pub battles: i32,
+    pub kills: i32,
+    pub deaths: i32,
+    pub assists: i32,
+}
+
+impl Default for CsvColumns {
+    fn default() -> Self {
+        Self {
+            username: 0,
+            rank: 1,
+            battles: 2,
+            kills: -1,
+            deaths: -1,
+            assists: -1,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

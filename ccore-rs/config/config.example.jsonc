@@ -7,6 +7,8 @@
     "guildIds": [],
     // Cargo de staff: quem nao tem nao usa /logs, /checkspreadsheetinfo e /enlistuser.
     "enlistPermissionRoleId": null,
+    // Link do jogo que o /dmdeployment manda junto da DM.
+    "defaultGameLink": null,
     // Canais do alistamento. Sem o de logs ou o de boas-vindas, o anuncio e pulado.
     "enlistLogChannelId": null,
     "enlistWelcomeChannelId": null,
@@ -19,5 +21,19 @@
     // CSV publicado de cada aba. promotions: mostra "antiga -> nova".
     "spreadsheetInfoTabs": [
         // { "name": "Efetivo", "csvUrl": "https://docs.google.com/...", "promotions": false }
-    ]
+    ],
+    // Auditoria (/audit-*). Em teste, aponte para um repositorio de TESTE: o
+    // /audit-push grava commits na branch configurada.
+    "audit": {
+        // Vazio usa GH_TOKEN ou o login do `gh` CLI da maquina.
+        "githubToken": null,
+        "githubOwner": null,
+        "githubRepo": null,
+        "githubBranch": "audit-data",
+        "auditFilePath": "audit.json",
+        "archiveDirectory": "audits",
+        "auditCsvUrl": null,
+        "csvHeaderRows": 1,
+        "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 }
+    }
 }

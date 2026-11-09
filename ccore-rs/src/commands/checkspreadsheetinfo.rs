@@ -5,7 +5,9 @@ use crate::{
     Context, Error,
     config::SpreadsheetTab,
     embeds::{self, truncate},
-    http, staff,
+    http,
+    sheet::parse_csv,
+    staff,
 };
 
 const USERNAME_HEADERS: [&str; 3] = ["NOME DE USUARIO", "NOME DO USUARIO", "USERNAME"];
@@ -121,22 +123,6 @@ fn load_tab(text: &str, username: &str) -> Result<Loaded, String> {
         row,
         username_column,
     })
-}
-
-/// Campos entre aspas podem ter quebra de linha; `flexible` porque as linhas da
-/// planilha nao tem todas o mesmo numero de colunas.
-fn parse_csv(text: &str) -> Result<Vec<Vec<String>>, String> {
-    csv::ReaderBuilder::new()
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(text.as_bytes())
-        .records()
-        .map(|record| {
-            record
-                .map(|r| r.iter().map(str::to_owned).collect())
-                .map_err(|e| format!("CSV inválido: {e}"))
-        })
-        .collect()
 }
 
 /// As abas nao poem o cabecalho na mesma posicao: PROMOCOES comeca na coluna K.

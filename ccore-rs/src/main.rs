@@ -1,10 +1,14 @@
+mod audit;
 mod commands;
 mod config;
+mod dm;
 mod embeds;
 mod enlistment;
 mod http;
 mod log_buffer;
 mod paginate;
+mod reply;
+mod sheet;
 mod staff;
 
 use std::{
@@ -26,6 +30,10 @@ pub struct Data {
     pub http: reqwest::Client,
     /// Ultima tentativa de /alistar-se de cada pessoa.
     pub enlist_attempts: Mutex<HashMap<u64, Instant>>,
+    pub dm_limiter: dm::DmLimiter,
+    pub audit: audit::store::AuditStore,
+    /// Token do GitHub ja descoberto. Esvazia quando o GitHub responde 401.
+    pub github_token: tokio::sync::Mutex<Option<String>>,
 }
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -83,6 +91,9 @@ async fn main() -> Result<(), Error> {
                     logs,
                     http: http::client()?,
                     enlist_attempts: Mutex::default(),
+                    dm_limiter: dm::DmLimiter::default(),
+                    audit: audit::store::AuditStore::new("data"),
+                    github_token: tokio::sync::Mutex::default(),
                 })
             })
         })

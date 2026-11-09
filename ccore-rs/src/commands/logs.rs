@@ -2,7 +2,7 @@ use poise::{CreateReply, serenity_prelude as serenity};
 
 use crate::{
     Context, Error,
-    embeds::truncate,
+    embeds::{fence_safe, truncate},
     log_buffer::{LogBuffer, LogLine, Severity},
     paginate, staff,
 };
@@ -107,7 +107,7 @@ pub async fn logs(
         })
         .collect();
 
-    paginate::ephemeral(ctx, pages).await
+    paginate::send(ctx, pages, true).await
 }
 
 fn scope_text(
@@ -171,10 +171,6 @@ fn split_pages(lines: &[LogLine], max_chars: usize) -> Vec<String> {
 }
 
 /// Uma crase tripla dentro do log fecharia o bloco de codigo do embed.
-fn fence_safe(text: &str) -> String {
-    text.replace("```", "`\u{200b}`\u{200b}`")
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::Local;

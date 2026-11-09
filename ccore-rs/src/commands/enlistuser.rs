@@ -4,6 +4,7 @@ use serenity::Mentionable;
 use crate::{
     Context, Error, embeds,
     enlistment::{self, LogDetails},
+    staff,
 };
 
 /// Alista um usuário (verificação ROBLOX automática + cargos + nickname + log).
@@ -28,26 +29,9 @@ pub async fn enlistuser(
         .await;
     };
 
-    let Some(required) = config.enlist_permission_role_id else {
-        return fail(
-            ctx,
-            "Configuração inválida",
-            "O ID do cargo com permissão para usar este comando não está configurado. Verifique o arquivo config.json (enlistPermissionRoleId).",
-        )
-        .await;
-    };
-
-    let allowed = ctx
-        .author_member()
-        .await
-        .is_some_and(|m| m.roles.contains(&serenity::RoleId::new(required)));
-    if !allowed {
-        return fail(
-            ctx,
-            "Permissão negada",
-            "Você não possui o cargo necessário para usar este comando.",
-        )
-        .await;
+    if let Some(denied) = staff::require_enlist_role(ctx).await {
+        ctx.send(CreateReply::default().embed(denied)).await?;
+        return Ok(());
     }
 
     let Ok(target) = guild_id.member(ctx, user.id).await else {

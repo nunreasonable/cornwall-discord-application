@@ -19,3 +19,9 @@ pub fn truncate(text: &str, max: usize) -> String {
     cut.push('…');
     cut
 }
+
+/// Deixa o texto seguro dentro de um bloco ```: a crase tripla fecharia o bloco
+/// e o resto viraria markdown solto. O zero-width space separa as crases.
+pub fn fence_safe(text: &str) -> String {
+    text.replace("```", "`\u{200b}`\u{200b}`")
+}

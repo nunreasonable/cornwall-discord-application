@@ -6,9 +6,14 @@ use crate::{Context, Error};
 
 const IDLE_LIMIT: Duration = Duration::from_secs(180);
 
-/// Mostra as paginas numa resposta efemera, com setas. So quem rodou o comando
-/// ve a mensagem, entao nao ha clique de terceiro para recusar.
-pub async fn ephemeral(ctx: Context<'_>, pages: Vec<serenity::CreateEmbed>) -> Result<(), Error> {
+/// Mostra as paginas com setas. So quem rodou o comando troca de pagina: numa
+/// resposta publica, o clique de outra pessoa ganha uma explicacao em vez do
+/// "interacao falhou" do Discord.
+pub async fn send(
+    ctx: Context<'_>,
+    pages: Vec<serenity::CreateEmbed>,
+    ephemeral: bool,
+) -> Result<(), Error> {
     let prefix = ctx.id().to_string();
     let prev_id = format!("{prefix}:prev");
     let next_id = format!("{prefix}:next");
@@ -27,7 +32,7 @@ pub async fn ephemeral(ctx: Context<'_>, pages: Vec<serenity::CreateEmbed>) -> R
     let reply = |page: usize, disabled: bool| {
         let mut reply = CreateReply::default()
             .embed(pages[page].clone())
-            .ephemeral(true);
+            .ephemeral(ephemeral);
         if pages.len() > 1 {
             reply = reply.components(buttons(disabled));
         }
@@ -48,6 +53,20 @@ pub async fn ephemeral(ctx: Context<'_>, pages: Vec<serenity::CreateEmbed>) -> R
         .timeout(IDLE_LIMIT)
         .await
     {
+        if press.user.id != ctx.author().id {
+            let _ = press
+                .create_response(
+                    ctx,
+                    serenity::CreateInteractionResponse::Message(
+                        serenity::CreateInteractionResponseMessage::new()
+                            .content("Só quem rodou o comando pode trocar de página.")
+                            .ephemeral(true),
+                    ),
+                )
+                .await;
+            continue;
+        }
+
         page = if press.data.custom_id == next_id {
             (page + 1) % pages.len()
         } else {

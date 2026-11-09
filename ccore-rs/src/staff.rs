@@ -28,3 +28,25 @@ pub async fn check(ctx: Context<'_>) -> Option<serenity::CreateEmbed> {
         format!("Você precisa do cargo <@&{role_id}> para usar este comando."),
     ))
 }
+
+/// O portao dos comandos de alistamento e de DM, com as frases deles.
+pub async fn require_enlist_role(ctx: Context<'_>) -> Option<serenity::CreateEmbed> {
+    let Some(required) = ctx.data().config.enlist_permission_role_id else {
+        return Some(embeds::error(
+            "Configuração inválida",
+            "O ID do cargo com permissão para usar este comando não está configurado. Verifique o arquivo config.json (enlistPermissionRoleId).",
+        ));
+    };
+
+    let allowed = ctx
+        .author_member()
+        .await
+        .is_some_and(|m| m.roles.contains(&serenity::RoleId::new(required)));
+
+    (!allowed).then(|| {
+        embeds::error(
+            "Permissão negada",
+            "Você não possui o cargo necessário para usar este comando.",
+        )
+    })
+}
