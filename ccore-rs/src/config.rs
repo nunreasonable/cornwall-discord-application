@@ -1,7 +1,7 @@
 use std::{error::Error, fs, path::Path};
 
 use json_comments::StripComments;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 const CONFIG_PATH: &str = "config/config.jsonc";
 
@@ -29,6 +29,64 @@ pub struct Config {
     #[serde(default)]
     pub spreadsheet_info_tabs: Vec<SpreadsheetTab>,
     pub audit: Option<AuditConfig>,
+    pub deployment_channel_id: Option<u64>,
+    #[serde(default)]
+    pub deployment_allowed_role_ids: Vec<u64>,
+    #[serde(default)]
+    pub deployment_default_roles: Vec<u64>,
+    pub deployment_game_link: Option<String>,
+    pub deployment_voice_chat_link: Option<String>,
+    pub deployment_title: Option<String>,
+    pub deployment_voice_channel: Option<String>,
+    pub deployment_image_url: Option<String>,
+    #[serde(default, deserialize_with = "string_or_number")]
+    pub deployment_place_id: Option<String>,
+    pub deployment_quick_launch_link: Option<String>,
+    pub message_reposting: Option<RepostConfig>,
+    pub message_blacklist: Option<BlacklistConfig>,
+}
+
+/// O placeId aparece como texto ou como numero nos configs que existem.
+fn string_or_number<'de, D: Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    Ok(match Option::<serde_json::Value>::deserialize(d)? {
+        Some(serde_json::Value::String(text)) => Some(text),
+        Some(serde_json::Value::Number(number)) => Some(number.to_string()),
+        _ => None,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RepostConfig {
+    pub enabled: bool,
+    pub target_channel_id: u64,
+    pub repost_interval_minutes: u64,
+    pub message_retention_hours: u64,
+    pub minimum_messages_for_repost: usize,
+}
+
+impl Default for RepostConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            target_channel_id: 0,
+            repost_interval_minutes: 60,
+            message_retention_hours: 24,
+            minimum_messages_for_repost: 50,
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BlacklistConfig {
+    pub enabled: bool,
+    pub blacklisted_terms: Vec<String>,
+    pub response_message: String,
+    pub response_message2_terms: Vec<String>,
+    pub response_message2: Option<String>,
+    pub notify_user_ids: Vec<u64>,
+    pub dm_alert_cooldown_minutes: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]

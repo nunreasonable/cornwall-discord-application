@@ -1,13 +1,17 @@
 mod audit;
+mod blacklist;
 mod commands;
 mod config;
+mod deployment;
 mod dm;
 mod embeds;
 mod enlistment;
+mod events;
 mod http;
 mod log_buffer;
 mod paginate;
 mod reply;
+mod repost;
 mod sheet;
 mod staff;
 
@@ -30,10 +34,12 @@ pub struct Data {
     pub http: reqwest::Client,
     /// Ultima tentativa de /alistar-se de cada pessoa.
     pub enlist_attempts: Mutex<HashMap<u64, Instant>>,
-    pub dm_limiter: dm::DmLimiter,
+    pub dm_limiter: Arc<dm::DmLimiter>,
     pub audit: audit::store::AuditStore,
     /// Token do GitHub ja descoberto. Esvazia quando o GitHub responde 401.
     pub github_token: tokio::sync::Mutex<Option<String>>,
+    pub messages: Option<Arc<repost::MessageStore>>,
+    pub blacklist: Option<Arc<blacklist::Blacklist>>,
 }
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -70,6 +76,13 @@ async fn main() -> Result<(), Error> {
                 ..Default::default()
             },
             on_error: |err| Box::pin(on_error(err)),
+            event_handler: |framework, event| {
+                Box::pin(events::handle(
+                    framework.serenity_context,
+                    event,
+                    framework.user_data,
+                ))
+            },
             ..Default::default()
         })
         .setup(move |ctx, ready, framework| {
@@ -86,14 +99,37 @@ async fn main() -> Result<(), Error> {
                     info!("comandos registrados no servidor {id}");
                 }
 
+                let dm_limiter = Arc::new(dm::DmLimiter::default());
+
+                let messages = data_config
+                    .message_reposting
+                    .as_ref()
+                    .and_then(repost::MessageStore::new)
+                    .map(Arc::new);
+                if let Some(store) = &messages {
+                    store.spawn(ctx.http.clone());
+                    info!("repost de mensagens ligado");
+                }
+
+                let blacklist = data_config
+                    .message_blacklist
+                    .as_ref()
+                    .and_then(|c| blacklist::Blacklist::new(c, dm_limiter.clone()))
+                    .map(Arc::new);
+                if blacklist.is_some() {
+                    info!("blacklist de mensagens ligada");
+                }
+
                 Ok(Data {
                     config: data_config,
                     logs,
                     http: http::client()?,
                     enlist_attempts: Mutex::default(),
-                    dm_limiter: dm::DmLimiter::default(),
+                    dm_limiter,
                     audit: audit::store::AuditStore::new("data"),
                     github_token: tokio::sync::Mutex::default(),
+                    messages,
+                    blacklist,
                 })
             })
         })

@@ -1,8 +1,10 @@
 mod audit;
 mod checkspreadsheetinfo;
+mod deployment;
 mod enlistuser;
 mod logs;
 mod massdm;
+mod messages;
 mod ping;
 mod robloxenlist;
 
@@ -18,6 +20,9 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
         robloxenlist::alistar_se(),
         massdm::dmreminder(),
         massdm::dmdeployment(),
+        deployment::deployment(),
+        messages::repost(),
+        messages::messages(),
     ];
     commands.extend(audit::all());
     commands

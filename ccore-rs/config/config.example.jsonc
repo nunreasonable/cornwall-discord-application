@@ -22,6 +22,37 @@
     "spreadsheetInfoTabs": [
         // { "name": "Efetivo", "csvUrl": "https://docs.google.com/...", "promotions": false }
     ],
+    // /deployment: quem pode usar, onde posta e quem e pingado.
+    "deploymentChannelId": null,
+    "deploymentAllowedRoleIds": [],
+    "deploymentDefaultRoles": [],
+    "deploymentGameLink": null,
+    "deploymentVoiceChatLink": null,
+    "deploymentTitle": null,
+    "deploymentVoiceChannel": null,
+    "deploymentImageUrl": null,
+    "deploymentPlaceId": null,
+    // CODE_HERE ou {CODE} viram o codigo digitado.
+    "deploymentQuickLaunchLink": null,
+    // Guarda as mensagens recentes de um canal e reposta uma de vez em quando.
+    "messageReposting": {
+        "enabled": false,
+        "targetChannelId": 0,
+        "repostIntervalMinutes": 60,
+        "messageRetentionHours": 24,
+        "minimumMessagesForRepost": 50
+    },
+    // Termos que geram resposta e alerta por DM. {mention}, {user}, {term} e
+    // {channel} sao trocados na resposta.
+    "messageBlacklist": {
+        "enabled": false,
+        "blacklistedTerms": [],
+        "responseMessage": "",
+        "responseMessage2Terms": [],
+        "responseMessage2": null,
+        "notifyUserIds": [],
+        "dmAlertCooldownMinutes": 5
+    },
     // Auditoria (/audit-*). Em teste, aponte para um repositorio de TESTE: o
     // /audit-push grava commits na branch configurada.
     "audit": {
