@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 poise = "0.7.1"
 json_comments = "0.2"
 serde = { version = "1", features = ["derive"] }

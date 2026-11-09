@@ -1,15 +1,21 @@
 mod commands;
 mod config;
+mod log_buffer;
+mod paginate;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use config::Config;
+use log_buffer::{BufferLayer, LogBuffer};
 use poise::serenity_prelude as serenity;
 use tracing::{error, info, warn};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-/// Estado compartilhado pelos comandos. Vazio por enquanto.
-pub struct Data;
+/// Estado compartilhado pelos comandos.
+pub struct Data {
+    pub config: Arc<Config>,
+    pub logs: Arc<LogBuffer>,
+}
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
@@ -25,12 +31,16 @@ const SHUTDOWN_LIMIT: Duration = Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+    // Primeira coisa do main: o que for logado antes disto nao entra no buffer.
+    let logs = Arc::new(LogBuffer::default());
+    tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .with(tracing_subscriber::fmt::layer())
+        .with(BufferLayer::new(logs.clone()))
         .init();
 
-    let config = Config::load()?;
-    let guild_ids = config.guild_ids.clone();
+    let config = Arc::new(Config::load()?);
+    let data_config = config.clone();
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -47,17 +57,20 @@ async fn main() -> Result<(), Error> {
             Box::pin(async move {
                 info!("conectado como {}", ready.user.name);
 
-                if guild_ids.is_empty() {
+                if data_config.guild_ids.is_empty() {
                     warn!("guildIds vazio: nenhum comando foi registrado");
                 }
-                for id in guild_ids {
+                for &id in &data_config.guild_ids {
                     let guild = serenity::GuildId::new(id);
                     poise::builtins::register_in_guild(ctx, &framework.options().commands, guild)
                         .await?;
                     info!("comandos registrados no servidor {id}");
                 }
 
-                Ok(Data)
+                Ok(Data {
+                    config: data_config,
+                    logs,
+                })
             })
         })
         .build();

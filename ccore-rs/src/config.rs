@@ -15,6 +15,7 @@ pub struct Config {
     pub prefix: String,
     #[serde(default)]
     pub guild_ids: Vec<u64>,
+    pub enlist_permission_role_id: Option<u64>,
 }
 
 fn default_prefix() -> String {

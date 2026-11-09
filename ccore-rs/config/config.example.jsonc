@@ -4,5 +4,7 @@
     // versao apagaria os comandos que ainda nao foram portados.
     "token": "",
     "prefix": "-",
-    "guildIds": []
+    "guildIds": [],
+    // Cargo de staff: quem nao tem nao usa o /logs.
+    "enlistPermissionRoleId": null
 }
