@@ -2,6 +2,14 @@
 
 Bot Discord para o 12° "Chaves" Regimento de Infantaria com funcionalidades de alistamento, deployments e mensagens.
 
+Desde novembro de 2026 o ccore roda em **Rust**, em `ccore-rs/` (poise + serenity, tokio e axum).
+A versão em C# / .NET que ficou em `ConsoleApp1/` foi a base do port e não roda mais em produção.
+
+> **Status:** o ccore continua no ar, mas daqui pra frente recebe menos atualizações. Ele foi o
+> pontapé inicial do [Sollarety](https://apps.daeese.me/sollarety/), que nasceu da mesma
+> infraestrutura. Num futuro próximo ele pode virar uma "engine": um modelo próprio de bot / app
+> do Discord pra construir qualquer aplicação.
+
 ## Comandos do Bot
 
 ### Alistamento & Verificação
@@ -32,11 +40,14 @@ Bot Discord para o 12° "Chaves" Regimento de Infantaria com funcionalidades de 
   - Requer: Cargo de permissão configurado
   - Parâmetros: cargo/usuário, código, mensagem
   - Limite: 500 membros por execução
+  - Se o Discord sinalizar rate limit ou as falhas seguidas passarem do limite, o envio para e
+    o resumo sai como **Envio interrompido**, com quantas mensagens foram antes do corte
 
 - **`/dmreminder`** - Envia DM para cargo/usuário (sem código)
   - Requer: Cargo de permissão configurado
   - Parâmetros: cargo/usuário, mensagem
   - Limite: 500 membros por execução
+  - Mesmo corte do `/dmdeployment`: se o envio for interrompido, o resumo mostra o parcial
 
 ### Sistema de Auditoria
 > 📖 **Guia passo a passo para quem vai usar:** [`markdownspam/audit_usage.md`](markdownspam/audit_usage.md)
@@ -87,6 +98,11 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
   - Função: histórico paginado, do mais recente para o mais antigo, com data, autor e detalhe
     de cada `/audit-add`, `/audit-edit`, `/audit-setranks`, `/audit-import` e `/audit-push`
 
+- **`/promocoes`** - Mostra quem está elegível a promoção
+  - Parâmetros opcionais: `jogador` (com autocomplete), `privado`
+  - Função: aplica a escada de promoções do regimento sobre a auditoria e lista quem já pode
+    subir, ou a ficha de um jogador só
+
 ### Sistema de Repost
 - **`/messages`** - Verifica status do armazenamento de mensagens
   - Função: Estatísticas e progresso do sistema
@@ -105,17 +121,26 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
     (todos/erro/aviso/info), `filtro` (texto), `privado` (padrão `true`)
   - Função: histórico paginado, do mais recente para o mais antigo
 
-  As linhas vêm de um **buffer em memória** (`Services/BotLogBuffer.cs`), alimentado por um
-  tee instalado sobre o `Console.Out` (`Services/ConsoleTee.cs`). O bot não usa biblioteca de
-  log: escreve tudo com `Console.WriteLine`, e antes disso a única forma de ler essa saída era
-  ter acesso à máquina e rodar `journalctl --user -u ccore-bot`.
+  As linhas vêm de um **buffer em memória** (`src/log_buffer.rs`), uma camada do `tracing`
+  que recebe cada evento de log além da saída normal. Sem ele, a única forma de ler essa saída
+  seria ter acesso à máquina e rodar `journalctl --user -u ccore-bot`.
 
-  O tee **não substitui** o stdout, ele duplica: o journald continua recebendo tudo, e a
+  A camada **não substitui** o stdout, ela duplica: o journald continua recebendo tudo, e a
   interface de terminal continua funcionando. O buffer guarda as últimas 1000 linhas e
   **zera a cada reinício do bot** — para histórico que sobrevive a restart, o journald
   continua sendo a fonte.
 
+- **`/dashboardlink`** - Gera um código de login único para o painel
+  - Requer: algum nível no `dashboard_auth.json`
+  - Função: responde só para quem pediu, com o código que entra em
+    [dashboard.daeese.me](https://dashboard.daeese.me/)
+
 ### Comandos de Administração
+- **`-osinfo`** - Mostra informações do sistema, do processo, das linguagens do bot e da conexão
+  com o Discord
+  - Requer: cargo de staff (expõe dados da máquina)
+  - Comando de prefixo (`-` por padrão, campo `prefix` do config), não de barra
+
 - **`vsfdliliane`** - Comando especial restrito
   - Requer: ID de usuário específico
   - Função: Respostas personalizadas
@@ -124,7 +149,7 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 
 ## Configuração
 
-O bot utiliza o arquivo `ConsoleApp1/config/config.jsonc` para configurações de:
+O bot utiliza o arquivo `ccore-rs/config/config.jsonc` para configurações de:
 - IDs de canais e cargos
 - URLs de planilhas e links
 - Permissões de comandos
@@ -162,8 +187,8 @@ Dois cortes que valem explicação, porque parecem perdas e não são:
 
 #### O match exige palavra inteira
 
-`MessageBlacklistService` compila cada termo numa `Regex` com `\b` nas pontas, sobre uma forma
-normalizada (minúscula, sem acento).
+`src/blacklist.rs` só aceita o termo quando ele aparece como palavra inteira (sem letra, número
+ou `_` colado nas pontas), sobre uma forma normalizada (minúscula, sem acento).
 
 Antes era `Contains` cru, e substring pega palavra de dentro de palavra: com `fascista` na
 lista, quem escrevesse **`antifascista`** — o oposto do que a regra quer punir — levava a
@@ -183,7 +208,7 @@ número e por aí vai continua passando. A blacklist é lombada, não cerca.
 ## Interface de terminal
 
 Além dos comandos do Discord, o bot aceita comandos em texto
-(`ConsoleApp1/terminalshenanigans.cs`): `>channel ID` escolhe um canal, texto solto vira uma mensagem
+(`src/terminal.rs`): `>channel ID` escolhe um canal, texto solto vira uma mensagem
 nesse canal, `>help` lista tudo e `>exit` encerra a sessão.
 
 Em produção o bot roda como serviço do systemd (`ccore-bot.service`), e serviço do systemd
@@ -192,14 +217,14 @@ verdade: o bot logava `stdin nao interativo; interface de terminal desativada` e
 
 Agora ela tem dois caminhos, com o mesmo interpretador atrás dos dois:
 
-- **stdin**, quando o processo tem terminal de verdade (`dotnet run` na mão);
+- **stdin**, quando o processo tem terminal de verdade (`cargo run` na mão);
 - **socket Unix**, sempre — inclusive sob o systemd.
 
 Para abrir uma sessão no bot que já está rodando, basta rodar o próprio binário em modo
 cliente:
 
 ```bash
-ConsoleApp1/bin/Release/net10.0/ConsoleApp1 --terminal
+ccore-rs/target/release/ccore --terminal
 ```
 
 O socket fica em `$XDG_RUNTIME_DIR/ccore-bot/terminal.sock` (modo `0600`, dentro de um
@@ -210,10 +235,12 @@ sessão de quem digitou, nunca o bot.
 
 ## Dashboard e API HTTP
 
-O bot expõe uma API em `http://127.0.0.1:5056` (`Services/DashboardHttpService.cs`), consumida
+O bot expõe uma API em `http://127.0.0.1:5056` (`src/dashboard/`, com axum), consumida
 pelo painel em [dashboard.daeese.me](https://dashboard.daeese.me/) e pela página pública de
 status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). O login é o código de
-`/dashboardlink`; os níveis 1–4 vêm de `dashboard_auth.json`.
+`/dashboardlink`; os níveis 1–4 vêm de `dashboard_auth.json`, por cargo. O nível 2 também
+pode ser dado por ID em `level2UserIds`, pra quem precisa do painel sem ter o cargo; é piso,
+não teto, então um cargo de nível 3 ainda sobe a pessoa.
 
 | Método | Rota | Nível | O que faz |
 |---|---|---|---|
@@ -253,17 +280,17 @@ Nada nesse conjunto remove alguém nem fala com serviço de terceiro.
 Conceder cargo fica no 2 junto com remover, e não no 1, porque dar cargo pode escalar
 privilégio.
 
-Os níveis vivem em dois lugares e **precisam concordar**: `DashboardHttpService` é o portão
+Os níveis vivem em dois lugares e **precisam concordar**: `src/dashboard/gate.rs` é o portão
 real, e o `applyUser` do painel apenas apaga os botões. Divergir faz a interface mentir —
 botão aceso que devolve 403, ou apagado que funcionaria.
 
-A lógica administrativa é compartilhada entre os comandos de barra e a API: `DeploymentBuilder`,
-`MassDmService`, `EnlistmentService`, `BotStatusSnapshot` e `AuditPublisher` existem justamente
+A lógica administrativa é compartilhada entre os comandos de barra e a API: os módulos
+`deployment.rs`, `dm.rs`, `enlistment.rs`, `status.rs` e `audit/publish.rs` existem justamente
 para que `/deployment` e `POST /api/deployment` (e assim por diante) produzam o mesmo resultado
 em vez de duas cópias que divergem no primeiro ajuste.
 
 **A DM em massa é um job, não um request.** Cada destinatário custa ~4,2s entre o limitador
-global (`DmRateLimiter`, 3s) e o espaçamento de 1,2s, então o teto de 500 pessoas leva cerca de
+global (3s, em `dm.rs`) e o espaçamento de 1,2s, então o teto de 500 pessoas leva cerca de
 35 minutos. `POST /api/dm` responde `202` com um `jobId` e o envio segue em segundo plano; o
 progresso vem de `GET /api/dm/status`. Os jobs vivem em memória e somem no reinício.
 
@@ -310,7 +337,7 @@ por cima perderia:
 
 ```
 python3 -c 'import json, pathlib
-alvo = pathlib.Path("ConsoleApp1/config/dashboard_auth.json")
+alvo = pathlib.Path("ccore-rs/config/dashboard_auth.json")
 novo = pathlib.Path("/tmp/ccore-tunnel-secret").read_text().strip()
 txt = alvo.read_text()
 chave = json.dumps("tunnelSecret")
@@ -372,12 +399,13 @@ regra de rate limit do WAF da zona — ver a seção 16 do `INFRA.md` do `nunrea
 servidor). Para montar um ambiente novo, copie os modelos e preencha:
 
 ```bash
-cp ConsoleApp1/config/config.example.jsonc ConsoleApp1/config/config.jsonc
-cp ConsoleApp1/config/dashboard_auth.example.json ConsoleApp1/config/dashboard_auth.json
+cp ccore-rs/config/config.example.jsonc ccore-rs/config/config.jsonc
+cp ConsoleApp1/config/dashboard_auth.example.json ccore-rs/config/dashboard_auth.json
 ```
 
 O caminho `config/config.jsonc` é lido em relação ao diretório de trabalho, então o bot deve
-ser executado de dentro de `ConsoleApp1/`.
+ser executado de dentro de `ccore-rs/`. O `dashboard_auth.json` tem o mesmo formato da versão
+em C#, por isso o modelo continua em `ConsoleApp1/config/`.
 
 Observação: o bot agora usa o intent `MessageContent` para ler o texto das mensagens e detectar termos bloqueados. Esse intent também precisa estar habilitado no painel do aplicativo do Discord.
 
@@ -389,8 +417,8 @@ Verification URL**. Nenhum dos dois está preenchido, e o primeiro não deve ser
 **Interactions Endpoint URL — deixar vazio.** A documentação do Discord descreve
 o Gateway e o endpoint HTTP como formas *mutuamente exclusivas* de receber
 interação: preencher o campo faz o bot **parar de receber interações pelo
-Gateway**. Isso quebraria todo comando que depende da extensão `Interactivity`,
-que escuta eventos do Gateway — hoje `/audit-setranks`, `/audit-add`,
+Gateway**. Isso quebraria todo comando que espera respostas pelo Gateway (os
+collectors do serenity) — hoje `/audit-setranks`, `/audit-add`,
 `/audit-edit` e `/robloxenlist`, além da paginação. Migrar exigiria
 reimplementar à mão a verificação de assinatura Ed25519, o roteamento de
 comandos e um armazenamento de estado para os fluxos de várias etapas, sem
@@ -408,7 +436,7 @@ A unit é versionada no repositório (`ccore-bot.service`, na raiz). Até 19/09/
 **só** na máquina, e a configuração de produção não tinha cópia em lugar nenhum.
 
 ```bash
-dotnet build ConsoleApp1 -c Release
+cd ccore-rs && nice -n 10 cargo build --release && cd ..
 cp ccore-bot.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now ccore-bot
@@ -424,11 +452,10 @@ para o bot sobreviver ao logout:
 sudo loginctl enable-linger $USER
 ```
 
-**O `-c Release` não é detalhe.** A unit aponta para `bin/Release/net10.0/ConsoleApp1`; até
-19/09/2026 ela apontava para o build de **Debug**, que roda sem otimização de JIT e com as
-asserções ligadas. Aqui a troca é segura porque o ccore resolve `config/` e `data/` por caminho
-relativo cru, preso ao `WorkingDirectory` — o diretório de estado não se move junto com o
-binário. Pelo mesmo motivo a subida de `net9.0` para `net10.0` não exigiu mover nada. (No
+**O `--release` não é detalhe.** A unit aponta para `ccore-rs/target/release/ccore`; o build de
+debug roda sem otimização. O ccore resolve `config/` e `data/` por caminho relativo cru, preso
+ao `WorkingDirectory` (`ccore-rs/`) — o diretório de estado não se move junto com o binário.
+O estado fica em `ccore-rs/config/` e `ccore-rs/data/`. (No
 CommunityBot é o contrário: lá os caminhos saem de `AppContext.BaseDirectory`, e trocar Debug por
 Release, ou o TFM, sem mover o `data/` faz o bot subir com o estado zerado.)
 
@@ -438,7 +465,7 @@ A unit **não** usa `After=network-online.target`. Esse target só existe no sys
 **sistema** — no gerenciador de usuário ele não existe, e `Wants=` para unidade inexistente não
 é erro, é ignorado calado. As duas diretivas ficaram ali sem ordenar nada, e o sintoma era o bot
 tomar `Resource temporarily unavailable (discord.com:443)` em todo boot, recuperando só no retry
-de 7s do DisCatSharp.
+de 7s da biblioteca da época (DisCatSharp, na versão em C#).
 
 No lugar entrou um gate de DNS de verdade:
 
@@ -451,26 +478,18 @@ rede de segurança. O gate melhora o caso comum sem inventar um jeito novo de o 
 
 ### Atenção ao desenvolver
 
-O serviço ocupa a porta **5056**. Rodar `dotnet run` à mão em paralelo falha com
-`HttpListenerException (98): Address already in use` — pare o serviço antes
+O serviço ocupa a porta **5056**. Rodar `cargo run` à mão em paralelo falha com
+`Address already in use` — pare o serviço antes
 (`systemctl --user stop ccore-bot`).
 
 ## Requisitos
 
-- .NET 10 (LTS). O projeto tem `TargetFramework` `net10.0` e o `global.json` fixa o SDK em
-  10.0.x; no Fedora, `sudo dnf install dotnet-sdk-10.0`. Até setembro/2026 era .NET 9, que é STS
-  e perde o suporte em 10/11/2026.
-- DisCatSharp
+- Rust estável com edição 2024 (Rust 1.85 ou mais novo); no Fedora, `sudo dnf install rust cargo`
+  ou o `rustup`. As dependências estão no `ccore-rs/Cargo.toml` e no `Cargo.lock`.
 - Configuração adequada no `config.jsonc`
 - Permissões do bot no servidor Discord
 
-## Troubleshooting de Build/Restore
+Para rodar os testes: `cd ccore-rs && cargo test`.
 
-Se `dotnet restore` ou `dotnet build` falhar com `NU1301` e timeout para `https://api.nuget.org/v3/index.json`, execute com IPv6 desativado:
-
-```bash
-DOTNET_SYSTEM_NET_DISABLEIPV6=1 dotnet restore ConsoleApp1/ConsoleApp1.csproj
-DOTNET_SYSTEM_NET_DISABLEIPV6=1 dotnet build ConsoleApp1/ConsoleApp1.csproj
-```
-
-Observação: as tasks do VS Code em `.vscode/tasks.json` já foram configuradas para usar essa variável automaticamente.
+A versão antiga em `ConsoleApp1/` pedia .NET 10 e DisCatSharp; ela fica no repositório só como
+referência.
