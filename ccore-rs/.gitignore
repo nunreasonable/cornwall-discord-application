@@ -5,3 +5,7 @@
 # O config real carrega o token do bot.
 /config/config.jsonc
 /config/config.jsonc.*
+
+# Estado do dashboard: segredo do tunnel, sessoes liberadas e historico.
+/config/dashboard_*.json
+!/config/dashboard_*.example.json

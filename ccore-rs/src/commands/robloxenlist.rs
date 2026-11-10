@@ -246,7 +246,7 @@ pub async fn alistar_se(ctx: Context<'_>) -> Result<(), Error> {
         &target,
         config,
         social_role,
-        ctx.channel_id(),
+        Some(ctx.channel_id()),
     )
     .await;
 

@@ -62,7 +62,7 @@ pub async fn enlistuser(
         &target,
         config,
         social_role,
-        ctx.channel_id(),
+        Some(ctx.channel_id()),
     )
     .await;
 

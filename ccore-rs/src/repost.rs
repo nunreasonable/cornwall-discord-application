@@ -1,6 +1,5 @@
 use std::{
-    collections::{VecDeque, hash_map::RandomState},
-    hash::BuildHasher,
+    collections::VecDeque,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -8,7 +7,7 @@ use std::{
 use poise::serenity_prelude as serenity;
 use tracing::{info, warn};
 
-use crate::config::RepostConfig;
+use crate::{config::RepostConfig, random};
 
 const MAX_STORED: usize = 1000;
 const CLEANUP_EVERY: Duration = Duration::from_secs(3600);
@@ -44,12 +43,6 @@ pub struct MessageStore {
     messages: Mutex<VecDeque<Stored>>,
     /// Depois de um repost, o automatico espera um intervalo inteiro.
     next_allowed: Mutex<Instant>,
-}
-
-/// Numero ao acaso em 0..n, sem crate de rand: o RandomState ja traz chaves
-/// aleatorias a cada instancia.
-fn random_below(n: u64) -> u64 {
-    RandomState::new().hash_one(Instant::now()) % n.max(1)
 }
 
 impl MessageStore {
@@ -127,7 +120,7 @@ impl MessageStore {
             if candidates.is_empty() {
                 return Err(RepostError::NothingRepostable);
             }
-            let i = random_below(candidates.len() as u64) as usize;
+            let i = random::below(candidates.len() as u64) as usize;
             candidates[i].clone()
         };
 
@@ -183,7 +176,7 @@ impl MessageStore {
             loop {
                 // Entre o intervalo e o dobro dele: um periodo exato deixaria
                 // obvio que e um bot.
-                let extra = random_below(store.interval.as_secs() + 1);
+                let extra = random::below(store.interval.as_secs() + 1);
                 tokio::time::sleep(store.interval + Duration::from_secs(extra)).await;
                 store.auto_repost(&http).await;
             }

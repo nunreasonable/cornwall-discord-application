@@ -170,6 +170,7 @@ fn describe(error: reqwest::Error) -> String {
 
 pub struct Applied {
     pub added_roles: Vec<serenity::RoleId>,
+    pub nickname_changed: bool,
     pub warnings: Vec<String>,
 }
 
@@ -181,10 +182,11 @@ pub async fn apply(
     target: &serenity::Member,
     config: &Config,
     social_role: bool,
-    channel_id: serenity::ChannelId,
+    channel_id: Option<serenity::ChannelId>,
 ) -> Applied {
     let mut applied = Applied {
         added_roles: Vec::new(),
+        nickname_changed: false,
         warnings: Vec::new(),
     };
 
@@ -209,10 +211,13 @@ pub async fn apply(
         }
     };
 
-    let permissions = guild.channels.get(&channel_id).map_or_else(
-        || guild.member_permissions(&bot),
-        |c| guild.user_permissions_in(c, &bot),
-    );
+    // Sem canal (o dashboard), valem as permissoes do servidor.
+    let permissions = channel_id
+        .and_then(|id| guild.channels.get(&id))
+        .map_or_else(
+            || guild.member_permissions(&bot),
+            |c| guild.user_permissions_in(c, &bot),
+        );
     let can_manage_roles = permissions.manage_roles();
     let bot_top_position = bot
         .roles
@@ -263,10 +268,11 @@ pub async fn apply(
     if !has_prefix(current) {
         if permissions.manage_nicknames() {
             let edit = serenity::EditMember::new().nickname(with_prefix(current));
-            if let Err(cause) = guild_id.edit_member(ctx, target.user.id, edit).await {
-                applied
+            match guild_id.edit_member(ctx, target.user.id, edit).await {
+                Ok(_) => applied.nickname_changed = true,
+                Err(cause) => applied
                     .warnings
-                    .push(format!("Não foi possível alterar o apelido. Erro: {cause}"));
+                    .push(format!("Não foi possível alterar o apelido. Erro: {cause}")),
             }
         } else {
             applied.warnings.push(

@@ -2,6 +2,7 @@ mod audit;
 mod blacklist;
 mod commands;
 mod config;
+mod dashboard;
 mod deployment;
 mod dm;
 mod embeds;
@@ -10,10 +11,13 @@ mod events;
 mod http;
 mod log_buffer;
 mod paginate;
+mod random;
 mod reply;
 mod repost;
 mod sheet;
 mod staff;
+mod status;
+mod terminal;
 
 use std::{
     collections::HashMap,
@@ -35,11 +39,14 @@ pub struct Data {
     /// Ultima tentativa de /alistar-se de cada pessoa.
     pub enlist_attempts: Mutex<HashMap<u64, Instant>>,
     pub dm_limiter: Arc<dm::DmLimiter>,
-    pub audit: audit::store::AuditStore,
+    /// Arc porque o dashboard le e grava os mesmos arquivos, pelo mesmo lock.
+    pub audit: Arc<audit::store::AuditStore>,
     /// Token do GitHub ja descoberto. Esvazia quando o GitHub responde 401.
-    pub github_token: tokio::sync::Mutex<Option<String>>,
+    pub github_token: Arc<tokio::sync::Mutex<Option<String>>>,
     pub messages: Option<Arc<repost::MessageStore>>,
     pub blacklist: Option<Arc<blacklist::Blacklist>>,
+    /// None quando o dashboard nao subiu: o bot segue sem ele.
+    pub dashboard: Option<Arc<dashboard::Dashboard>>,
 }
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -56,6 +63,11 @@ const SHUTDOWN_LIMIT: Duration = Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    if std::env::args().any(|arg| arg == "--terminal") {
+        return terminal::attach().await;
+    }
+    status::mark_started();
+
     // Primeira coisa do main: o que for logado antes disto nao entra no buffer.
     let logs = Arc::new(LogBuffer::default());
     tracing_subscriber::registry()
@@ -66,6 +78,9 @@ async fn main() -> Result<(), Error> {
 
     let config = Arc::new(Config::load()?);
     let data_config = config.clone();
+    // O setup sobe o servidor; o desligamento, la embaixo, precisa para-lo.
+    let dashboard_server: Arc<Mutex<Option<dashboard::Server>>> = Arc::default();
+    let setup_server = dashboard_server.clone();
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -94,10 +109,27 @@ async fn main() -> Result<(), Error> {
                 }
                 for &id in &data_config.guild_ids {
                     let guild = serenity::GuildId::new(id);
-                    poise::builtins::register_in_guild(ctx, &framework.options().commands, guild)
-                        .await?;
-                    info!("comandos registrados no servidor {id}");
+                    // Um servidor sem acesso nao pode derrubar o setup: os
+                    // comandos e o dashboard dos outros dependem dele.
+                    match poise::builtins::register_in_guild(
+                        ctx,
+                        &framework.options().commands,
+                        guild,
+                    )
+                    .await
+                    {
+                        Ok(()) => info!("comandos registrados no servidor {id}"),
+                        Err(cause) => warn!("nao registrei os comandos no servidor {id}: {cause}"),
+                    }
                 }
+
+                // Tudo e por servidor. O bot em C# registrava o /repost como
+                // global, e ele ficaria duplicado ao lado do de servidor.
+                if let Err(cause) = serenity::Command::set_global_commands(ctx, vec![]).await {
+                    warn!("nao limpei os comandos globais: {cause}");
+                }
+
+                terminal::start(ctx.http.clone());
 
                 let dm_limiter = Arc::new(dm::DmLimiter::default());
 
@@ -120,16 +152,45 @@ async fn main() -> Result<(), Error> {
                     info!("blacklist de mensagens ligada");
                 }
 
+                let http = http::client()?;
+                let audit = Arc::new(audit::store::AuditStore::new("data"));
+                let github_token = Arc::new(tokio::sync::Mutex::default());
+
+                // O dashboard e acessorio; o bot nao e. Porta ocupada ou config
+                // ruim vira log, e o bot segue.
+                let dashboard = match dashboard::start(dashboard::Deps {
+                    ctx: ctx.clone(),
+                    shards: framework.shard_manager().clone(),
+                    config: data_config.clone(),
+                    logs: logs.clone(),
+                    http: http.clone(),
+                    dm_limiter: dm_limiter.clone(),
+                    audit: audit.clone(),
+                    github_token: github_token.clone(),
+                })
+                .await
+                {
+                    Ok((dashboard, server)) => {
+                        *setup_server.lock().unwrap_or_else(|e| e.into_inner()) = Some(server);
+                        Some(dashboard)
+                    }
+                    Err(cause) => {
+                        error!("dashboard nao subiu, o bot segue sem ele: {cause}");
+                        None
+                    }
+                };
+
                 Ok(Data {
                     config: data_config,
                     logs,
-                    http: http::client()?,
+                    http,
                     enlist_attempts: Mutex::default(),
                     dm_limiter,
-                    audit: audit::store::AuditStore::new("data"),
-                    github_token: tokio::sync::Mutex::default(),
+                    audit,
+                    github_token,
                     messages,
                     blacklist,
+                    dashboard,
                 })
             })
         })
@@ -143,6 +204,17 @@ async fn main() -> Result<(), Error> {
     tokio::spawn(async move {
         wait_for_signal().await;
         info!("encerrando");
+        terminal::cleanup();
+
+        // Primeiro o dashboard, com teto proprio: ele nao pode segurar a
+        // desconexao do gateway.
+        let server = dashboard_server
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
+        if let Some(server) = server {
+            server.stop().await;
+        }
 
         // Com prazo: um socket meio aberto nao pode prender o processo ate o
         // SIGKILL do systemd.

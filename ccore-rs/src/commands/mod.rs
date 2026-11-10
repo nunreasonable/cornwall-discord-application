@@ -1,12 +1,14 @@
 mod audit;
 mod checkspreadsheetinfo;
+mod dashboardlink;
 mod deployment;
 mod enlistuser;
 mod logs;
-mod massdm;
+pub mod massdm;
 mod messages;
 mod ping;
 mod robloxenlist;
+mod utility;
 
 use crate::{Data, Error};
 
@@ -23,6 +25,9 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
         deployment::deployment(),
         messages::repost(),
         messages::messages(),
+        utility::osinfo(),
+        utility::vsfdliliane(),
+        dashboardlink::dashboardlink(),
     ];
     commands.extend(audit::all());
     commands

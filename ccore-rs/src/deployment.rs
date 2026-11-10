@@ -14,6 +14,8 @@ pub struct Deployment {
     pub title: String,
     pub voice: String,
     pub roles_pinged: usize,
+    /// O aviso de imagem invalida, que o dashboard devolve a parte.
+    pub image_warning: Option<String>,
 }
 
 fn non_blank(value: Option<&String>) -> Option<&str> {
@@ -117,11 +119,14 @@ pub fn build(
     let mut embed = serenity::CreateEmbed::new()
         .title(&title)
         .colour(serenity::Colour::BLURPLE);
+    let mut image_warning = None;
     match non_blank(config.deployment_image_url.as_ref()).map(Url::parse) {
         Some(Ok(image)) => embed = embed.image(image),
         Some(Err(_)) => {
+            let warning = "⚠️ URL da imagem inválida. A imagem não será exibida.".to_owned();
             lines.push(String::new());
-            lines.push("⚠️ URL da imagem inválida. A imagem não será exibida.".to_owned());
+            lines.push(warning.clone());
+            image_warning = Some(warning);
         }
         None => {}
     }
@@ -144,7 +149,75 @@ pub fn build(
         title,
         voice: voice.to_owned(),
         roles_pinged: mentions.split_whitespace().count(),
+        image_warning,
     }
+}
+
+/// Os cargos que existem no servidor e o emoji :Resenha: dele, do cache.
+pub fn guild_assets(
+    cache: &serenity::Cache,
+    guild_id: serenity::GuildId,
+) -> Option<(HashSet<u64>, Option<String>)> {
+    let guild = cache.guild(guild_id)?;
+    let roles = guild.roles.keys().map(|id| id.get()).collect();
+    let resenha = guild
+        .emojis
+        .values()
+        .find(|e| e.name.eq_ignore_ascii_case("Resenha"))
+        .map(ToString::to_string);
+    Some((roles, resenha))
+}
+
+/// Confere o canal e as permissoes do bot antes de tentar: troca um erro
+/// generico da API por qual permissao falta. O Err e a frase para o usuario.
+pub async fn channel(
+    ctx: &serenity::Context,
+    guild_id: serenity::GuildId,
+    config: &Config,
+) -> Result<serenity::GuildChannel, String> {
+    let Some(id) = config.deployment_channel_id.filter(|&id| id != 0) else {
+        return Err(
+            "O ID do canal para envio de deployments não está configurado (deploymentChannelId)."
+                .to_owned(),
+        );
+    };
+
+    let not_found = || {
+        format!("O canal configurado para deployments não foi encontrado neste servidor. ID: {id}")
+    };
+    let channel = serenity::ChannelId::new(id)
+        .to_channel(ctx)
+        .await
+        .ok()
+        .and_then(|c| c.guild())
+        .filter(|c| c.guild_id == guild_id)
+        .ok_or_else(not_found)?;
+
+    let bot_id = ctx.cache.current_user().id;
+    let bot = guild_id.member(ctx, bot_id).await.map_err(|_| {
+        "Não foi possível obter as informações do membro do bot no servidor.".to_owned()
+    })?;
+
+    // A referencia do cache segura um lock: so depois do ultimo await.
+    let permissions = ctx
+        .cache
+        .guild(guild_id)
+        .map(|guild| guild.user_permissions_in(&channel, &bot))
+        .ok_or("O servidor não está no cache do bot.")?;
+
+    if !permissions.send_messages() {
+        return Err(format!(
+            "O bot não tem permissão para enviar mensagens no canal {}.",
+            channel.name
+        ));
+    }
+    if !permissions.embed_links() {
+        return Err(format!(
+            "O bot não tem permissão para enviar embeds no canal {}.",
+            channel.name
+        ));
+    }
+    Ok(channel)
 }
 
 #[cfg(test)]

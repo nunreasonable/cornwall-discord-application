@@ -131,10 +131,16 @@ impl AuditStore {
 
     /// Registra quem fez o que. Nunca derruba o comando: falha vira log.
     pub async fn record(&self, user: &serenity::User, action: Action, details: &str) {
+        self.record_as(user.id.get(), &user.name, action, details)
+            .await;
+    }
+
+    /// O mesmo registro, para quem age pelo dashboard (sem `User` na mao).
+    pub async fn record_as(&self, user_id: u64, username: &str, action: Action, details: &str) {
         let entry = LogEntry {
             timestamp_utc: Utc::now(),
-            user_id: user.id.get(),
-            username: user.name.clone(),
+            user_id,
+            username: username.to_owned(),
             action: action.code().to_owned(),
             // Vai dentro de um embed: uma entrada gigante estragaria a pagina.
             details: truncate(details, 300),

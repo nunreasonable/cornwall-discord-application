@@ -24,7 +24,7 @@ pub async fn audit_push(
         return reply(ctx, denied, false).await;
     }
 
-    let outcome = match publish(ctx.data(), dry_run.unwrap_or(false)).await {
+    let outcome = match publish(ctx.data().into(), dry_run.unwrap_or(false)).await {
         Ok(outcome) => outcome,
         Err(failure) => {
             let embed = embeds::error(

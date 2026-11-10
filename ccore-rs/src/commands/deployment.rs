@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use poise::{CreateReply, serenity_prelude as serenity};
 use serenity::Mentionable;
 
@@ -40,22 +38,13 @@ pub async fn deployment(
         .await;
     }
 
-    let channel = match resolve_channel(ctx, guild_id).await {
+    let channel = match deployment::channel(ctx.serenity_context(), guild_id, config).await {
         Ok(channel) => channel,
         Err(cause) => return fail(ctx, "Configuração inválida", &cause).await,
     };
 
-    let (roles, resenha) = {
-        let Some(guild) = ctx.guild() else {
-            return fail(ctx, "Erro", "O servidor não está no cache do bot.").await;
-        };
-        let roles: HashSet<u64> = guild.roles.keys().map(|id| id.get()).collect();
-        let resenha = guild
-            .emojis
-            .values()
-            .find(|e| e.name.eq_ignore_ascii_case("Resenha"))
-            .map(ToString::to_string);
-        (roles, resenha)
+    let Some((roles, resenha)) = deployment::guild_assets(ctx.cache(), guild_id) else {
+        return fail(ctx, "Erro", "O servidor não está no cache do bot.").await;
     };
 
     let built = deployment::build(config, &codigo, &roles, resenha.as_deref());
@@ -82,61 +71,6 @@ pub async fn deployment(
         .timestamp(serenity::Timestamp::now());
     ctx.send(CreateReply::default().embed(embed)).await?;
     Ok(())
-}
-
-/// Confere o canal e as permissoes do bot antes de tentar: troca um erro
-/// generico da API por qual permissao falta.
-async fn resolve_channel(
-    ctx: Context<'_>,
-    guild_id: serenity::GuildId,
-) -> Result<serenity::GuildChannel, String> {
-    let Some(id) = ctx
-        .data()
-        .config
-        .deployment_channel_id
-        .filter(|&id| id != 0)
-    else {
-        return Err(
-            "O ID do canal para envio de deployments não está configurado (deploymentChannelId)."
-                .to_owned(),
-        );
-    };
-
-    let not_found = || {
-        format!("O canal configurado para deployments não foi encontrado neste servidor. ID: {id}")
-    };
-    let channel = serenity::ChannelId::new(id)
-        .to_channel(ctx)
-        .await
-        .ok()
-        .and_then(|c| c.guild())
-        .filter(|c| c.guild_id == guild_id)
-        .ok_or_else(not_found)?;
-
-    // A referencia do cache segura um lock: o id sai dela antes do await.
-    let bot_id = ctx.cache().current_user().id;
-    let bot = guild_id.member(ctx, bot_id).await.map_err(|_| {
-        "Não foi possível obter as informações do membro do bot no servidor.".to_owned()
-    })?;
-
-    let permissions = ctx
-        .guild()
-        .map(|guild| guild.user_permissions_in(&channel, &bot))
-        .ok_or("O servidor não está no cache do bot.")?;
-
-    if !permissions.send_messages() {
-        return Err(format!(
-            "O bot não tem permissão para enviar mensagens no canal {}.",
-            channel.name
-        ));
-    }
-    if !permissions.embed_links() {
-        return Err(format!(
-            "O bot não tem permissão para enviar embeds no canal {}.",
-            channel.name
-        ));
-    }
-    Ok(channel)
 }
 
 async fn fail(ctx: Context<'_>, title: &str, text: &str) -> Result<(), Error> {

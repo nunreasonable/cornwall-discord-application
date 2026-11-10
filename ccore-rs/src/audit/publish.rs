@@ -2,12 +2,34 @@ use std::collections::HashSet;
 
 use chrono::Utc;
 
+use tokio::sync::Mutex;
+
 use super::{
     github::{GitHub, PushError, resolve_token},
     model::{AuditFile, MergeReport, PendingBatch, key, merge_pending},
-    store::to_json,
+    store::{AuditStore, to_json},
 };
-use crate::Data;
+use crate::{Data, config::Config};
+
+/// O que a publicacao usa. O /audit-push tira do Data; o dashboard, das copias
+/// que ele guarda.
+pub struct Deps<'a> {
+    pub audit: &'a AuditStore,
+    pub config: &'a Config,
+    pub http: &'a reqwest::Client,
+    pub github_token: &'a Mutex<Option<String>>,
+}
+
+impl<'a> From<&'a Data> for Deps<'a> {
+    fn from(data: &'a Data) -> Self {
+        Self {
+            audit: &data.audit,
+            config: &data.config,
+            http: &data.http,
+            github_token: &data.github_token,
+        }
+    }
+}
 
 pub struct Outcome {
     pub dry_run: bool,
@@ -63,8 +85,8 @@ fn non_blank(value: Option<&String>) -> Option<&str> {
 /// Consolida os lotes pendentes e publica no GitHub. A ORDEM dos passos e o
 /// que garante que uma falha no meio deixa um estado do qual o proximo push se
 /// recupera sozinho, sem contar batalha em dobro.
-pub async fn publish(data: &Data, dry_run: bool) -> Result<Outcome, Failure> {
-    let result = run(data, dry_run).await;
+pub async fn publish(data: Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
+    let result = run(&data, dry_run).await;
 
     // 401 quase sempre e token vencido: esquecer faz a proxima tentativa
     // reler a credencial em vez de repetir a falha.
@@ -79,7 +101,7 @@ pub async fn publish(data: &Data, dry_run: bool) -> Result<Outcome, Failure> {
     result
 }
 
-async fn run(data: &Data, dry_run: bool) -> Result<Outcome, Failure> {
+async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
     let (audit, pending) = data.audit.read_both().await.map_err(at("leitura local"))?;
 
     // Sem lote ainda pode haver trabalho: import, edit e setranks mexem direto
@@ -124,7 +146,7 @@ async fn run(data: &Data, dry_run: bool) -> Result<Outcome, Failure> {
             "`audit.githubOwner` e `audit.githubRepo` precisam estar configurados.".to_owned(),
         )));
     };
-    let token = resolve_token(&data.github_token, config)
+    let token = resolve_token(data.github_token, config)
         .await
         .map_err(at(step))?;
 

@@ -1,5 +1,6 @@
 use std::{
     pin::pin,
+    sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
 
@@ -99,6 +100,8 @@ pub struct SendResult {
     pub samples: Vec<String>,
     /// Motivo do corte, quando o envio parou antes do fim.
     pub aborted: Option<String>,
+    /// Parou porque alguem pediu (job do dashboard).
+    pub cancelled: bool,
 }
 
 /// Manda um por um. Para no primeiro sinal de rate limit, ou depois de falhas
@@ -110,12 +113,34 @@ pub async fn send_all(
     members: &[serenity::Member],
     message: &serenity::CreateMessage,
 ) -> SendResult {
+    send_tracked(
+        ctx,
+        limiter,
+        members,
+        message,
+        &AtomicBool::new(false),
+        |_, _| {},
+    )
+    .await
+}
+
+/// O mesmo envio, para o job do dashboard: `progress` recebe (enviadas,
+/// falhas) depois de cada tentativa, e `cancel` e olhado antes de cada uma.
+pub async fn send_tracked(
+    ctx: &serenity::Context,
+    limiter: &DmLimiter,
+    members: &[serenity::Member],
+    message: &serenity::CreateMessage,
+    cancel: &AtomicBool,
+    progress: impl Fn(usize, usize),
+) -> SendResult {
     let mut result = SendResult {
         total: members.len(),
         sent: 0,
         failed: 0,
         samples: Vec::new(),
         aborted: None,
+        cancelled: false,
     };
     let mut streak = 0;
 
@@ -123,16 +148,22 @@ pub async fn send_all(
         if i > 0 {
             tokio::time::sleep(SPACING).await;
         }
+        if cancel.load(Ordering::Relaxed) {
+            result.cancelled = true;
+            break;
+        }
         limiter.wait().await;
 
         let Err(cause) = member.user.direct_message(ctx, message.clone()).await else {
             result.sent += 1;
             streak = 0;
+            progress(result.sent, result.failed);
             continue;
         };
 
         result.failed += 1;
         streak += 1;
+        progress(result.sent, result.failed);
         let reason = failure_reason(&cause);
         if result.samples.len() < MAX_SAMPLES {
             result
@@ -219,6 +250,7 @@ mod tests {
             failed,
             samples: (0..failed).map(|i| format!("u{i}")).collect(),
             aborted: None,
+            cancelled: false,
         }
     }
 
