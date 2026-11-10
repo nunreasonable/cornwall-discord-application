@@ -1,6 +1,7 @@
 /target/
 # Auditoria local (audit.json, pendentes e historico).
 /data/
+/data.teste/
 
 # O config real carrega o token do bot.
 /config/config.jsonc

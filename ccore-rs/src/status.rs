@@ -130,6 +130,37 @@ fn resident_memory() -> Option<String> {
     Some(format!("{:.1} MB", kb / 1024.0))
 }
 
+/// Linhas de cada linguagem do bot, contadas na compilacao (ver build.rs).
+const LANGUAGES: [(&str, &str); 2] = [
+    ("Rust", env!("CCORE_RUST_LINES")),
+    ("Shell", env!("CCORE_SHELL_LINES")),
+];
+
+/// Uma barra por linguagem, no estilo da barra de linguagens do GitHub.
+fn language_lines_from(counts: &[(&'static str, usize)]) -> Vec<(&'static str, String)> {
+    let total: usize = counts.iter().map(|(_, n)| n).sum();
+    counts
+        .iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|&(name, n)| {
+            let percent = n as f64 * 100.0 / total.max(1) as f64;
+            let filled = (percent / 10.0).round() as usize;
+            let bar = format!("{}{}", "█".repeat(filled), "░".repeat(10 - filled));
+            (name, format!("{bar} {percent:.1}% ({n} linhas)"))
+        })
+        .collect()
+}
+
+pub fn language_lines() -> Vec<(&'static str, String)> {
+    let counts: Vec<(&'static str, usize)> = LANGUAGES
+        .iter()
+        .map(|&(name, n)| (name, n.parse().unwrap_or(0)))
+        .collect();
+    let mut lines = language_lines_from(&counts);
+    lines.push(("Compilador", env!("CCORE_RUSTC").to_owned()));
+    lines
+}
+
 pub async fn system_lines() -> Vec<(&'static str, String)> {
     let mut lines = vec![
         ("SO", os_name()),
@@ -254,6 +285,14 @@ pub async fn host() -> HostStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn barra_de_linguagens_soma_cem_e_pula_vazia() {
+        let lines = language_lines_from(&[("Rust", 950), ("Shell", 50), ("C", 0)]);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].1, "██████████ 95.0% (950 linhas)");
+        assert_eq!(lines[1].1, "█░░░░░░░░░ 5.0% (50 linhas)");
+    }
 
     #[test]
     fn intervalo_igual_ao_do_csharp() {

@@ -39,6 +39,7 @@ pub async fn osinfo(ctx: Context<'_>) -> Result<(), Error> {
         .colour(serenity::Colour::BLURPLE)
         .field("Sistema", block(&status::system_lines().await), false)
         .field("Processo", block(&status::process_lines()), false)
+        .field("Linguagens", block(&status::language_lines()), false)
         .field("Discord", block(&discord), false)
         .thumbnail(avatar)
         .timestamp(serenity::Timestamp::now());
