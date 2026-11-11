@@ -1,0 +1,79 @@
+{
+  "batches": [
+    {
+      "batchId": "15ca6d126580200a",
+      "createdUtc": "2026-11-11T21:23:56.409584997Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "RafaOdebrecht",
+          "kills": 10,
+          "deaths": 10,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "RafaOdebrecht 10 10 10"
+      ]
+    },
+    {
+      "batchId": "15ca6d906d400051",
+      "createdUtc": "2026-11-11T21:26:05.432059250Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "RafaOdebroxa",
+          "kills": 10,
+          "deaths": 10,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "RafaOdebroxa 10 10 10"
+      ]
+    },
+    {
+      "batchId": "15ca6ee9f84010ab",
+      "createdUtc": "2026-11-11T21:31:59.330946255Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "RafaOdebroxa",
+          "kills": 10,
+          "deaths": 10,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "NoahOdebroxa",
+          "kills": 20,
+          "deaths": 20,
+          "assists": 20,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebroxa",
+          "kills": 30,
+          "deaths": 30,
+          "assists": 30,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "RafaOdebroxa 10 10 10",
+        "NoahOdebroxa 20 20 20",
+        "XequeOdebroxa 30 30 30"
+      ]
+    }
+  ]
+}
