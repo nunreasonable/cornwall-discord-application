@@ -9,7 +9,10 @@
     "b795aa504a80",
     "bc1629e78d69",
     "753dfcffb496",
-    "ae3ce19b8628"
+    "ae3ce19b8628",
+    "15ca6d126580200a",
+    "15ca6d906d400051",
+    "15ca6ee9f84010ab"
   ],
   "entries": [
     {
@@ -46,10 +49,10 @@
     },
     {
       "username": "RafaOdebrecht",
-      "kills": 254,
-      "deaths": 158,
-      "assists": 31,
-      "battles": 178,
+      "kills": 264,
+      "deaths": 168,
+      "assists": 41,
+      "battles": 179,
       "rank": "Serjeant Major"
     },
     {
@@ -1323,6 +1326,30 @@
       "assists": 10,
       "battles": 1,
       "rank": "Merc"
+    },
+    {
+      "username": "RafaOdebroxa",
+      "kills": 20,
+      "deaths": 20,
+      "assists": 20,
+      "battles": 2,
+      "rank": ""
+    },
+    {
+      "username": "NoahOdebroxa",
+      "kills": 20,
+      "deaths": 20,
+      "assists": 20,
+      "battles": 1,
+      "rank": ""
+    },
+    {
+      "username": "XequeOdebroxa",
+      "kills": 30,
+      "deaths": 30,
+      "assists": 30,
+      "battles": 1,
+      "rank": ""
     }
   ]
 }
