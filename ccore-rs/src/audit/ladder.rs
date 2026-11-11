@@ -94,6 +94,8 @@ pub enum Status {
     /// Alcancou o numero, mas o degrau exige avaliacao humana.
     EligibleNeedsApproval,
     OutsideLadder,
+    /// Merc: membro de fora do regimento, nunca entra na rodada de promocoes.
+    Mercenary,
     /// Nao chega nem ao primeiro degrau.
     BelowFirstRank,
 }
@@ -149,6 +151,13 @@ pub fn evaluate(entry: &AuditEntry) -> Evaluation<'_> {
         next: None,
         to_next: 0,
     };
+
+    // Aceita tambem o codigo da planilha ("A0. Merc").
+    let rank = key(name);
+    if rank == "merc" || rank.ends_with(". merc") {
+        result.status = Status::Mercenary;
+        return result;
+    }
 
     if ABOVE_LADDER.iter().any(|r| key(r) == key(name)) {
         result.status = Status::OutsideLadder;
@@ -230,6 +239,12 @@ mod tests {
     #[test]
     fn nco_e_oficial_ficam_fora_do_calculo() {
         assert_eq!(eval("Captain", 99).0, Status::OutsideLadder);
+    }
+
+    #[test]
+    fn merc_fica_fora_mesmo_com_batalhas() {
+        assert_eq!(eval("Merc", 50), (Status::Mercenary, None, 0, 0));
+        assert_eq!(eval("A0. Merc", 3).0, Status::Mercenary);
         assert_eq!(eval("Lance Serjeant", 99), (Status::UpToDate, None, 0, 0));
     }
 }

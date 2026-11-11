@@ -87,7 +87,7 @@ fn colour(status: Status) -> serenity::Colour {
     match status {
         Status::Eligible => serenity::Colour::new(0x00FF7F),
         Status::EligibleNeedsApproval => serenity::Colour::new(0xFFD700),
-        Status::OutsideLadder => serenity::Colour::new(0x808080),
+        Status::OutsideLadder | Status::Mercenary => serenity::Colour::new(0x808080),
         Status::BelowFirstRank => serenity::Colour::ORANGE,
         Status::UpToDate => serenity::Colour::BLURPLE,
     }
@@ -126,6 +126,9 @@ fn single_player(audit: &AuditFile, emojis: &Emojis, name: &str) -> serenity::Cr
     let target = rank_label(emojis, e.target, "");
 
     let description = match e.status {
+        Status::Mercenary => {
+            "Merc: fica fora da escada de promoções, mesmo com eventos suficientes.".to_owned()
+        }
         Status::OutsideLadder => {
             "Patente de NCO/oficial: a progressão não é calculada por contagem de eventos."
                 .to_owned()
@@ -159,7 +162,7 @@ fn single_player(audit: &AuditFile, emojis: &Emojis, name: &str) -> serenity::Cr
         embed = embed.field("Critério", target.criteria, false);
     }
 
-    if e.status != Status::OutsideLadder {
+    if !matches!(e.status, Status::OutsideLadder | Status::Mercenary) {
         let next = match e.next {
             Some(next) => format!(
                 "{} — faltam **{}** evento(s)\n*{}*",
