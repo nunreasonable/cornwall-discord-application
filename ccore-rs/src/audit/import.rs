@@ -75,11 +75,28 @@ pub fn parse(text: &str, config: &AuditConfig) -> Result<CsvImport, String> {
             deaths: read_count(cells, columns.deaths),
             assists: read_count(cells, columns.assists),
             battles: read_count(cells, columns.battles),
-            rank: read_text(cells, columns.rank),
+            rank: strip_rank_code(&read_text(cells, columns.rank)),
         });
     }
 
     Ok(result)
+}
+
+/// A planilha numera as patentes ("A4. Private", "B1. Lance Serjeant"), mas a
+/// auditoria e a escada de promocoes usam so o nome.
+fn strip_rank_code(rank: &str) -> String {
+    let Some((code, name)) = rank.split_once(". ") else {
+        return rank.to_owned();
+    };
+    let mut chars = code.chars();
+    let is_code = chars.next().is_some_and(|c| c.is_ascii_uppercase())
+        && chars.clone().next().is_some()
+        && chars.all(|c| c.is_ascii_digit());
+    if is_code {
+        name.trim().to_owned()
+    } else {
+        rank.to_owned()
+    }
 }
 
 /// Indice negativo e coluna que a planilha nao tem.
@@ -122,6 +139,17 @@ mod tests {
         assert_eq!(import.rows[0].battles, 1204);
         assert_eq!(import.rows[1].battles, 0);
         assert_eq!(import.skipped_rows, 2);
+    }
+
+    #[test]
+    fn tira_o_codigo_da_patente() {
+        assert_eq!(strip_rank_code("A4. Private"), "Private");
+        assert_eq!(
+            strip_rank_code("B4. Quartermaster-Serjeant"),
+            "Quartermaster-Serjeant"
+        );
+        assert_eq!(strip_rank_code("Retired"), "Retired");
+        assert_eq!(strip_rank_code("Sr. Fulano"), "Sr. Fulano");
     }
 
     #[test]
