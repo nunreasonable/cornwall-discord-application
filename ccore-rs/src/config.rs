@@ -105,6 +105,9 @@ pub struct AuditConfig {
     pub sheet_webhook_url: Option<String>,
     /// O mesmo valor de CCORE_SECRET nas propriedades do script.
     pub sheet_webhook_secret: Option<String>,
+    /// ID da planilha em que o push pode gravar. O script recusa se estiver
+    /// implantado em outra.
+    pub sheet_spreadsheet_id: Option<String>,
     #[serde(default)]
     pub csv_columns: CsvColumns,
     #[serde(default = "one")]

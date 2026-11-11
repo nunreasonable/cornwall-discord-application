@@ -23,6 +23,7 @@ struct Reply {
     #[serde(default)]
     added_to_roster: Vec<String>,
     error: Option<String>,
+    spreadsheet_name: Option<String>,
 }
 
 pub struct Sent {
@@ -41,7 +42,7 @@ fn local_date(batch: &PendingBatch) -> String {
         .to_string()
 }
 
-fn payload(secret: &str, batches: &[PendingBatch]) -> serde_json::Value {
+fn payload(secret: &str, spreadsheet: Option<&str>, batches: &[PendingBatch]) -> serde_json::Value {
     let batches: Vec<_> = batches
         .iter()
         .map(|b| {
@@ -54,7 +55,7 @@ fn payload(secret: &str, batches: &[PendingBatch]) -> serde_json::Value {
             json!({ "batchId": b.batch_id, "date": local_date(b), "rows": rows })
         })
         .collect();
-    json!({ "secret": secret, "batches": batches })
+    json!({ "secret": secret, "spreadsheetId": spreadsheet, "batches": batches })
 }
 
 /// O Err e a frase pronta para o staff.
@@ -62,6 +63,7 @@ pub async fn send(
     http: &reqwest::Client,
     url: &str,
     secret: &str,
+    spreadsheet: Option<&str>,
     batches: &[PendingBatch],
 ) -> Result<Sent, String> {
     // O app da web responde com um redirect para o googleusercontent; o
@@ -69,7 +71,7 @@ pub async fn send(
     let response = http
         .post(url)
         .timeout(TIMEOUT)
-        .json(&payload(secret, batches))
+        .json(&payload(secret, spreadsheet, batches))
         .send()
         .await
         .map_err(|e| format!("Não consegui falar com a planilha: {}", e.without_url()))?;
@@ -89,8 +91,12 @@ pub async fn send(
     })?;
 
     if !reply.ok {
+        let place = reply
+            .spreadsheet_name
+            .map(|name| format!(" (script em \"{name}\")"))
+            .unwrap_or_default();
         return Err(format!(
-            "A planilha recusou o envio: {}",
+            "A planilha recusou o envio: {}{place}",
             reply.error.as_deref().unwrap_or("sem motivo")
         ));
     }
@@ -126,9 +132,10 @@ mod tests {
             ..PendingBatch::default()
         };
 
-        let body = payload("s", &[batch]);
+        let body = payload("s", Some("abc"), &[batch]);
         assert_eq!(body["batches"][0]["date"], "2026-11-11");
         assert_eq!(body["batches"][0]["rows"], json!([["Ana", 3, 1, 2]]));
         assert_eq!(body["secret"], "s");
+        assert_eq!(body["spreadsheetId"], "abc");
     }
 }

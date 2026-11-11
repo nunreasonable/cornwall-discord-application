@@ -20,6 +20,17 @@ function doPost(e) {
   const secret = props.getProperty("CCORE_SECRET");
   if (!secret || body.secret !== secret) return reply({ ok: false, error: "Segredo inválido." });
 
+  // O bot diz em qual planilha quer gravar: um script implantado na planilha
+  // errada (a principal no lugar da de teste, por exemplo) recusa tudo.
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  const here = { spreadsheetId: active.getId(), spreadsheetName: active.getName() };
+  if (body.spreadsheetId && body.spreadsheetId !== here.spreadsheetId) {
+    return reply(Object.assign({ ok: false, error: "Este script está em outra planilha." }, here));
+  }
+
+  // So confere onde o script esta, sem gravar nada.
+  if (body.ping) return reply(Object.assign({ ok: true }, here));
+
   // Um push por vez: dois ao mesmo tempo calculariam a mesma linha vazia.
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);

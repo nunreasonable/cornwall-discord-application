@@ -68,6 +68,9 @@
         // lotes na EventLogs da planilha. O segredo e o CCORE_SECRET do script.
         "sheetWebhookUrl": null,
         "sheetWebhookSecret": null,
+        // ID da planilha (o trecho depois de /d/ na URL). O script recusa
+        // gravar se estiver implantado em outra planilha.
+        "sheetSpreadsheetId": null,
         "csvHeaderRows": 1,
         "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 }
     }

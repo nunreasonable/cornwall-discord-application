@@ -143,6 +143,7 @@ async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
         Some((
             non_blank(c.sheet_webhook_url.as_ref())?,
             non_blank(c.sheet_webhook_secret.as_ref())?,
+            non_blank(c.sheet_spreadsheet_id.as_ref()),
         ))
     });
     outcome.sheet_enabled = sheet.is_some();
@@ -156,8 +157,8 @@ async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
 
     // A planilha vai antes do GitHub. Se algo depois falhar, os lotes ficam
     // pendentes e o proximo push manda de novo: o script ignora lote repetido.
-    if has_pending && let Some((url, secret)) = sheet {
-        let sent = sheet::send(data.http, url, secret, &pending.batches)
+    if has_pending && let Some((url, secret, spreadsheet)) = sheet {
+        let sent = sheet::send(data.http, url, secret, spreadsheet, &pending.batches)
             .await
             .map_err(|e| at("envio para a planilha")(PushError::Local(e)))?;
         outcome.sheet_rows = sent.rows;
