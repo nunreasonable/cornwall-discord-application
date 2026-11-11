@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 use super::{
     github::{GitHub, PushError, resolve_token},
     model::{AuditFile, MergeReport, PendingBatch, key, merge_pending},
+    sheet,
     store::{AuditStore, to_json},
 };
 use crate::{Data, config::Config};
@@ -42,6 +43,12 @@ pub struct Outcome {
     pub audit_commit_url: Option<String>,
     pub archive_commit_url: Option<String>,
     pub archive_path: Option<String>,
+    /// Se a planilha esta configurada; sem ela o push so vai ao GitHub.
+    pub sheet_enabled: bool,
+    /// Linhas gravadas na EventLogs (no dry run, as que iriam).
+    pub sheet_rows: usize,
+    /// Quem a planilha teve de acrescentar na Roster.
+    pub sheet_added: Vec<String>,
 }
 
 impl Outcome {
@@ -127,9 +134,34 @@ async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
         audit_commit_url: None,
         archive_commit_url: None,
         archive_path: None,
+        sheet_enabled: false,
+        sheet_rows: 0,
+        sheet_added: Vec::new(),
     };
+
+    let sheet = data.config.audit.as_ref().and_then(|c| {
+        Some((
+            non_blank(c.sheet_webhook_url.as_ref())?,
+            non_blank(c.sheet_webhook_secret.as_ref())?,
+        ))
+    });
+    outcome.sheet_enabled = sheet.is_some();
+
     if dry_run {
+        if outcome.sheet_enabled {
+            outcome.sheet_rows = pending.batches.iter().map(|b| b.entries.len()).sum();
+        }
         return Ok(outcome);
+    }
+
+    // A planilha vai antes do GitHub. Se algo depois falhar, os lotes ficam
+    // pendentes e o proximo push manda de novo: o script ignora lote repetido.
+    if has_pending && let Some((url, secret)) = sheet {
+        let sent = sheet::send(data.http, url, secret, &pending.batches)
+            .await
+            .map_err(|e| at("envio para a planilha")(PushError::Local(e)))?;
+        outcome.sheet_rows = sent.rows;
+        outcome.sheet_added = sent.added_to_roster;
     }
 
     let step = "resolução das credenciais";

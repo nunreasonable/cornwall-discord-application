@@ -8,4 +8,5 @@ pub mod ladder;
 pub mod model;
 pub mod parse;
 pub mod publish;
+pub mod sheet;
 pub mod store;

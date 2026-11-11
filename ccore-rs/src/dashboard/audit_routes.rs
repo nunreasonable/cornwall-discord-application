@@ -445,6 +445,9 @@ pub async fn push(d: &Dashboard, req: &mut Req) -> Reply {
             "auditCommitUrl": outcome.audit_commit_url,
             "archiveCommitUrl": outcome.archive_commit_url,
             "archivePath": outcome.archive_path,
+            "sheetEnabled": outcome.sheet_enabled,
+            "sheetRows": outcome.sheet_rows,
+            "sheetAddedToRoster": outcome.sheet_added,
         }),
     )
 }

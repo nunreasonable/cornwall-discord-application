@@ -114,6 +114,20 @@ fn report(outcome: &Outcome) -> serenity::CreateEmbed {
             false,
         );
     }
+    if outcome.sheet_enabled && outcome.has_pending {
+        let mut text = if outcome.dry_run {
+            format!("{} linha(s) iriam para a EventLogs.", outcome.sheet_rows)
+        } else {
+            format!("{} linha(s) gravada(s) na EventLogs.", outcome.sheet_rows)
+        };
+        if !outcome.sheet_added.is_empty() {
+            text.push_str(&format!(
+                "\nNovos na Roster: {}",
+                outcome.sheet_added.join(", ")
+            ));
+        }
+        embed = embed.field("Planilha", truncate(&text, 1024), false);
+    }
     if let Some(path) = &outcome.archive_path {
         embed = embed.field("Arquivamento", format!("`{path}`"), false);
     }

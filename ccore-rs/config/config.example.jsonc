@@ -64,6 +64,10 @@
         "auditFilePath": "audit.json",
         "archiveDirectory": "audits",
         "auditCsvUrl": null,
+        // App da web do Apps Script (sheets/ccore.gs): o /audit-push grava os
+        // lotes na EventLogs da planilha. O segredo e o CCORE_SECRET do script.
+        "sheetWebhookUrl": null,
+        "sheetWebhookSecret": null,
         "csvHeaderRows": 1,
         "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 }
     }

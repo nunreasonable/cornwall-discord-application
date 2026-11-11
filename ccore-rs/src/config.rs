@@ -100,6 +100,11 @@ pub struct AuditConfig {
     pub audit_file_path: Option<String>,
     pub archive_directory: Option<String>,
     pub audit_csv_url: Option<String>,
+    /// URL /exec do app da web do Apps Script (sheets/ccore.gs). Sem ela, o
+    /// /audit-push nao mexe na planilha.
+    pub sheet_webhook_url: Option<String>,
+    /// O mesmo valor de CCORE_SECRET nas propriedades do script.
+    pub sheet_webhook_secret: Option<String>,
     #[serde(default)]
     pub csv_columns: CsvColumns,
     #[serde(default = "one")]
