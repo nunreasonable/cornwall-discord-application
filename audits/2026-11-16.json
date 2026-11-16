@@ -1,0 +1,131 @@
+{
+  "batches": [
+    {
+      "batchId": "15cfcbd33a42005b",
+      "createdUtc": "2026-11-16T01:30:19.752194257Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "lipao000",
+          "kills": 37,
+          "deaths": 47,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 49,
+          "deaths": 46,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DerpySergeant",
+          "kills": 59,
+          "deaths": 39,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 33,
+          "deaths": 35,
+          "assists": 4,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mr_Redd3",
+          "kills": 33,
+          "deaths": 38,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "ChunkyKongOc",
+          "kills": 56,
+          "deaths": 39,
+          "assists": 15,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Carlitoooz_bloxfruts",
+          "kills": 34,
+          "deaths": 30,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "rosbife_fimos",
+          "kills": 46,
+          "deaths": 30,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "SephirothOdebrecht",
+          "kills": 32,
+          "deaths": 25,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 36,
+          "deaths": 33,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 24,
+          "deaths": 41,
+          "assists": 0,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GabrieelSC",
+          "kills": 30,
+          "deaths": 39,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DecafOdebrecht",
+          "kills": 57,
+          "deaths": 28,
+          "assists": 18,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "lipao000 37 47 13",
+        "XequeOdebrecht 49 46 13",
+        "DerpySergeant 59 39 9",
+        "luizgugumo431 33 35 4",
+        "Mr_Redd3 33 38 6",
+        "ChunkyKongOc 56 39 15",
+        "Carlitoooz_bloxfruts 34 30 8",
+        "rosbife_fimos 46 30 11",
+        "SephirothOdebrecht 32 25 11",
+        "Brunoalexandrino 36 33 10",
+        "FelipeiroOdebrecht 24 41 0",
+        "GabrieelSC 30 39 10",
+        "DecafOdebrecht 57 28 18"
+      ]
+    }
+  ]
+}
