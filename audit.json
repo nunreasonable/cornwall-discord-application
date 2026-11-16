@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdatedUtc": "2026-11-11T20:37:32.187775897Z",
+  "lastUpdatedUtc": "2026-11-11T21:34:45.596093221Z",
   "appliedBatchIds": [
     "a4cb75e51b0c",
     "42b768c8e60a",
@@ -12,7 +12,8 @@
     "ae3ce19b8628",
     "15ca6d126580200a",
     "15ca6d906d400051",
-    "15ca6ee9f84010ab"
+    "15ca6ee9f84010ab",
+    "15cfcbd33a42005b"
   ],
   "entries": [
     {
@@ -41,10 +42,10 @@
     },
     {
       "username": "lipao000",
-      "kills": 21,
-      "deaths": 61,
-      "assists": 13,
-      "battles": 50,
+      "kills": 58,
+      "deaths": 108,
+      "assists": 26,
+      "battles": 51,
       "rank": "Ensign"
     },
     {
@@ -105,18 +106,18 @@
     },
     {
       "username": "DecafOdebrecht",
-      "kills": 102,
-      "deaths": 112,
-      "assists": 10,
-      "battles": 183,
+      "kills": 159,
+      "deaths": 140,
+      "assists": 28,
+      "battles": 184,
       "rank": "Lieutenant Colonel"
     },
     {
       "username": "Brunoalexandrino",
-      "kills": 145,
-      "deaths": 134,
-      "assists": 33,
-      "battles": 63,
+      "kills": 181,
+      "deaths": 167,
+      "assists": 43,
+      "battles": 64,
       "rank": "Corporal"
     },
     {
@@ -201,10 +202,10 @@
     },
     {
       "username": "FelipeiroOdebrecht",
-      "kills": 43,
-      "deaths": 54,
+      "kills": 67,
+      "deaths": 95,
       "assists": 11,
-      "battles": 100,
+      "battles": 101,
       "rank": "Lieutenant"
     },
     {
@@ -241,10 +242,10 @@
     },
     {
       "username": "XequeOdebrecht",
-      "kills": 52,
-      "deaths": 54,
-      "assists": 28,
-      "battles": 15,
+      "kills": 101,
+      "deaths": 100,
+      "assists": 41,
+      "battles": 16,
       "rank": "Kingsman"
     },
     {
@@ -273,10 +274,10 @@
     },
     {
       "username": "SephirothOdebrecht",
-      "kills": 82,
-      "deaths": 100,
-      "assists": 30,
-      "battles": 29,
+      "kills": 114,
+      "deaths": 125,
+      "assists": 41,
+      "battles": 30,
       "rank": "Lance Corporal"
     },
     {
@@ -305,10 +306,10 @@
     },
     {
       "username": "luizgugumo431",
-      "kills": 24,
-      "deaths": 39,
-      "assists": 8,
-      "battles": 106,
+      "kills": 57,
+      "deaths": 74,
+      "assists": 12,
+      "battles": 107,
       "rank": "Lieutenant"
     },
     {
@@ -377,10 +378,10 @@
     },
     {
       "username": "ChunkyKongOc",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 77,
+      "kills": 56,
+      "deaths": 39,
+      "assists": 15,
+      "battles": 78,
       "rank": "Colour Serjeant"
     },
     {
@@ -417,10 +418,10 @@
     },
     {
       "username": "GabrieelSC",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 49,
+      "kills": 30,
+      "deaths": 39,
+      "assists": 10,
+      "battles": 50,
       "rank": "Corporal"
     },
     {
@@ -481,10 +482,10 @@
     },
     {
       "username": "Mr_Redd3",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 31,
+      "kills": 33,
+      "deaths": 38,
+      "assists": 6,
+      "battles": 32,
       "rank": "Lance Corporal"
     },
     {
@@ -545,10 +546,10 @@
     },
     {
       "username": "rosbife_fimos",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 16,
+      "kills": 46,
+      "deaths": 30,
+      "assists": 11,
+      "battles": 17,
       "rank": "Kingsman"
     },
     {
@@ -905,10 +906,10 @@
     },
     {
       "username": "DerpySergeant",
-      "kills": 350,
-      "deaths": 452,
-      "assists": 108,
-      "battles": 8,
+      "kills": 409,
+      "deaths": 491,
+      "assists": 117,
+      "battles": 9,
       "rank": "Kingsman"
     },
     {
@@ -1097,10 +1098,10 @@
     },
     {
       "username": "Carlitoooz_bloxfruts",
-      "kills": 230,
-      "deaths": 242,
-      "assists": 76,
-      "battles": 5,
+      "kills": 264,
+      "deaths": 272,
+      "assists": 84,
+      "battles": 6,
       "rank": "Fencible"
     },
     {
@@ -1326,30 +1327,6 @@
       "assists": 10,
       "battles": 1,
       "rank": "Merc"
-    },
-    {
-      "username": "RafaOdebroxa",
-      "kills": 20,
-      "deaths": 20,
-      "assists": 20,
-      "battles": 2,
-      "rank": ""
-    },
-    {
-      "username": "NoahOdebroxa",
-      "kills": 20,
-      "deaths": 20,
-      "assists": 20,
-      "battles": 1,
-      "rank": ""
-    },
-    {
-      "username": "XequeOdebroxa",
-      "kills": 30,
-      "deaths": 30,
-      "assists": 30,
-      "battles": 1,
-      "rank": ""
     }
   ]
 }
