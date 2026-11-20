@@ -289,6 +289,72 @@ pub fn merge_import(
     report
 }
 
+#[derive(Debug, Default, PartialEq)]
+pub struct SyncReport {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub updated: usize,
+}
+
+impl SyncReport {
+    pub fn changed(&self) -> bool {
+        !self.added.is_empty() || !self.removed.is_empty() || self.updated > 0
+    }
+}
+
+/// Deixa o consolidado igual a planilha. Desde que o /audit-push manda os
+/// lotes para la, a planilha e a fonte da verdade: quem sumiu dela sai daqui,
+/// e quem existe nos dois fica com os numeros e a patente dela.
+pub fn mirror_sheet(audit: &mut AuditFile, sheet: &[AuditEntry], include_kda: bool) -> SyncReport {
+    let mut report = SyncReport::default();
+    let rows: HashMap<String, &AuditEntry> = sheet
+        .iter()
+        .filter(|row| !row.username.trim().is_empty())
+        .map(|row| (key(&row.username), row))
+        .collect();
+
+    audit.entries.retain(|entry| {
+        let keep = rows.contains_key(&key(&entry.username));
+        if !keep {
+            report.removed.push(entry.username.clone());
+        }
+        keep
+    });
+
+    let positions = index(&audit.entries);
+    for row in sheet.iter().filter(|row| !row.username.trim().is_empty()) {
+        let Some(&i) = positions.get(&key(&row.username)) else {
+            if !report
+                .added
+                .iter()
+                .any(|name| same_name(name, &row.username))
+            {
+                audit.entries.push(row.clone());
+                report.added.push(row.username.clone());
+            }
+            continue;
+        };
+        let existing = &mut audit.entries[i];
+        let mut wanted = existing.clone();
+        wanted.username = row.username.clone();
+        wanted.battles = row.battles;
+        if include_kda {
+            wanted.kills = row.kills;
+            wanted.deaths = row.deaths;
+            wanted.assists = row.assists;
+        }
+        if !row.rank.trim().is_empty() {
+            wanted.rank = row.rank.clone();
+        }
+        if *existing != wanted {
+            *existing = wanted;
+            report.updated += 1;
+        }
+    }
+
+    report
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -401,5 +467,45 @@ mod tests {
             .map(|e| e.username.as_str())
             .collect();
         assert_eq!(names, vec!["Odair", "Rodaz"]);
+    }
+
+    #[test]
+    fn espelha_a_planilha() {
+        let mut audit = AuditFile {
+            entries: vec![entry("Ana", 1, 5), entry("Bia", 2, 7), entry("Caio", 0, 1)],
+            ..AuditFile::default()
+        };
+        let mut ana = entry("ana", 9, 8);
+        ana.rank = "Corporal".to_owned();
+        let sheet = vec![ana, entry("Bia", 2, 7), entry("Duda", 4, 2)];
+
+        let report = mirror_sheet(&mut audit, &sheet, true);
+
+        assert_eq!(report.removed, vec!["Caio".to_owned()]);
+        assert_eq!(report.added, vec!["Duda".to_owned()]);
+        assert_eq!(report.updated, 1);
+        let names: Vec<_> = audit.entries.iter().map(|e| e.username.as_str()).collect();
+        assert_eq!(names, ["ana", "Bia", "Duda"]);
+        assert_eq!((audit.entries[0].kills, audit.entries[0].battles), (9, 8));
+        assert_eq!(audit.entries[0].rank, "Corporal");
+    }
+
+    #[test]
+    fn espelhar_de_novo_nao_muda_nada() {
+        let sheet = vec![entry("Ana", 1, 5), entry("Bia", 2, 7)];
+        let mut audit = AuditFile::default();
+        mirror_sheet(&mut audit, &sheet, true);
+        let again = mirror_sheet(&mut audit, &sheet, true);
+        assert!(!again.changed());
+    }
+
+    #[test]
+    fn sem_kda_na_planilha_mantem_o_local() {
+        let mut audit = AuditFile {
+            entries: vec![entry("Ana", 10, 5)],
+            ..AuditFile::default()
+        };
+        mirror_sheet(&mut audit, &[entry("Ana", 0, 6)], false);
+        assert_eq!((audit.entries[0].kills, audit.entries[0].battles), (10, 6));
     }
 }

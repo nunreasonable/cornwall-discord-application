@@ -93,6 +93,17 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
   - A planilha **não** tem kills/deaths/assists: esses números vêm só do `/audit-add` e a
     importação nunca encosta neles
 
+- **Sincronização com a planilha** - automática, sem comando
+  - A cada `audit.sheetSyncMinutes` (padrão 5; `0` desliga) o bot baixa a aba da auditoria e
+    deixa o `audit.json` igual a ela: entra quem é novo, sai quem sumiu, e patente, batalhas e
+    K/D/A passam a ser os da planilha. É o que o dashboard e o `/audit-check` mostram
+  - Desde que o `/audit-push` manda os lotes para a planilha, ela é a fonte da verdade. Por isso
+    uma correção feita só no bot (`/audit-edit`, `/audit-setranks` ou o dashboard) volta ao
+    valor da planilha na sincronização seguinte: corrija na planilha
+  - A fila pendente não é tocada. Se a planilha vier vazia ou com menos da metade do efetivo,
+    a sincronização é ignorada e vira aviso no log
+  - Mudanças entram no `/audit-logs` como `IMPORT`, feitas por `planilha`
+
 - **`/audit-logs`** - Mostra quem mexeu na auditoria e o que foi feito
   - Parâmetros opcionais: `usuario`, `acao`, `privado` (padrão `true`)
   - Função: histórico paginado, do mais recente para o mais antigo, com data, autor e detalhe

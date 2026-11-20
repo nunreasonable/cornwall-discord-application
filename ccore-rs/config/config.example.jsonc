@@ -71,6 +71,9 @@
         // ID da planilha (o trecho depois de /d/ na URL). O script recusa
         // gravar se estiver implantado em outra planilha.
         "sheetSpreadsheetId": null,
+        // De quantos em quantos minutos o bot copia a planilha para o audit.json
+        // (o dashboard e o /audit-check leem dele). 0 desliga.
+        "sheetSyncMinutes": 5,
         "csvHeaderRows": 1,
         "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 }
     }

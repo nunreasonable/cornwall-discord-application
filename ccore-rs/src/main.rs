@@ -154,6 +154,7 @@ async fn main() -> Result<(), Error> {
 
                 let http = http::client()?;
                 let audit = Arc::new(audit::store::AuditStore::new("data"));
+                audit::sync::spawn(http.clone(), data_config.clone(), audit.clone());
                 let github_token = Arc::new(tokio::sync::Mutex::default());
 
                 // O dashboard e acessorio; o bot nao e. Porta ocupada ou config

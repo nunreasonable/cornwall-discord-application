@@ -112,10 +112,18 @@ pub struct AuditConfig {
     pub csv_columns: CsvColumns,
     #[serde(default = "one")]
     pub csv_header_rows: usize,
+    /// De quantos em quantos minutos o bot copia a planilha para o audit.json.
+    /// 0 desliga.
+    #[serde(default = "five")]
+    pub sheet_sync_minutes: u64,
 }
 
 fn one() -> usize {
     1
+}
+
+fn five() -> u64 {
+    5
 }
 
 /// Indices (base 0) das colunas da planilha do /audit-import. -1 e uma coluna
