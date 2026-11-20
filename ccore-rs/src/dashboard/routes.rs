@@ -250,6 +250,95 @@ pub async fn send_message(d: &Dashboard, req: &mut Req) -> Reply {
     ok(200, json!({ "ok": true }))
 }
 
+/// Canais e cargos do servidor para os menus do painel. IDs vao como texto:
+/// um snowflake passa do maior inteiro exato do JavaScript.
+pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
+    let Some(session) = d.require(&req.headers, 1).await else {
+        return d.auth_failure(req, "Permissão insuficiente.");
+    };
+
+    let ctx = &d.bot.ctx;
+    let route = "/api/guild/options";
+    let fail = "Falha ao listar canais e cargos.";
+    let core = d.auth.read().await.core;
+    let Some(guild) = guild_of(&core) else {
+        return failed(route, "guildId nao configurado", fail);
+    };
+
+    let cached = ctx.cache.guild(guild).map(|g| g.channels.clone());
+    let channels = match cached {
+        Some(channels) => channels,
+        None => match guild.channels(&ctx.http).await {
+            Ok(channels) => channels,
+            Err(cause) => return failed(route, cause, fail),
+        },
+    };
+
+    // O mesmo filtro do /api/messages/send: nivel 1 so ve o que pode usar.
+    let allowed = &core.allowed_send_channel_ids;
+    let restricted = !allowed.is_empty() && session.level() < 2;
+    let category = |id: Option<serenity::ChannelId>| {
+        id.and_then(|id| channels.get(&id))
+            .map(|c| (c.position, c.name.clone()))
+    };
+    let mut text: Vec<_> = channels
+        .values()
+        .filter(|c| {
+            matches!(
+                c.kind,
+                serenity::ChannelType::Text | serenity::ChannelType::News
+            )
+        })
+        .filter(|c| !restricted || allowed.contains(&c.id.get()))
+        .map(|c| (category(c.parent_id), c))
+        .collect();
+    text.sort_by_key(|(parent, c)| (parent.as_ref().map(|p| p.0), c.position, c.id));
+    let channels: Vec<Value> = text
+        .iter()
+        .map(|(parent, c)| {
+            json!({
+                "id": c.id.to_string(),
+                "name": c.name,
+                "category": parent.as_ref().map(|p| p.1.clone()),
+            })
+        })
+        .collect();
+
+    // Cargos so servem a DM em massa e a /api/roles/*, que sao nivel 2.
+    let mut roles: Vec<Value> = Vec::new();
+    if session.level() >= 2 {
+        let all = match guild_roles(ctx, guild).await {
+            Ok(all) => all,
+            Err(cause) => return failed(route, cause, fail),
+        };
+        let mut sorted: Vec<_> = all
+            .values()
+            .filter(|r| r.id.get() != guild.get() && !r.managed)
+            .collect();
+        sorted.sort_by(|a, b| b.position.cmp(&a.position).then(a.id.cmp(&b.id)));
+        roles = sorted
+            .into_iter()
+            .map(|r| {
+                let refusal = role_refusal(
+                    r.id.get(),
+                    r.permissions,
+                    &d.grantable,
+                    &core,
+                    &d.bot.config,
+                );
+                json!({
+                    "id": r.id.to_string(),
+                    "name": r.name,
+                    "color": (r.colour.0 != 0).then(|| r.colour.hex()),
+                    "grantable": refusal.is_none(),
+                })
+            })
+            .collect();
+    }
+
+    ok(200, json!({ "channels": channels, "roles": roles }))
+}
+
 /// Por que um cargo NAO pode passar por /api/roles/*. A allowlist sozinha
 /// bastaria, mas ela e digitada a mao, e o erro provavel e listar justo o
 /// cargo de staff: aqui ele e portao do painel, do /enlistuser e do deployment

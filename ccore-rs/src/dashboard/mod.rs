@@ -262,6 +262,7 @@ async fn dispatch(State(dash): State<Arc<Dashboard>>, req: Request) -> Response 
         ("POST", "/api/auth/logout") => routes::logout(d, r),
         ("GET", "/api/auth/me") => routes::me(d, r),
         ("GET", "/api/audit") => routes::panel_audit(d, r).await,
+        ("GET", "/api/guild/options") => routes::guild_options(d, r).await,
         ("POST", "/api/messages/send") => routes::send_message(d, r).await,
         ("POST", "/api/roles/add") => routes::change_role(d, r, true).await,
         ("POST", "/api/roles/remove") => routes::change_role(d, r, false).await,

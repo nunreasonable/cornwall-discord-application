@@ -270,6 +270,7 @@ não teto, então um cargo de nível 3 ainda sobe a pessoa.
 | POST | `/api/dm` | 2 | inicia DM em massa, devolve `jobId` |
 | GET | `/api/dm/status` | 2 | progresso do job (`?jobId=`) |
 | POST | `/api/enlist` | 2 | alista com verificação ROBLOX |
+| GET | `/api/guild/options` | 1 | canais para o menu de envio (nível 1 só vê os liberados) e, do nível 2 em diante, os cargos, marcando os que `/api/roles/*` aceita |
 | POST | `/api/messages/send` | 1 | manda o bot escrever num canal |
 | POST | `/api/roles/add`, `/api/roles/remove` | 2 | gerencia cargos |
 | POST | `/api/punishments/timeout` | 2 | aplica timeout |
