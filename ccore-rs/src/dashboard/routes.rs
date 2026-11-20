@@ -709,7 +709,10 @@ pub async fn status(d: &Dashboard, req: &mut Req) -> Reply {
         .query("detail")
         .is_some_and(|v| v.eq_ignore_ascii_case("host"));
     if !wants_host {
-        return ok(200, json!({ "bot": d.public_status().await }));
+        return ok(
+            200,
+            json!({ "bot": d.public_status().await, "roster": roster_totals(d).await }),
+        );
     }
 
     if d.require(&req.headers, 2).await.is_none() {
@@ -723,6 +726,18 @@ pub async fn status(d: &Dashboard, req: &mut Req) -> Reply {
             "logs": log_counts(d),
         }),
     )
+}
+
+/// So os totais do efetivo, sem nomes: a pagina de status e publica.
+async fn roster_totals(d: &Dashboard) -> Option<Value> {
+    let audit = d.bot.audit.read_audit().await.ok()?;
+    let promotable = audit
+        .entries
+        .iter()
+        .map(crate::audit::ladder::evaluate)
+        .filter(|r| r.is_promotable())
+        .count();
+    Some(json!({ "total": audit.entries.len(), "promotable": promotable }))
 }
 
 /// Inteiro da query string, com padrao e limites.
