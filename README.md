@@ -281,7 +281,7 @@ em `POST /api/auth/discord`; o secret nunca sai do bot. Os níveis vêm de `dash
 | GET | `/api/auth/discord` | público | se o login com o Discord está ligado, e o client id e a URL de retorno |
 | POST | `/api/auth/discord` | público | troca o `code` do Discord por uma sessão do painel |
 | POST | `/api/messages/send` | 1 | manda o bot escrever num canal |
-| POST | `/api/roles/add`, `/api/roles/remove` | 3 | gerencia cargos |
+| POST | `/api/roles/add`, `/api/roles/remove` | 1 | gerencia cargos abaixo da patente de quem pede |
 | POST | `/api/punishments/timeout` | 2 | aplica timeout |
 | POST | `/api/punishments/remove-from-regiment` | 3 | remove os cargos do regimento |
 
@@ -292,15 +292,16 @@ Discord da BA, e o painel mostra a patente ao lado do nome ("Captain - Superior"
 
 **Nível 1, NCO** (Serjeant, Colour Serjeant e Quarter-Master Serjeant) faz a administração do
 dia a dia: mandar mensagem por canal, consultar o efetivo, definir patente, corrigir números de
-um jogador e anunciar deployment.
+um jogador e anunciar deployment. Também dá e tira cargo, com a mesma regra de todos os níveis:
+só cargos abaixo da própria patente, e só em quem tem patente menor. Cargo que dá acesso ao
+painel (patentes de Serjeant para cima e o 12º Staff) nunca passa pelo painel.
 
 **Nível 2, Oficial** (Serjeant Major, Ensign, Colour Ensign e Lieutenant: oficiais
 comissionados) soma timeout, alistar via ROBLOX, DM em massa (até 500), publicar a auditoria,
 os logs do bot e `status?detail=host`.
 
-**Nível 3, Superior** (Captain e acima) tem tudo: dar e tirar cargo, remover do regimento e
-apagar registro da auditoria. Conceder cargo fica aqui porque dar cargo pode escalar
-privilégio.
+**Nível 3, Superior** (Captain e acima) tem tudo: soma remover do regimento e apagar registro
+da auditoria.
 
 **Nível 4, Developer**, vem só por ID (`level4UserIds`) e não depende de cargo.
 

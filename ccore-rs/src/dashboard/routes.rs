@@ -311,12 +311,24 @@ pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
         })
         .collect();
 
-    // Cargos so servem a DM em massa e a /api/roles/*, que sao nivel 2.
+    // Cargos servem a DM em massa (nivel 2) e a /api/roles/* (nivel 1, ate a
+    // propria patente).
     let mut roles: Vec<Value> = Vec::new();
-    if session.level() >= 2 {
+    {
         let all = match guild_roles(ctx, guild).await {
             Ok(all) => all,
             Err(cause) => return failed(route, cause, fail),
+        };
+        let limit = if session.level() >= 4 {
+            None
+        } else {
+            match guild
+                .member(ctx, serenity::UserId::new(session.user_id))
+                .await
+            {
+                Ok(me) => Some(rank_position(&core, &all, &me.roles).unwrap_or(0)),
+                Err(cause) => return failed(route, cause, fail),
+            }
         };
         let mut sorted: Vec<_> = all
             .values()
@@ -341,7 +353,12 @@ pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
                 &d.grantable,
                 &core,
                 &d.bot.config,
-            );
+            )
+            .or_else(|| {
+                limit
+                    .filter(|&limit| r.position >= limit)
+                    .map(|_| "Acima da sua patente.")
+            });
             roles.push(json!({
                 "id": r.id.to_string(),
                 "name": r.name,
@@ -370,6 +387,26 @@ fn is_honours(category: &str) -> bool {
     lower.contains("honour") || lower.contains("award")
 }
 
+/// Posicao da patente mais alta da pessoa (os cargos dos niveis 1 a 3). None
+/// e quem nao tem patente nenhuma.
+fn rank_position(
+    core: &CoreConfig,
+    roles: &HashMap<serenity::RoleId, serenity::Role>,
+    member_roles: &[serenity::RoleId],
+) -> Option<u16> {
+    member_roles
+        .iter()
+        .filter(|id| {
+            let id = id.get();
+            core.level1_role_ids.contains(&id)
+                || core.level2_role_ids.contains(&id)
+                || core.level3_role_ids.contains(&id)
+        })
+        .filter_map(|id| roles.get(id))
+        .map(|role| role.position)
+        .max()
+}
+
 /// Por que um cargo NAO pode passar por /api/roles/*. A allowlist sozinha
 /// bastaria, mas ela e digitada a mao, e o erro provavel e listar justo o
 /// cargo de staff: aqui ele e portao do painel, do /enlistuser e do deployment
@@ -387,6 +424,7 @@ pub fn role_refusal(
     if core.level1_role_ids.contains(&role_id)
         || core.level2_role_ids.contains(&role_id)
         || core.level3_role_ids.contains(&role_id)
+        || core.staff_role_ids.contains(&role_id)
     {
         return Some("Este cargo dá acesso ao próprio painel.");
     }
@@ -412,11 +450,8 @@ pub fn role_refusal(
 /// Conceder cargo pode escalar privilegio: nivel 2 e, mesmo assim, so os
 /// cargos que passam em `role_refusal`.
 pub async fn change_role(d: &Dashboard, req: &mut Req, add: bool) -> Reply {
-    let Some(session) = d.require(&req.headers, 3).await else {
-        return d.auth_failure(
-            req,
-            "Gerenciar cargos exige acesso total (Captain ou acima).",
-        );
+    let Some(session) = d.require(&req.headers, 1).await else {
+        return d.auth_failure(req, "Permissão insuficiente para gerenciar cargos.");
     };
 
     let body = req.json().await?;
@@ -438,15 +473,44 @@ pub async fn change_role(d: &Dashboard, req: &mut Req, add: bool) -> Reply {
         return failed(route, "guildId nao configurado", fail);
     };
     let user = serenity::UserId::new(user_id);
-    if let Err(cause) = guild.member(ctx, user).await {
-        return failed(route, cause, fail);
-    }
-    let role = match guild_roles(ctx, guild).await {
-        Ok(roles) => roles.get(&serenity::RoleId::new(role_id)).cloned(),
+    let target = match guild.member(ctx, user).await {
+        Ok(member) => member,
         Err(cause) => return failed(route, cause, fail),
     };
+    let roles = match guild_roles(ctx, guild).await {
+        Ok(roles) => roles,
+        Err(cause) => return failed(route, cause, fail),
+    };
+    let role = roles.get(&serenity::RoleId::new(role_id)).cloned();
     let Some(role) = role else {
         return err(400, format!("Cargo {role_id} não existe neste servidor."));
+    };
+
+    // A hierarquia da patente: ninguem mexe em cargo da propria patente para
+    // cima, nem em quem tem patente igual ou maior. O Developer nao tem patente
+    // no painel e fica so com as outras travas.
+    let hierarchy = if session.level() >= 4 {
+        None
+    } else {
+        let limit = match guild
+            .member(ctx, serenity::UserId::new(session.user_id))
+            .await
+        {
+            Ok(me) => rank_position(&core, &roles, &me.roles),
+            Err(cause) => return failed(route, cause, fail),
+        };
+        match limit {
+            None => Some("Você não tem patente para mexer em cargos."),
+            Some(limit) if role.position >= limit => {
+                Some("Você só pode mexer em cargos abaixo da sua patente.")
+            }
+            Some(limit)
+                if rank_position(&core, &roles, &target.roles).is_some_and(|p| p >= limit) =>
+            {
+                Some("Não dá para mexer em quem tem patente igual ou maior que a sua.")
+            }
+            Some(_) => None,
+        }
     };
 
     if let Some(refusal) = role_refusal(
@@ -455,7 +519,9 @@ pub async fn change_role(d: &Dashboard, req: &mut Req, add: bool) -> Reply {
         &d.grantable,
         &core,
         &d.bot.config,
-    ) {
+    )
+    .or(hierarchy)
+    {
         // 403: o pedido esta certo, falta autorizacao para ESTE cargo.
         warn!(
             "dashboard: {} tentou {} o cargo {role_id} ({}): recusado - {refusal}",
