@@ -40,6 +40,10 @@ pub struct CoreConfig {
     /// Piso de nivel 2 por ID; cargo ainda pode subir, nunca descer.
     #[serde(deserialize_with = "ids")]
     pub level2_user_ids: Vec<u64>,
+    /// Portao do painel: sem um destes cargos, nenhum nivel vale (fora o
+    /// level4UserIds). Vazio desliga o portao.
+    #[serde(deserialize_with = "ids")]
+    pub staff_role_ids: Vec<u64>,
     #[serde(deserialize_with = "ids")]
     pub level3_role_ids: Vec<u64>,
     #[serde(deserialize_with = "ids")]
@@ -54,6 +58,13 @@ pub struct CoreConfig {
     /// Canais liberados para o nivel 1 em /api/messages/send. Vazio nao restringe.
     #[serde(deserialize_with = "ids")]
     pub allowed_send_channel_ids: Vec<u64>,
+    /// Client secret do aplicativo do bot no portal do Discord. Vazio desliga
+    /// o login com o Discord; o /dashboardlink continua valendo.
+    #[serde(deserialize_with = "or_default")]
+    pub discord_client_secret: String,
+    /// Tem que ser identica a cadastrada no portal (OAuth2 > Redirects).
+    #[serde(deserialize_with = "or_default")]
+    pub discord_redirect_uri: String,
     #[serde(deserialize_with = "or_default")]
     pub link_code_lifetime_minutes: i64,
     #[serde(deserialize_with = "or_default")]
@@ -69,12 +80,15 @@ impl Default for CoreConfig {
             guild_id: 0,
             level4_user_ids: Vec::new(),
             level2_user_ids: Vec::new(),
+            staff_role_ids: Vec::new(),
             level3_role_ids: Vec::new(),
             level2_role_ids: Vec::new(),
             level1_role_ids: Vec::new(),
             regiment_role_ids: Vec::new(),
             grantable_role_ids: Vec::new(),
             allowed_send_channel_ids: Vec::new(),
+            discord_client_secret: String::new(),
+            discord_redirect_uri: String::new(),
             link_code_lifetime_minutes: 10,
             session_lifetime_minutes: 60,
         }
@@ -160,6 +174,8 @@ struct State {
 
 pub struct Resolution {
     pub level: i32,
+    /// Patente que deu o nivel, para o painel mostrar.
+    pub rank: Option<String>,
     pub lookup_failed: bool,
 }
 
@@ -335,22 +351,45 @@ impl AuthStore {
     /// cargos no servidor. O Discord falhando tres vezes vira `lookup_failed`.
     pub async fn resolve_level(&self, ctx: &serenity::Context, user_id: u64) -> Resolution {
         let core = self.read().await.core;
-        if core.level4_user_ids.contains(&user_id) || core.guild_id == 0 || user_id == 0 {
+        if core.guild_id == 0 || user_id == 0 {
             return Resolution {
                 level: level_for(&core, user_id, None),
+                rank: None,
                 lookup_failed: false,
             };
         }
 
         let guild = serenity::GuildId::new(core.guild_id);
+        // O 4 nao depende de cargo; a patente so entra no nome mostrado.
+        if core.level4_user_ids.contains(&user_id) {
+            let rank = match guild.member(ctx, serenity::UserId::new(user_id)).await {
+                Ok(member) => {
+                    let roles: Vec<u64> = member.roles.iter().map(|r| r.get()).collect();
+                    rank_name(ctx, guild, &core, &roles).await
+                }
+                Err(_) => None,
+            };
+            return Resolution {
+                level: 4,
+                rank,
+                lookup_failed: false,
+            };
+        }
         let user = serenity::UserId::new(user_id);
         let mut last = None;
         for attempt in 1..=3u64 {
             match guild.member(ctx, user).await {
                 Ok(member) => {
                     let roles: Vec<u64> = member.roles.iter().map(|r| r.get()).collect();
+                    let level = level_for(&core, user_id, Some(&roles));
+                    let rank = if level > 0 {
+                        rank_name(ctx, guild, &core, &roles).await
+                    } else {
+                        None
+                    };
                     return Resolution {
-                        level: level_for(&core, user_id, Some(&roles)),
+                        level,
+                        rank,
                         lookup_failed: false,
                     };
                 }
@@ -367,25 +406,31 @@ impl AuthStore {
         // O piso por ID nao depende do Discord.
         Resolution {
             level: level_for(&core, user_id, None),
+            rank: None,
             lookup_failed: true,
         }
     }
 }
 
-/// `roles` None e "nao deu para consultar": so os IDs fixos contam.
+/// `roles` None e "nao deu para consultar": so os IDs fixos contam. Com o
+/// portao de staff ligado, sem cargos nao da para conferir, entao so o 4 passa.
 pub fn level_for(core: &CoreConfig, user_id: u64, roles: Option<&[u64]>) -> i32 {
     if core.level4_user_ids.contains(&user_id) {
         return 4;
     }
+    let gated = !core.staff_role_ids.is_empty();
     let floor = if core.level2_user_ids.contains(&user_id) {
         2
     } else {
         0
     };
     let Some(roles) = roles else {
-        return floor;
+        return if gated { 0 } else { floor };
     };
     let has = |ids: &[u64]| ids.iter().any(|id| roles.contains(id));
+    if gated && !has(&core.staff_role_ids) {
+        return 0;
+    }
     let by_role = if has(&core.level3_role_ids) {
         3
     } else if has(&core.level2_role_ids) {
@@ -398,12 +443,44 @@ pub fn level_for(core: &CoreConfig, user_id: u64, roles: Option<&[u64]>) -> i32 
     by_role.max(floor)
 }
 
+/// O cargo de patente mais alto que a pessoa tem entre os tres niveis.
+async fn rank_name(
+    ctx: &serenity::Context,
+    guild: serenity::GuildId,
+    core: &CoreConfig,
+    member_roles: &[u64],
+) -> Option<String> {
+    let ranks: Vec<u64> = [
+        &core.level3_role_ids,
+        &core.level2_role_ids,
+        &core.level1_role_ids,
+    ]
+    .into_iter()
+    .flatten()
+    .copied()
+    .filter(|id| member_roles.contains(id))
+    .collect();
+    if ranks.is_empty() {
+        return None;
+    }
+    let cached = ctx.cache.guild(guild).map(|g| g.roles.clone());
+    let roles = match cached {
+        Some(roles) => roles,
+        None => guild.roles(&ctx.http).await.ok()?,
+    };
+    ranks
+        .iter()
+        .filter_map(|id| roles.get(&serenity::RoleId::new(*id)))
+        .max_by_key(|role| role.position)
+        .map(|role| role.name.clone())
+}
+
 pub fn permission_name(level: i32) -> &'static str {
     match level {
         4 => "Developer",
-        3 => "General Staff",
-        2 => "Regimental Command",
-        1 => "NCO/Officer",
+        3 => "Superior",
+        2 => "Oficial",
+        1 => "NCO",
         _ => "Unknown",
     }
 }
@@ -539,8 +616,25 @@ mod tests {
         assert_eq!(level_for(&c, 7, Some(&[30])), 3);
         assert_eq!(level_for(&c, 1, Some(&[10, 20])), 2);
         assert_eq!(level_for(&c, 1, Some(&[99])), 0);
+    }
+
+    #[test]
+    fn sem_cargo_de_staff_nao_entra() {
+        let c = core(
+            r#"{"level4UserIds":[9],"level2UserIds":[7],"staffRoleIds":[5],"level3RoleIds":[30],
+                "level2RoleIds":[20],"level1RoleIds":[10]}"#,
+        );
+        assert_eq!(level_for(&c, 1, Some(&[30])), 0);
+        assert_eq!(level_for(&c, 1, Some(&[5, 10])), 1);
+        assert_eq!(level_for(&c, 1, Some(&[5, 20, 10])), 2);
+        assert_eq!(level_for(&c, 1, Some(&[5, 30])), 3);
+        assert_eq!(level_for(&c, 1, Some(&[5])), 0);
+        assert_eq!(level_for(&c, 7, Some(&[99])), 0);
+        assert_eq!(level_for(&c, 7, Some(&[5])), 2);
+        assert_eq!(level_for(&c, 7, None), 0);
+        assert_eq!(level_for(&c, 9, None), 4);
         assert_eq!(level_for(&c, 1, None), 0);
-        assert_eq!(permission_name(2), "Regimental Command");
+        assert_eq!(permission_name(2), "Oficial");
         assert_eq!(permission_name(0), "Unknown");
     }
 

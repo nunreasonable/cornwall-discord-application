@@ -97,8 +97,11 @@ pub async fn entry(d: &Dashboard, req: &mut Req) -> Reply {
     };
 
     let remove = body.boolean("remove");
-    if remove && d.require(&req.headers, 2).await.is_none() {
-        return d.auth_failure(req, "Remover registros da auditoria exige permissão 2+.");
+    if remove && d.require(&req.headers, 3).await.is_none() {
+        return d.auth_failure(
+            req,
+            "Remover registros da auditoria exige acesso total (Captain ou acima).",
+        );
     }
 
     let Some(username) = body.trimmed("username").filter(|u| !u.is_empty()) else {

@@ -248,10 +248,14 @@ sessão de quem digitou, nunca o bot.
 
 O bot expõe uma API em `http://127.0.0.1:5056` (`src/dashboard/`, com axum), consumida
 pelo painel em [dashboard.daeese.me](https://dashboard.daeese.me/) e pela página pública de
-status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). O login é o código de
-`/dashboardlink`; os níveis 1–4 vêm de `dashboard_auth.json`, por cargo. O nível 2 também
-pode ser dado por ID em `level2UserIds`, pra quem precisa do painel sem ter o cargo; é piso,
-não teto, então um cargo de nível 3 ainda sobe a pessoa.
+status em [ccore.daeese.me/status](https://ccore.daeese.me/status/). Dá para entrar com o
+Discord (OAuth2, escopo `identify`) ou com o código do `/dashboardlink`, que continua valendo.
+O login com o Discord liga quando o `dashboard_auth.json` tem `discordClientSecret` (o client
+secret do aplicativo do bot) e `discordRedirectUri` (a URL do painel, cadastrada em OAuth2 >
+Redirects no portal). O painel manda a pessoa ao Discord, recebe o `code` de volta e o entrega
+em `POST /api/auth/discord`; o secret nunca sai do bot. Os níveis vêm de `dashboard_auth.json`
+(ver "Onde fica a fronteira"). `level2UserIds` ainda dá nível 2 por ID, mas só para quem tem o
+12º Staff.
 
 | Método | Rota | Nível | O que faz |
 |---|---|---|---|
@@ -262,7 +266,7 @@ não teto, então um cargo de nível 3 ainda sobe a pessoa.
 | GET | `/api/audit` | 1 | log de auditoria do painel (quem usou o dashboard e o quê fez) |
 | GET | `/api/audit/roster` | 1 | efetivo consolidado + fila pendente |
 | GET | `/api/audit/history` | 1 | histórico da auditoria (o mesmo do `/audit-logs`) |
-| POST | `/api/audit/entry` | **1 / 2** | edita e renomeia com 1; **remover** exige 2 |
+| POST | `/api/audit/entry` | **1 / 3** | edita e renomeia com 1; **remover** exige 3 |
 | POST | `/api/audit/ranks` | 1 | define patentes |
 | POST | `/api/audit/push` | 2 | publica no GitHub (aceita `dryRun`) |
 | GET | `/api/promotions` | 1 | elegibilidade pela escada de promoções |
@@ -271,26 +275,31 @@ não teto, então um cargo de nível 3 ainda sobe a pessoa.
 | GET | `/api/dm/status` | 2 | progresso do job (`?jobId=`) |
 | POST | `/api/enlist` | 2 | alista com verificação ROBLOX |
 | GET | `/api/guild/options` | 1 | canais para o menu de envio (nível 1 só vê os liberados) e, do nível 2 em diante, os cargos, marcando os que `/api/roles/*` aceita |
+| GET | `/api/auth/discord` | público | se o login com o Discord está ligado, e o client id e a URL de retorno |
+| POST | `/api/auth/discord` | público | troca o `code` do Discord por uma sessão do painel |
 | POST | `/api/messages/send` | 1 | manda o bot escrever num canal |
-| POST | `/api/roles/add`, `/api/roles/remove` | 2 | gerencia cargos |
+| POST | `/api/roles/add`, `/api/roles/remove` | 3 | gerencia cargos |
 | POST | `/api/punishments/timeout` | 2 | aplica timeout |
-| POST | `/api/punishments/remove-from-regiment` | 2 | remove os cargos do regimento |
+| POST | `/api/punishments/remove-from-regiment` | 3 | remove os cargos do regimento |
 
 ### Onde fica a fronteira
 
-**Nível 1 (NCO/Officer)** faz a administração do dia a dia: mandar mensagem por canal,
-consultar o efetivo, definir patente, corrigir números de um jogador e anunciar deployment.
-Nada nesse conjunto remove alguém nem fala com serviço de terceiro.
+Só entra quem tem o cargo **12º Staff** (`staffRoleIds`). Fora isso, o nível vem da patente no
+Discord da BA, e o painel mostra a patente ao lado do nome ("Captain - Superior"):
 
-**Nível 2 (Regimental Command)** concentra três famílias:
+**Nível 1, NCO** (Serjeant, Colour Serjeant e Quarter-Master Serjeant) faz a administração do
+dia a dia: mandar mensagem por canal, consultar o efetivo, definir patente, corrigir números de
+um jogador e anunciar deployment.
 
-- **remove gente** — expulsar do regimento, timeout, tirar cargo, apagar registro da auditoria;
-- **fala com API externa** — publicar no GitHub, alistar via ROBLOX;
-- **age em volume ou expõe o interior** — DM em massa (até 500), logs do bot e
-  `status?detail=host`, que carregam id de usuário e caminho da máquina.
+**Nível 2, Oficial** (Serjeant Major, Ensign, Colour Ensign e Lieutenant: oficiais
+comissionados) soma timeout, alistar via ROBLOX, DM em massa (até 500), publicar a auditoria,
+os logs do bot e `status?detail=host`.
 
-Conceder cargo fica no 2 junto com remover, e não no 1, porque dar cargo pode escalar
+**Nível 3, Superior** (Captain e acima) tem tudo: dar e tirar cargo, remover do regimento e
+apagar registro da auditoria. Conceder cargo fica aqui porque dar cargo pode escalar
 privilégio.
+
+**Nível 4, Developer**, vem só por ID (`level4UserIds`) e não depende de cargo.
 
 Os níveis vivem em dois lugares e **precisam concordar**: `src/dashboard/gate.rs` é o portão
 real, e o `applyUser` do painel apenas apaga os botões. Divergir faz a interface mentir —

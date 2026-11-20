@@ -5,6 +5,7 @@ mod audit_routes;
 pub mod auth;
 mod gate;
 mod jobs;
+mod oauth;
 mod request;
 mod routes;
 
@@ -235,6 +236,7 @@ async fn screen(gate: &Gate, req: Request, next: Next) -> Response {
     // Fica no dispatch, e nao em cada rota, para rota nova nao nascer sem limite.
     if req.method() == Method::POST
         && path != "/api/auth/login"
+        && path != "/api/auth/discord"
         && path != "/api/auth/logout"
         && let Err(wait) = gate.route_budget(req.headers(), peer, &path)
     {
@@ -259,6 +261,8 @@ async fn dispatch(State(dash): State<Arc<Dashboard>>, req: Request) -> Response 
 
     let result = match (method.as_str(), path.as_str()) {
         ("POST", "/api/auth/login") => routes::login(d, r).await,
+        ("GET", "/api/auth/discord") => oauth::config(d, r).await,
+        ("POST", "/api/auth/discord") => oauth::login(d, r).await,
         ("POST", "/api/auth/logout") => routes::logout(d, r),
         ("GET", "/api/auth/me") => routes::me(d, r),
         ("GET", "/api/audit") => routes::panel_audit(d, r).await,
@@ -344,7 +348,7 @@ impl Dashboard {
                 if current.lookup_failed {
                     session.checked(None, PERMISSION_RETRY);
                 } else {
-                    session.checked(Some(current.level), PERMISSION_REFRESH);
+                    session.checked(Some((current.level, current.rank)), PERMISSION_REFRESH);
                     if current.level <= 0 {
                         self.gate.close_session(&session.token);
                         return None;

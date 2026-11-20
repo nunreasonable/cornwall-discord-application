@@ -84,6 +84,7 @@ pub struct PendingCode {
 
 struct Check {
     level: i32,
+    rank: Option<String>,
     next: Instant,
 }
 
@@ -108,10 +109,15 @@ impl Session {
         Instant::now() >= lock(&self.check).next
     }
 
-    pub fn checked(&self, level: Option<i32>, wait: Duration) {
+    pub fn rank(&self) -> Option<String> {
+        lock(&self.check).rank.clone()
+    }
+
+    pub fn checked(&self, level: Option<(i32, Option<String>)>, wait: Duration) {
         let mut check = lock(&self.check);
-        if let Some(level) = level {
+        if let Some((level, rank)) = level {
             check.level = level;
+            check.rank = rank;
         }
         check.next = Instant::now() + wait;
     }
@@ -329,6 +335,7 @@ impl Gate {
         &self,
         pending: PendingCode,
         level: i32,
+        rank: Option<String>,
         lifetime: chrono::Duration,
         recheck: Duration,
     ) -> Arc<Session> {
@@ -340,6 +347,7 @@ impl Gate {
             expires_at: Utc::now() + lifetime,
             check: Mutex::new(Check {
                 level,
+                rank,
                 next: Instant::now() + recheck,
             }),
             refresh: tokio::sync::Mutex::default(),
@@ -588,6 +596,7 @@ mod tests {
                 expires_at: Utc::now(),
             },
             2,
+            None,
             chrono::Duration::minutes(5),
             Duration::from_secs(300),
         );

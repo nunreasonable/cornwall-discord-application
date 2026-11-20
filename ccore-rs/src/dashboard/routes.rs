@@ -10,7 +10,7 @@ use tracing::warn;
 use super::{
     Dashboard, PERMISSION_REFRESH,
     auth::{CoreConfig, permission_name},
-    gate::{Session, retry_secs},
+    gate::{PendingCode, Session, retry_secs},
     request::{Reply, Req, err, error, ok, utf16_len, with_retry_after},
 };
 use crate::{
@@ -46,6 +46,7 @@ fn user_json(session: &Session, with_expiry: bool) -> Value {
         "avatarUrl": session.avatar_url,
         "permissionLevel": level,
         "permissionName": permission_name(level),
+        "rank": session.rank(),
     });
     if with_expiry {
         user["expiresAt"] = json!(session.expires_at);
@@ -91,6 +92,12 @@ pub async fn login(d: &Dashboard, req: &mut Req) -> Reply {
     // Codigo valido: a origem deixa de estar sob suspeita.
     d.gate.login_succeeded(&req.headers, req.peer);
 
+    finish_login(d, pending, "Login efetuado via link do bot.").await
+}
+
+/// O que vem depois de saber quem e a pessoa, igual para o codigo do
+/// /dashboardlink e para o login com o Discord.
+pub(super) async fn finish_login(d: &Dashboard, pending: PendingCode, how: &str) -> Reply {
     let resolution = d.auth.resolve_level(&d.bot.ctx, pending.user_id).await;
     if resolution.level <= 0 {
         if resolution.lookup_failed {
@@ -121,11 +128,11 @@ pub async fn login(d: &Dashboard, req: &mut Req) -> Reply {
     let session = d.gate.open_session(
         pending,
         resolution.level,
+        resolution.rank,
         chrono::Duration::minutes(minutes),
         PERMISSION_REFRESH,
     );
-    d.record(&session, "LOGIN", "Login efetuado via link do bot.")
-        .await;
+    d.record(&session, "LOGIN", how).await;
 
     ok(
         200,
@@ -381,8 +388,11 @@ pub fn role_refusal(
 /// Conceder cargo pode escalar privilegio: nivel 2 e, mesmo assim, so os
 /// cargos que passam em `role_refusal`.
 pub async fn change_role(d: &Dashboard, req: &mut Req, add: bool) -> Reply {
-    let Some(session) = d.require(&req.headers, 2).await else {
-        return d.auth_failure(req, "Permissão insuficiente para gerenciar cargos.");
+    let Some(session) = d.require(&req.headers, 3).await else {
+        return d.auth_failure(
+            req,
+            "Gerenciar cargos exige acesso total (Captain ou acima).",
+        );
     };
 
     let body = req.json().await?;
@@ -538,8 +548,11 @@ pub async fn timeout(d: &Dashboard, req: &mut Req) -> Reply {
 }
 
 pub async fn remove_from_regiment(d: &Dashboard, req: &mut Req) -> Reply {
-    let Some(session) = d.require(&req.headers, 2).await else {
-        return d.auth_failure(req, "Permissão insuficiente para remover do regimento.");
+    let Some(session) = d.require(&req.headers, 3).await else {
+        return d.auth_failure(
+            req,
+            "Remover do regimento exige acesso total (Captain ou acima).",
+        );
     };
 
     let body = req.json().await?;
