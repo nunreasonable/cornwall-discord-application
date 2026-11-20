@@ -8,7 +8,7 @@ use tracing::{info, warn};
 
 use super::{
     import,
-    model::mirror_sheet,
+    model::sync_with_sheet,
     store::{Action, AuditStore},
 };
 use crate::config::Config;
@@ -68,7 +68,7 @@ async fn sync_once(
         return;
     }
     let report = match audit
-        .update(|stored, _| mirror_sheet(stored, &csv.rows, csv.has_kda))
+        .update(|stored, _| sync_with_sheet(stored, &csv.rows, csv.has_kda))
         .await
     {
         Ok(report) => report,

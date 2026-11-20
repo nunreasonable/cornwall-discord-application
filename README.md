@@ -65,8 +65,11 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
   - Função: valida linha a linha, mostra prévia e guarda na fila (não publica)
 
 - **`/audit-push`** - Publica a fila
-  - Parâmetro opcional: `dry_run` (simula sem gravar nem publicar)
+  - Parâmetros opcionais: `dry_run` (simula sem gravar nem publicar) e `planilha` (padrão
+    `true`; com `false` os lotes não vão para a planilha do regimento)
   - Função: consolida os totais, publica na branch de dados e arquiva cada lote por data
+  - Lote publicado sem a planilha fica em `localOnlyBatches`, e a sincronização soma ele por
+    cima da planilha em vez de perdê-lo
   - Sem lotes na fila, publica as mudanças feitas direto no arquivo (`/audit-import`,
     `/audit-edit`, `/audit-setranks`); se o GitHub já estiver igual, não cria commit
   - Em caso de erro a fila **não** é limpa; republicar não conta em dobro

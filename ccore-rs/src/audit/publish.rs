@@ -92,8 +92,8 @@ fn non_blank(value: Option<&String>) -> Option<&str> {
 /// Consolida os lotes pendentes e publica no GitHub. A ORDEM dos passos e o
 /// que garante que uma falha no meio deixa um estado do qual o proximo push se
 /// recupera sozinho, sem contar batalha em dobro.
-pub async fn publish(data: Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
-    let result = run(&data, dry_run).await;
+pub async fn publish(data: Deps<'_>, dry_run: bool, to_sheet: bool) -> Result<Outcome, Failure> {
+    let result = run(&data, dry_run, to_sheet).await;
 
     // 401 quase sempre e token vencido: esquecer faz a proxima tentativa
     // reler a credencial em vez de repetir a falha.
@@ -108,7 +108,7 @@ pub async fn publish(data: Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> 
     result
 }
 
-async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
+async fn run(data: &Deps<'_>, dry_run: bool, to_sheet: bool) -> Result<Outcome, Failure> {
     let (audit, pending) = data.audit.read_both().await.map_err(at("leitura local"))?;
 
     // Sem lote ainda pode haver trabalho: import, edit e setranks mexem direto
@@ -146,7 +146,10 @@ async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
             non_blank(c.sheet_spreadsheet_id.as_ref()),
         ))
     });
+    // Mandar para a planilha e opcional: sem isso os lotes ficam so aqui.
+    let sheet = sheet.filter(|_| to_sheet);
     outcome.sheet_enabled = sheet.is_some();
+    let sent_to_sheet = has_pending && sheet.is_some();
 
     if dry_run {
         if outcome.sheet_enabled {
@@ -262,6 +265,9 @@ async fn run(data: &Deps<'_>, dry_run: bool) -> Result<Outcome, Failure> {
                     .cloned()
                     .collect();
                 merge_pending(stored_audit, &to_apply);
+                if !sent_to_sheet {
+                    stored_audit.local_only_batches.extend(to_apply);
+                }
                 stored_audit.version = version;
                 stored_pending
                     .batches

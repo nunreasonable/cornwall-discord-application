@@ -397,6 +397,8 @@ pub async fn push(d: &Dashboard, req: &mut Req) -> Reply {
 
     let body = req.json().await?;
     let dry_run = body.boolean("dryRun");
+    // Ausente e sim: quem nao manda o campo continua gravando na planilha.
+    let to_sheet = body.get("sheet").is_none() || body.boolean("sheet");
     let deps = Deps {
         audit: &d.bot.audit,
         config: &d.bot.config,
@@ -404,7 +406,7 @@ pub async fn push(d: &Dashboard, req: &mut Req) -> Reply {
         github_token: &d.bot.github_token,
     };
 
-    let outcome = match publish::publish(deps, dry_run).await {
+    let outcome = match publish::publish(deps, dry_run, to_sheet).await {
         Ok(outcome) => outcome,
         Err(failure) => {
             warn!(

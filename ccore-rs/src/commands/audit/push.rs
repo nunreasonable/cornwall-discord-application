@@ -17,6 +17,8 @@ use crate::{
 pub async fn audit_push(
     ctx: Context<'_>,
     #[description = "Só mostra o que seria consolidado, sem tocar no GitHub"] dry_run: Option<bool>,
+    #[description = "Grava os lotes também na planilha do regimento (padrão: sim)"]
+    planilha: Option<bool>,
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
@@ -24,7 +26,13 @@ pub async fn audit_push(
         return reply(ctx, denied, false).await;
     }
 
-    let outcome = match publish(ctx.data().into(), dry_run.unwrap_or(false)).await {
+    let outcome = match publish(
+        ctx.data().into(),
+        dry_run.unwrap_or(false),
+        planilha.unwrap_or(true),
+    )
+    .await
+    {
         Ok(outcome) => outcome,
         Err(failure) => {
             let embed = embeds::error(

@@ -47,6 +47,10 @@ pub struct AuditFile {
     /// Lotes ja incorporados: um /audit-push repetido nao conta em dobro.
     pub applied_batch_ids: Vec<String>,
     pub entries: Vec<AuditEntry>,
+    /// Lotes publicados sem ir para a planilha. A sincronizacao copia a
+    /// planilha e soma estes por cima, senao eles sumiriam no proximo sync.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub local_only_batches: Vec<PendingBatch>,
 }
 
 impl Default for AuditFile {
@@ -56,6 +60,7 @@ impl Default for AuditFile {
             last_updated_utc: DateTime::default(),
             applied_batch_ids: Vec::new(),
             entries: Vec::new(),
+            local_only_batches: Vec::new(),
         }
     }
 }
@@ -73,7 +78,7 @@ impl AuditFile {
 
 /// Um /audit-add. A regra e "+1 batalha por jogador por lote", entao os lotes
 /// ficam separados ate a consolidacao.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct PendingBatch {
     pub batch_id: String,
@@ -355,6 +360,46 @@ pub fn mirror_sheet(audit: &mut AuditFile, sheet: &[AuditEntry], include_kda: bo
     report
 }
 
+/// O que o sync faz: planilha por cima, depois os lotes que so existem aqui.
+/// O relatorio compara antes e depois, entao reaplicar os mesmos lotes a cada
+/// rodada nao aparece como mudanca.
+pub fn sync_with_sheet(
+    audit: &mut AuditFile,
+    sheet: &[AuditEntry],
+    include_kda: bool,
+) -> SyncReport {
+    let before = audit.entries.clone();
+    mirror_sheet(audit, sheet, include_kda);
+    if !audit.local_only_batches.is_empty() {
+        let batches = audit.local_only_batches.clone();
+        let applied = std::mem::take(&mut audit.applied_batch_ids);
+        merge_pending(audit, &batches);
+        audit.applied_batch_ids = applied;
+    }
+    diff_entries(&before, &audit.entries)
+}
+
+fn diff_entries(before: &[AuditEntry], after: &[AuditEntry]) -> SyncReport {
+    let old: HashMap<String, &AuditEntry> = before.iter().map(|e| (key(&e.username), e)).collect();
+    let new: HashMap<String, &AuditEntry> = after.iter().map(|e| (key(&e.username), e)).collect();
+    SyncReport {
+        added: after
+            .iter()
+            .filter(|e| !old.contains_key(&key(&e.username)))
+            .map(|e| e.username.clone())
+            .collect(),
+        removed: before
+            .iter()
+            .filter(|e| !new.contains_key(&key(&e.username)))
+            .map(|e| e.username.clone())
+            .collect(),
+        updated: after
+            .iter()
+            .filter(|e| old.get(&key(&e.username)).is_some_and(|o| *o != *e))
+            .count(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -507,5 +552,28 @@ mod tests {
         };
         mirror_sheet(&mut audit, &[entry("Ana", 0, 6)], false);
         assert_eq!((audit.entries[0].kills, audit.entries[0].battles), (10, 6));
+    }
+
+    #[test]
+    fn lote_so_local_sobrevive_ao_sync() {
+        let batch = PendingBatch {
+            batch_id: "b1".to_owned(),
+            entries: vec![entry("Ana", 3, 0)],
+            ..PendingBatch::default()
+        };
+        let mut audit = AuditFile {
+            local_only_batches: vec![batch],
+            applied_batch_ids: vec!["b1".to_owned()],
+            ..AuditFile::default()
+        };
+        let sheet = vec![entry("Ana", 10, 5)];
+
+        sync_with_sheet(&mut audit, &sheet, true);
+        assert_eq!((audit.entries[0].kills, audit.entries[0].battles), (13, 6));
+        assert_eq!(audit.applied_batch_ids, ["b1"]);
+
+        let again = sync_with_sheet(&mut audit, &sheet, true);
+        assert!(!again.changed());
+        assert_eq!((audit.entries[0].kills, audit.entries[0].battles), (13, 6));
     }
 }
