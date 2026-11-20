@@ -323,27 +323,51 @@ pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
             .filter(|r| r.id.get() != guild.get() && !r.managed)
             .collect();
         sorted.sort_by(|a, b| b.position.cmp(&a.position).then(a.id.cmp(&b.id)));
-        roles = sorted
-            .into_iter()
-            .map(|r| {
-                let refusal = role_refusal(
-                    r.id.get(),
-                    r.permissions,
-                    &d.grantable,
-                    &core,
-                    &d.bot.config,
-                );
-                json!({
-                    "id": r.id.to_string(),
-                    "name": r.name,
-                    "color": (r.colour.0 != 0).then(|| r.colour.hex()),
-                    "grantable": refusal.is_none(),
-                })
-            })
-            .collect();
+        // O servidor separa os cargos com cargos-titulo ("Permissions",
+        // "Honours"...). Tudo acima do primeiro separador sao as patentes.
+        let mut category = "Patentes".to_owned();
+        for r in sorted {
+            if let Some(title) = separator_title(&r.name) {
+                category = title;
+                continue;
+            }
+            // Honrarias e medalhas nao se dao pelo painel.
+            if is_honours(&category) {
+                continue;
+            }
+            let refusal = role_refusal(
+                r.id.get(),
+                r.permissions,
+                &d.grantable,
+                &core,
+                &d.bot.config,
+            );
+            roles.push(json!({
+                "id": r.id.to_string(),
+                "name": r.name,
+                "category": category,
+                "color": (r.colour.0 != 0).then(|| r.colour.hex()),
+                "grantable": refusal.is_none(),
+                "refusal": refusal,
+            }));
+        }
     }
 
     ok(200, json!({ "channels": channels, "roles": roles }))
+}
+
+/// Cargo-titulo: o nome real vem cercado de espacos e caracteres invisiveis
+/// (U+2063), so para alinhar no Discord. Devolve o titulo limpo.
+fn separator_title(name: &str) -> Option<String> {
+    let padding = |c: char| c.is_whitespace() || matches!(c, '\u{2063}' | '\u{200b}' | '\u{2800}');
+    let leading = name.chars().take_while(|&c| padding(c)).count();
+    let title = name.trim_matches(padding);
+    (leading >= 3 && !title.is_empty()).then(|| title.to_owned())
+}
+
+fn is_honours(category: &str) -> bool {
+    let lower = category.to_lowercase();
+    lower.contains("honour") || lower.contains("award")
 }
 
 /// Por que um cargo NAO pode passar por /api/roles/*. A allowlist sozinha
@@ -985,6 +1009,22 @@ pub async fn enlist(d: &Dashboard, req: &mut Req) -> Reply {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn titulo_de_categoria() {
+        assert_eq!(
+            separator_title(
+                "\u{2063}       \u{2063}    Permissions\u{2063}\u{2063}           \u{2063}"
+            )
+            .as_deref(),
+            Some("Permissions")
+        );
+        assert_eq!(separator_title("Captain"), None);
+        assert_eq!(separator_title("   "), None);
+        assert!(is_honours("Honours"));
+        assert!(!is_honours("Classification"));
+    }
+
     use super::*;
     use std::collections::HashSet;
 
