@@ -1,6 +1,18 @@
-# Cornwall Discord Bot
+<p align="center">
+  <a href="https://ccore.daeese.me/"><img src="https://daeese.me/filearchive/icons/ccore-badge.webp" width="140" alt="Brasão do 12° Regimento de Infantaria &quot;Chaves&quot;" /></a>
+</p>
+
+# ccore
 
 Bot Discord para o 12° "Chaves" Regimento de Infantaria com funcionalidades de alistamento, deployments e mensagens.
+
+[Vitrine](https://ccore.daeese.me/) · [Status](https://ccore.daeese.me/status/) · [Painel da staff](https://dashboard.daeese.me/) · [Termos](https://ccore.daeese.me/termsofservice/) · [Privacidade](https://ccore.daeese.me/privacypolicy/)
+
+As páginas seguem o visual do regimento: o brasão do 12° num círculo branco, tema claro "livro de
+ordens" (papel cinza, tinta e lacre) e escuro "casaca escarlate" (vinho e dourado), escolhido
+pelo sistema ou pelo botão no canto. A vitrine mostra o caminho de um soldado pelo bot, do
+alistamento à promoção; o status público mostra se o bot está no ar e os totais do efetivo; o
+painel tem a escada de promoção de cada jogador.
 
 Desde novembro de 2026 o ccore roda em **Rust**, em `ccore-rs/` (poise + serenity, tokio e axum).
 A versão em C# / .NET que ficou em `ConsoleApp1/` foi a base do port e não roda mais em produção.
