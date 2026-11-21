@@ -39,8 +39,9 @@ pub async fn handle(
         if crate::local::on_message(ctx, msg, llm).await {
             return Ok(());
         }
-        let me = ctx.cache.current_user().id;
-        if llm.wants(msg, me) {
+        // Comando ("-ia off" em reply, por exemplo) nao vira conversa.
+        let is_command = msg.content.trim_start().starts_with(&data.config.prefix);
+        if !is_command && llm.wants(ctx, msg) {
             llm.answer(ctx, msg, data.blacklist.as_ref()).await;
         }
     }

@@ -22,13 +22,20 @@ use serde_json::json;
 use tokio::process::Command;
 use tracing::{info, warn};
 
-use crate::{blacklist::Blacklist, config::LlmConfig, embeds::truncate};
+use crate::{
+    abuse::{self, Abuse, Verdict},
+    blacklist::Blacklist,
+    config::LlmConfig,
+    embeds::truncate,
+};
 
 /// O modelo leva um tempo para carregar; antes disso o servidor responde 503.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 /// Resposta do Discord tem teto de 2000; sobra margem para o aviso de corte.
 const MAX_REPLY: usize = 1900;
+/// Conversa com a Sol esquecida aberta fecha sozinha depois disto.
+const SOL_IDLE: Duration = Duration::from_secs(30 * 60);
 
 #[derive(Default)]
 struct State {
@@ -39,6 +46,12 @@ struct State {
     failures: u64,
     last_latency: Option<Duration>,
     cooldowns: HashMap<u64, Instant>,
+    abuse: HashMap<u64, Abuse>,
+    /// Conversas com a Sol abertas, por (operador, canal), com a ultima mensagem.
+    sol_sessions: HashMap<(u64, u64), Instant>,
+    /// Ultimo id_task visto no /slots. O modelo e dividido com o Sollarety:
+    /// se o numero andou, alguem usou, mesmo que nao tenha sido este bot.
+    server_tasks: Option<i64>,
 }
 
 pub struct Llm {
@@ -279,7 +292,7 @@ impl Llm {
 
     /// A mensagem e para a IA: menciona o bot ou responde a uma mensagem dele,
     /// num canal liberado.
-    pub fn wants(&self, msg: &serenity::Message, me: serenity::UserId) -> bool {
+    pub fn wants(&self, ctx: &serenity::Context, msg: &serenity::Message) -> bool {
         if !self.is_enabled() || msg.guild_id.is_none() {
             return false;
         }
@@ -287,11 +300,84 @@ impl Llm {
         if !channels.is_empty() && !channels.contains(&msg.channel_id.get()) {
             return false;
         }
-        msg.mentions_user_id(me)
-            || msg
-                .referenced_message
-                .as_ref()
-                .is_some_and(|r| r.author.id == me)
+        let author = msg.author.id.get();
+        if self.is_operator(author)
+            && (sol_cue(&msg.content).is_some() || self.in_sol(author, msg.channel_id.get()))
+        {
+            return true;
+        }
+        self.addressed(ctx, msg)
+    }
+
+    /// O operador esta conversando com a Sol neste canal: toda mensagem dele
+    /// ali e para ela, mesmo sem mencionar o bot.
+    fn in_sol(&self, author: u64, channel: u64) -> bool {
+        lock(&self.state)
+            .sol_sessions
+            .get(&(author, channel))
+            .is_some_and(|last| last.elapsed() < SOL_IDLE)
+    }
+
+    /// Abre, fecha ou mantem a conversa com a Sol. true se esta mensagem e
+    /// para ela (o "bye sol" ainda e, para ela se despedir).
+    fn sol_turn(&self, author: u64, channel: u64, text: &str) -> bool {
+        let key = (author, channel);
+        let mut state = lock(&self.state);
+        match sol_cue(text) {
+            Some(true) => {
+                state.sol_sessions.insert(key, Instant::now());
+                true
+            }
+            Some(false) => state.sol_sessions.remove(&key).is_some(),
+            None => match state.sol_sessions.get_mut(&key) {
+                Some(last) if last.elapsed() < SOL_IDLE => {
+                    *last = Instant::now();
+                    true
+                }
+                Some(_) => {
+                    state.sol_sessions.remove(&key);
+                    false
+                }
+                None => false,
+            },
+        }
+    }
+
+    /// Persona da Sol, lida a cada vez dos arquivos do config.
+    async fn sol_prompt(&self) -> Option<String> {
+        let mut parts = Vec::new();
+        for path in &self.config.sol_prompt_files {
+            match tokio::fs::read_to_string(path).await {
+                Ok(text) if !text.trim().is_empty() => parts.push(text.trim().to_owned()),
+                Ok(_) => {}
+                Err(cause) => warn!("ia local: persona da Sol em {path}: {cause}"),
+            }
+        }
+        (!parts.is_empty()).then(|| parts.join("\n\n"))
+    }
+
+    /// Falaram com o bot: mencao a ele (ou ao cargo dele, que o Discord
+    /// oferece no autocompletar) ou reply numa mensagem dele.
+    pub fn addressed(&self, ctx: &serenity::Context, msg: &serenity::Message) -> bool {
+        let me = ctx.cache.current_user().id;
+        if msg.mentions_user_id(me) {
+            return true;
+        }
+        let bot_role = msg.guild_id.is_some_and(|guild| {
+            ctx.cache.guild(guild).is_some_and(|g| {
+                msg.mention_roles.iter().any(|id| {
+                    g.roles
+                        .get(id)
+                        .is_some_and(|role| role.tags.bot_id == Some(me))
+                })
+            })
+        });
+        if bot_role {
+            return true;
+        }
+        msg.referenced_message
+            .as_ref()
+            .is_some_and(|r| r.author.id == me)
     }
 
     /// Responde a mensagem. Erros viram uma frase curta no canal e log; nunca
@@ -304,6 +390,20 @@ impl Llm {
     ) {
         let author = msg.author.id.get();
         if !self.is_operator(author) {
+            let text = strip_mention(&msg.content, ctx.cache.current_user().id);
+            let verdict = lock(&self.state)
+                .abuse
+                .entry(author)
+                .or_default()
+                .judge(&text, Instant::now());
+            if verdict == Verdict::Ignore {
+                return;
+            }
+            if let Some(text) = abuse::telling_off(&verdict, is_english(&text)) {
+                send_reply(ctx, msg, text.to_owned()).await;
+                return;
+            }
+
             let mut state = lock(&self.state);
             let wait = Duration::from_secs(self.config.cooldown_seconds);
             if let Some(last) = state.cooldowns.get(&author)
@@ -314,7 +414,26 @@ impl Llm {
             state.cooldowns.insert(author, Instant::now());
         }
 
-        let reply_text = match self.complete(ctx, msg).await {
+        let sol =
+            self.is_operator(author) && self.sol_turn(author, msg.channel_id.get(), &msg.content);
+        let system_prompt = if sol {
+            match self.sol_prompt().await {
+                Some(prompt) => prompt,
+                None => {
+                    send_reply(
+                        ctx,
+                        msg,
+                        "Não achei a persona da Sol nesta máquina.".to_owned(),
+                    )
+                    .await;
+                    return;
+                }
+            }
+        } else {
+            self.config.system_prompt.clone()
+        };
+
+        let reply_text = match self.complete(ctx, msg, &system_prompt).await {
             Ok(text) => text,
             Err(Failure::Loading) => {
                 "Ainda tô carregando o modelo, tenta de novo daqui a pouco.".to_owned()
@@ -325,30 +444,49 @@ impl Llm {
                 "Tô sem cabeça agora, tenta daqui a pouco.".to_owned()
             }
         };
+        // Ordem perigosa de verdade: o modelo so devolve a marca.
+        let reply_text = if reply_text.contains(abuse::MARKER) {
+            if !self.is_operator(author) {
+                lock(&self.state)
+                    .abuse
+                    .entry(author)
+                    .or_default()
+                    .mute(Instant::now());
+            }
+            let english = is_english(&strip_mention(&msg.content, ctx.cache.current_user().id));
+            abuse::telling_off(&Verdict::Order, english)
+                .unwrap_or_default()
+                .to_owned()
+        } else {
+            reply_text
+        };
         let reply_text = match blacklist {
             Some(list) if list.blocks(&reply_text) => "Não vou repetir isso.".to_owned(),
             _ => reply_text,
         };
 
-        // Ninguem e pingado pela IA: nem cargo, nem @everyone, nem usuario.
-        let message = serenity::CreateMessage::new()
-            .content(reply_text)
-            .reference_message(msg)
-            .allowed_mentions(serenity::CreateAllowedMentions::new().replied_user(true));
-        if let Err(cause) = msg.channel_id.send_message(ctx, message).await {
-            warn!("ia local: falha ao responder: {cause}");
-        }
+        send_reply(ctx, msg, reply_text).await;
     }
 
     async fn complete(
         &self,
         ctx: &serenity::Context,
         msg: &serenity::Message,
+        system_prompt: &str,
     ) -> Result<String, Failure> {
         let me = ctx.cache.current_user().id;
         let _typing = msg.channel_id.start_typing(&ctx.http);
 
-        let mut messages = vec![json!({ "role": "system", "content": self.config.system_prompt })];
+        // O idioma e decidido aqui, nao pelo modelo: com o prompt em portugues
+        // ele puxava para o portugues e misturava os dois.
+        let language = if is_english(&msg.content) {
+            "Reply entirely in English, using only English slang (lol, ngl, fr, bruh...). \
+             Do not use any Portuguese words or Brazilian slang like kkk, slk or mano."
+        } else {
+            "Responda inteiramente em português do Brasil, sem misturar palavras em inglês."
+        };
+        let system = format!("{system_prompt}\n\n{language}");
+        let mut messages = vec![json!({ "role": "system", "content": system })];
         // Contexto: as ultimas mensagens do canal antes desta, da mais velha
         // para a mais nova. Nada disso e gravado.
         if self.config.history > 0 {
@@ -413,6 +551,23 @@ impl Llm {
         Ok(truncate(&text, MAX_REPLY))
     }
 
+    /// Maior id_task entre os slots do servidor: cresce a cada pedido, venha
+    /// de qual bot vier.
+    async fn server_tasks(&self) -> Option<i64> {
+        let base = self.config.base_url.trim_end_matches('/');
+        let slots: Vec<Slot> = self
+            .http
+            .get(format!("{base}/slots"))
+            .timeout(PROBE_TIMEOUT)
+            .send()
+            .await
+            .ok()?
+            .json()
+            .await
+            .ok()?;
+        slots.iter().filter_map(|s| s.id_task).max().or(Some(-1))
+    }
+
     /// Desliga sozinha depois de um tempo sem uso, para nao ficar ocupando a
     /// placa se ninguem lembrar do "-ia off".
     pub fn spawn_idle_watch(self: &Arc<Self>) {
@@ -427,6 +582,13 @@ impl Llm {
                 if !llm.is_enabled() {
                     continue;
                 }
+                if let Some(tasks) = llm.server_tasks().await {
+                    let mut state = lock(&llm.state);
+                    if state.server_tasks.is_some_and(|seen| seen != tasks) {
+                        state.last_used = Some(Instant::now());
+                    }
+                    state.server_tasks = Some(tasks);
+                }
                 let last = lock(&llm.state).last_used;
                 if last.is_some_and(|t| t.elapsed() >= idle)
                     && let Err(cause) = llm.turn_off("sem uso").await
@@ -436,6 +598,13 @@ impl Llm {
             }
         });
     }
+}
+
+#[derive(Deserialize)]
+struct Slot {
+    /// None enquanto o slot nao atendeu nenhum pedido.
+    #[serde(default)]
+    id_task: Option<i64>,
 }
 
 enum Failure {
@@ -455,11 +624,68 @@ fn turn(m: &serenity::Message, me: serenity::UserId) -> serde_json::Value {
     }
 }
 
+/// Ninguem e pingado pela IA: nem cargo, nem @everyone, nem usuario.
+async fn send_reply(ctx: &serenity::Context, msg: &serenity::Message, text: String) {
+    let message = serenity::CreateMessage::new()
+        .content(text)
+        .reference_message(msg)
+        .allowed_mentions(serenity::CreateAllowedMentions::new().replied_user(true));
+    if let Err(cause) = msg.channel_id.send_message(ctx, message).await {
+        warn!("ia local: falha ao responder: {cause}");
+    }
+}
+
 fn strip_mention(text: &str, me: serenity::UserId) -> String {
     text.replace(&format!("<@{me}>"), "")
         .replace(&format!("<@!{me}>"), "")
         .trim()
         .to_owned()
+}
+
+/// A mensagem tem ingles (mesmo misturado com portugues)? Conta palavras que
+/// so aparecem num dos dois idiomas.
+fn is_english(text: &str) -> bool {
+    const EN: &[&str] = &[
+        "the", "you", "your", "ur", "u", "is", "are", "was", "were", "what", "whats", "that",
+        "this", "it", "its", "i", "im", "dont", "can", "cant", "how", "why", "who", "where",
+        "when", "with", "and", "of", "to", "my", "me", "do", "does", "did", "have", "has", "be",
+        "lol", "lmao", "bro", "bruh", "ngl", "fr", "yo", "wtf", "idk", "kinda", "gonna", "wanna",
+        "dude", "man", "hey", "hi", "hello", "yes", "yeah", "nah", "no", "not", "really", "insane",
+        "good", "bad", "game", "play",
+    ];
+    const PT: &[&str] = &[
+        "o", "os", "as", "que", "nao", "não", "tu", "voce", "você", "vc", "mano", "eu", "ele",
+        "ela", "de", "do", "da", "pra", "com", "um", "uma", "isso", "ta", "tá", "slk", "hj", "mlk",
+        "tmj", "pdp", "crl", "krl", "porra", "caralho", "foi", "jogo", "ontem", "hoje", "sim",
+        "aqui", "agora", "muito", "tbm", "kkk", "kkkk", "kkkkk",
+    ];
+    let lower = text.to_lowercase().replace(['\'', '’'], "");
+    let words: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+    let en = words.iter().filter(|w| EN.contains(w)).count();
+    let pt = words
+        .iter()
+        .filter(|w| PT.contains(w) || w.starts_with("kkk"))
+        .count();
+    en > 0 && (en >= 2 || pt == 0)
+}
+
+/// "hey sol" abre a conversa com a Sol e "bye sol" fecha, no comeco da
+/// mensagem. Numeros sao pulados: a mencao ao bot vira "<@123>".
+fn sol_cue(text: &str) -> Option<bool> {
+    let lower = text.to_lowercase();
+    let words: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit()))
+        .take(2)
+        .collect();
+    match words.as_slice() {
+        ["hey", "sol"] => Some(true),
+        ["bye", "sol"] => Some(false),
+        _ => None,
+    }
 }
 
 /// Alguns modelos ainda mandam o raciocinio entre <think></think> mesmo com ele
@@ -475,6 +701,28 @@ fn strip_thinking(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decide_o_idioma() {
+        assert!(is_english("yo ccore ngl ur kinda mid fr fr 💀"));
+        assert!(is_english("bro tu viu o jogo ontem? that was insane lmao"));
+        assert!(is_english("what's a deployment?"));
+        assert!(!is_english("slk mano, ganhamo os crl a 4 kkkkk"));
+        assert!(!is_english("tu é mó feio kkkkk"));
+        assert!(!is_english("alguém sabe que horas começa o treino hoje?"));
+    }
+
+    #[test]
+    fn reconhece_hey_sol_e_bye_sol() {
+        assert_eq!(sol_cue("Hey sol"), Some(true));
+        assert_eq!(
+            sol_cue("<@1482173872848507062> hey, sol! tudo bem?"),
+            Some(true)
+        );
+        assert_eq!(sol_cue("BYE SOL"), Some(false));
+        assert_eq!(sol_cue("hey solange"), None);
+        assert_eq!(sol_cue("o sol tá forte hoje"), None);
+    }
 
     #[test]
     fn tira_o_raciocinio_e_a_mencao() {

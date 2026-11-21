@@ -1,3 +1,4 @@
+mod abuse;
 mod audit;
 mod blacklist;
 mod commands;

@@ -8,6 +8,9 @@
 # placa guarda o resto mais um cache dos especialistas mais usados
 # (--moe-cache-mib); a CPU calcula parte das faltas (--moe-cache-cpu-share).
 #
+# Dois slots de 8192 (-c e dividido entre eles): um para o ccore e outro para o
+# Sollarety, que usa o mesmo modelo e cai junto quando ele desliga.
+#
 # Instalar a copia: cp ccore-llm.service ~/.config/systemd/user/ && systemctl --user daemon-reload
 
 [Unit]
@@ -20,7 +23,7 @@ ExecStart=%h/.local/opt/llama.cpp/b12359/llama-b12359/llama-server \
     -m %h/.local/share/ccore-llm/models/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
     --alias ccore --host 127.0.0.1 --port 9931 \
     -ngl all --cpu-moe --moe-cache-mib 7000 --moe-cache-cpu-share 0.5 \
-    -c 8192 -np 1 -fa on --reasoning off
+    -c 16384 -np 2 -fa on --reasoning off
 Nice=5
 # Teto de RAM: se o modelo crescer alem disto, ele cai sozinho e nao o PC.
 MemoryHigh=23G
