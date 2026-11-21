@@ -1,0 +1,194 @@
+{
+  "batches": [
+    {
+      "batchId": "15cfcc5f14802065",
+      "createdUtc": "2026-11-16T01:32:42.917476851Z",
+      "submittedByUserId": 1402344358199689348,
+      "submittedByUsername": "daeese",
+      "entries": [
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 25,
+          "deaths": 42,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 23,
+          "deaths": 42,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 25,
+          "deaths": 43,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 22,
+          "deaths": 40,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DerpySergeant",
+          "kills": 39,
+          "deaths": 50,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "dinistv22",
+          "kills": 46,
+          "deaths": 49,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Flam0ngo101",
+          "kills": 22,
+          "deaths": 34,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "sharles1231",
+          "kills": 24,
+          "deaths": 38,
+          "assists": 5,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "shadowbbonnie12352",
+          "kills": 16,
+          "deaths": 38,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "AkanaOdebrecht",
+          "kills": 39,
+          "deaths": 36,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GabrieelSC",
+          "kills": 26,
+          "deaths": 34,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Miiiguell005",
+          "kills": 20,
+          "deaths": 43,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "1golina47",
+          "kills": 49,
+          "deaths": 46,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "AlpennAethis",
+          "kills": 51,
+          "deaths": 47,
+          "assists": 7,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mr_Redd3",
+          "kills": 27,
+          "deaths": 46,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "HistorusOdebrecht",
+          "kills": 16,
+          "deaths": 22,
+          "assists": 4,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "RafaOdebrecht",
+          "kills": 25,
+          "deaths": 23,
+          "assists": 7,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "vinicinhos123rat",
+          "kills": 11,
+          "deaths": 12,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "NoahOdebrecht",
+          "kills": 7,
+          "deaths": 11,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "artbriel12Dev",
+          "kills": 0,
+          "deaths": 0,
+          "assists": 0,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "FelipeiroOdebrecht 25 42 2",
+        "XequeOdebrecht 23 42 2",
+        "Brunoalexandrino 25 43 6",
+        "luizgugumo431 22 40 1",
+        "DerpySergeant 39 50 13",
+        "dinistv22 46 49 8",
+        "Flam0ngo101 22 34 3",
+        "sharles1231 24 38 5",
+        "shadowbbonnie12352 16 38 2",
+        "AkanaOdebrecht 39 36 6",
+        "GabrieelSC 26 34 8",
+        "Miiiguell005 20 43 8",
+        "1golina47 49 46 3",
+        "AlpennAethis 51 47 7",
+        "Mr_Redd3 27 46 3",
+        "HistorusOdebrecht 16 22 4",
+        "RafaOdebrecht 25 23 7",
+        "vinicinhos123rat 11 12 1",
+        "NoahOdebrecht 7 11 3",
+        "artbriel12Dev 0 0 0"
+      ]
+    }
+  ]
+}
