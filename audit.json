@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdatedUtc": "2026-11-11T21:34:45.596093221Z",
+  "lastUpdatedUtc": "2026-11-16T18:31:55.313353749Z",
   "appliedBatchIds": [
     "a4cb75e51b0c",
     "42b768c8e60a",
@@ -13,278 +13,271 @@
     "15ca6d126580200a",
     "15ca6d906d400051",
     "15ca6ee9f84010ab",
-    "15cfcbd33a42005b"
+    "15cfcbd33a42005b",
+    "15cfcc5f14802065"
   ],
   "entries": [
     {
       "username": "soldadovaguinho2040",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 7,
+      "kills": 359,
+      "deaths": 335,
+      "assists": 106,
+      "battles": 9,
       "rank": "Private"
     },
     {
       "username": "MazziN_0171",
-      "kills": 181,
-      "deaths": 141,
-      "assists": 54,
-      "battles": 25,
-      "rank": "Lance corporal"
+      "kills": 1845,
+      "deaths": 1522,
+      "assists": 646,
+      "battles": 38,
+      "rank": "Corporal"
     },
     {
       "username": "WalkerOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 34,
-      "rank": "Lance Corporal"
+      "kills": 1907,
+      "deaths": 1531,
+      "assists": 564,
+      "battles": 35,
+      "rank": "Merc"
     },
     {
       "username": "lipao000",
-      "kills": 58,
-      "deaths": 108,
-      "assists": 26,
-      "battles": 51,
-      "rank": "Ensign"
+      "kills": 2631,
+      "deaths": 3215,
+      "assists": 1031,
+      "battles": 76,
+      "rank": "Captain"
     },
     {
       "username": "RafaOdebrecht",
-      "kills": 264,
-      "deaths": 168,
-      "assists": 41,
-      "battles": 179,
-      "rank": "Serjeant Major"
+      "kills": 7831,
+      "deaths": 7607,
+      "assists": 2408,
+      "battles": 181,
+      "rank": "Ensign"
     },
     {
       "username": "joao7783271",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 1,
-      "rank": "Fencible"
+      "kills": 58,
+      "deaths": 45,
+      "assists": 13,
+      "battles": 2,
+      "rank": "Recruit"
     },
     {
       "username": "PauloOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 28,
-      "rank": "Serjeant"
+      "kills": 1115,
+      "deaths": 1258,
+      "assists": 403,
+      "battles": 30,
+      "rank": "Merc"
     },
     {
       "username": "FoxOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 23,
+      "kills": 1103,
+      "deaths": 890,
+      "assists": 413,
+      "battles": 24,
       "rank": "Lance Corporal"
     },
     {
       "username": "xtn13",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 154,
-      "rank": "Ensign"
+      "kills": 7224,
+      "deaths": 6789,
+      "assists": 2939,
+      "battles": 155,
+      "rank": "Merc"
     },
     {
       "username": "gabe_28q",
-      "kills": 166,
-      "deaths": 151,
-      "assists": 42,
-      "battles": 26,
+      "kills": 1087,
+      "deaths": 1221,
+      "assists": 433,
+      "battles": 28,
       "rank": "Lance Corporal"
     },
     {
       "username": "gularte101045",
-      "kills": 112,
-      "deaths": 102,
-      "assists": 18,
-      "battles": 19,
+      "kills": 674,
+      "deaths": 638,
+      "assists": 261,
+      "battles": 17,
       "rank": "Kingsman"
     },
     {
       "username": "DecafOdebrecht",
-      "kills": 159,
-      "deaths": 140,
-      "assists": 28,
-      "battles": 184,
-      "rank": "Lieutenant Colonel"
+      "kills": 7158,
+      "deaths": 7010,
+      "assists": 2169,
+      "battles": 187,
+      "rank": "Merc"
     },
     {
       "username": "Brunoalexandrino",
-      "kills": 181,
-      "deaths": 167,
-      "assists": 43,
-      "battles": 64,
+      "kills": 2997,
+      "deaths": 3164,
+      "assists": 700,
+      "battles": 94,
       "rank": "Corporal"
     },
     {
       "username": "AkanaOdebrecht",
-      "kills": 31,
-      "deaths": 54,
-      "assists": 4,
-      "battles": 11,
+      "kills": 1032,
+      "deaths": 1053,
+      "assists": 261,
+      "battles": 25,
       "rank": "Quartermaster-Serjeant"
     },
     {
       "username": "luqinhas_kidbatata",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 90,
+      "kills": 3951,
+      "deaths": 4854,
+      "assists": 921,
+      "battles": 109,
       "rank": "Corporal"
     },
     {
       "username": "mrxavier1313_2",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 8,
-      "rank": "Private"
+      "kills": 368,
+      "deaths": 402,
+      "assists": 101,
+      "battles": 11,
+      "rank": "Kingsman"
     },
     {
       "username": "VMatheusRV",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 2,
-      "rank": "Fencible"
+      "kills": 79,
+      "deaths": 103,
+      "assists": 20,
+      "battles": 3,
+      "rank": "Regular"
     },
     {
       "username": "AlanOdebrecht",
-      "kills": 77,
-      "deaths": 206,
-      "assists": 29,
-      "battles": 115,
-      "rank": "Quartermaster-Serjeant"
+      "kills": 4966,
+      "deaths": 5395,
+      "assists": 2440,
+      "battles": 117,
+      "rank": "Merc"
     },
     {
       "username": "HikaruBRZ",
-      "kills": 42,
-      "deaths": 57,
-      "assists": 29,
-      "battles": 55,
-      "rank": "Serjeant"
+      "kills": 3208,
+      "deaths": 3201,
+      "assists": 1122,
+      "battles": 77,
+      "rank": "Quartermaster-Serjeant"
     },
     {
       "username": "BrithishOdebrecht",
-      "kills": 180,
-      "deaths": 104,
-      "assists": 14,
-      "battles": 152,
-      "rank": "Major"
+      "kills": 8062,
+      "deaths": 7458,
+      "assists": 2583,
+      "battles": 153,
+      "rank": "Merc"
     },
     {
       "username": "supremewar2014",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 10,
-      "rank": "Private"
+      "kills": 383,
+      "deaths": 433,
+      "assists": 129,
+      "battles": 12,
+      "rank": "Kingsman"
     },
     {
       "username": "brasildamassa",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 99,
+      "deaths": 223,
+      "assists": 26,
       "battles": 5,
       "rank": "Private"
     },
     {
       "username": "loi980gt",
-      "kills": 87,
-      "deaths": 53,
-      "assists": 32,
-      "battles": 81,
+      "kills": 5119,
+      "deaths": 3893,
+      "assists": 2282,
+      "battles": 94,
       "rank": "Corporal"
     },
     {
       "username": "FelipeiroOdebrecht",
-      "kills": 67,
-      "deaths": 95,
-      "assists": 11,
-      "battles": 101,
+      "kills": 4650,
+      "deaths": 5316,
+      "assists": 1256,
+      "battles": 130,
       "rank": "Lieutenant"
     },
     {
       "username": "sem_indentidadee",
-      "kills": 35,
-      "deaths": 58,
-      "assists": 12,
-      "battles": 64,
-      "rank": "Corporal"
+      "kills": 2136,
+      "deaths": 3612,
+      "assists": 820,
+      "battles": 82,
+      "rank": "Lance Serjeant"
     },
     {
       "username": "Huewij2010",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 4,
-      "rank": "Regular"
+      "kills": 130,
+      "deaths": 119,
+      "assists": 43,
+      "battles": 3,
+      "rank": "Merc"
     },
     {
       "username": "thales8541",
-      "kills": 60,
-      "deaths": 57,
-      "assists": 26,
-      "battles": 118,
-      "rank": "Lance Serjeant"
+      "kills": 5285,
+      "deaths": 5084,
+      "assists": 2051,
+      "battles": 122,
+      "rank": "Merc"
     },
     {
       "username": "1golina47",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 6,
-      "rank": "Private"
+      "kills": 1157,
+      "deaths": 1311,
+      "assists": 270,
+      "battles": 29,
+      "rank": "Lance Corporal"
     },
     {
       "username": "XequeOdebrecht",
-      "kills": 101,
-      "deaths": 100,
-      "assists": 41,
-      "battles": 16,
-      "rank": "Kingsman"
+      "kills": 1580,
+      "deaths": 1952,
+      "assists": 616,
+      "battles": 48,
+      "rank": "Colour Serjeant"
     },
     {
       "username": "Mi_arroba",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 39,
-      "rank": "Corporal"
-    },
-    {
-      "username": "SRGUAXINIM203",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 2,
-      "rank": "Fencible"
-    },
-    {
-      "username": "JoaoOdebrecht",
-      "kills": 80,
-      "deaths": 110,
-      "assists": 14,
-      "battles": 9,
+      "kills": 1402,
+      "deaths": 1550,
+      "assists": 551,
+      "battles": 41,
       "rank": "Lance Serjeant"
     },
     {
+      "username": "SRGUAXINIM203",
+      "kills": 329,
+      "deaths": 280,
+      "assists": 107,
+      "battles": 8,
+      "rank": "Private"
+    },
+    {
       "username": "SephirothOdebrecht",
-      "kills": 114,
-      "deaths": 125,
-      "assists": 41,
-      "battles": 30,
+      "kills": 1322,
+      "deaths": 1104,
+      "assists": 532,
+      "battles": 31,
       "rank": "Lance Corporal"
     },
     {
       "username": "bendvelvet",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1963,
+      "deaths": 1763,
+      "assists": 619,
       "battles": 48,
       "rank": "Corporal"
     },
@@ -294,622 +287,614 @@
       "deaths": 22,
       "assists": 0,
       "battles": 1,
-      "rank": ""
+      "rank": "Fencible"
     },
     {
       "username": "Alpine_Castle",
-      "kills": 45,
-      "deaths": 53,
-      "assists": 33,
-      "battles": 70,
+      "kills": 2517,
+      "deaths": 2623,
+      "assists": 978,
+      "battles": 73,
       "rank": "Corporal"
     },
     {
       "username": "luizgugumo431",
-      "kills": 57,
-      "deaths": 74,
-      "assists": 12,
-      "battles": 107,
+      "kills": 4200,
+      "deaths": 4270,
+      "assists": 1922,
+      "battles": 123,
       "rank": "Lieutenant"
     },
     {
       "username": "JMGBC_555",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 4521,
+      "deaths": 3459,
+      "assists": 1539,
       "battles": 90,
       "rank": "Corporal"
     },
     {
       "username": "NightOdeBrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1865,
+      "deaths": 1861,
+      "assists": 523,
       "battles": 44,
-      "rank": "Serjeant"
+      "rank": "Merc"
     },
     {
       "username": "marcelollaa",
-      "kills": 152,
-      "deaths": 102,
-      "assists": 26,
-      "battles": 51,
-      "rank": "Corporal"
-    },
-    {
-      "username": "DaneOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 67,
-      "rank": "Corporal"
-    },
-    {
-      "username": "c_affeineaddict",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 43,
-      "rank": "Serjeant"
-    },
-    {
-      "username": "AzureOdebrecht",
-      "kills": 145,
-      "deaths": 112,
-      "assists": 59,
-      "battles": 116,
-      "rank": "Ensign"
-    },
-    {
-      "username": "chebobful",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 121,
-      "rank": "Ensign"
-    },
-    {
-      "username": "TherryOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 87,
-      "rank": "Colour Serjeant"
-    },
-    {
-      "username": "ChunkyKongOc",
-      "kills": 56,
-      "deaths": 39,
-      "assists": 15,
-      "battles": 78,
-      "rank": "Colour Serjeant"
-    },
-    {
-      "username": "GMADNESSG",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 72,
-      "rank": "Corporal"
-    },
-    {
-      "username": "andrezzinho4",
-      "kills": 54,
-      "deaths": 66,
-      "assists": 6,
-      "battles": 80,
-      "rank": "Lance Serjeant"
-    },
-    {
-      "username": "NoahOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 3426,
+      "deaths": 2882,
+      "assists": 1106,
       "battles": 59,
       "rank": "Corporal"
     },
     {
-      "username": "LorecoOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 53,
+      "username": "DaneOdebrecht",
+      "kills": 1923,
+      "deaths": 2225,
+      "assists": 1209,
+      "battles": 69,
       "rank": "Corporal"
     },
     {
+      "username": "c_affeineaddict",
+      "kills": 3358,
+      "deaths": 2995,
+      "assists": 1033,
+      "battles": 55,
+      "rank": "Serjeant"
+    },
+    {
+      "username": "AzureOdebrecht",
+      "kills": 6100,
+      "deaths": 4168,
+      "assists": 2406,
+      "battles": 116,
+      "rank": "Merc"
+    },
+    {
+      "username": "chebobful",
+      "kills": 4165,
+      "deaths": 4892,
+      "assists": 1980,
+      "battles": 122,
+      "rank": "Merc"
+    },
+    {
+      "username": "TherryOdebrecht",
+      "kills": 3201,
+      "deaths": 3470,
+      "assists": 1340,
+      "battles": 100,
+      "rank": "Colour Serjeant"
+    },
+    {
+      "username": "ChunkyKongOc",
+      "kills": 4215,
+      "deaths": 3775,
+      "assists": 2603,
+      "battles": 83,
+      "rank": "Serjeant"
+    },
+    {
+      "username": "GMADNESSG",
+      "kills": 3214,
+      "deaths": 3105,
+      "assists": 1227,
+      "battles": 81,
+      "rank": "Corporal"
+    },
+    {
+      "username": "andrezzinho4",
+      "kills": 2306,
+      "deaths": 2328,
+      "assists": 728,
+      "battles": 77,
+      "rank": "Lance Serjeant"
+    },
+    {
+      "username": "NoahOdebrecht",
+      "kills": 3418,
+      "deaths": 3271,
+      "assists": 1306,
+      "battles": 75,
+      "rank": "Serjeant"
+    },
+    {
+      "username": "LorecoOdebrecht",
+      "kills": 1925,
+      "deaths": 2316,
+      "assists": 679,
+      "battles": 53,
+      "rank": "Serjeant"
+    },
+    {
       "username": "GabrieelSC",
-      "kills": 30,
-      "deaths": 39,
-      "assists": 10,
-      "battles": 50,
+      "kills": 2326,
+      "deaths": 2379,
+      "assists": 992,
+      "battles": 71,
       "rank": "Corporal"
     },
     {
       "username": "santiag0904",
-      "kills": 30,
-      "deaths": 44,
-      "assists": 18,
-      "battles": 48,
+      "kills": 1406,
+      "deaths": 1954,
+      "assists": 976,
+      "battles": 49,
       "rank": "Corporal"
     },
     {
       "username": "realmadridmydestiny1",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 2107,
+      "deaths": 1828,
+      "assists": 803,
       "battles": 44,
-      "rank": "Corporal"
+      "rank": "Merc"
     },
     {
       "username": "dogcaramelomaronba",
-      "kills": 38,
-      "deaths": 57,
-      "assists": 15,
-      "battles": 42,
+      "kills": 1662,
+      "deaths": 2155,
+      "assists": 533,
+      "battles": 48,
       "rank": "Corporal"
     },
     {
       "username": "Evertonwdrd10",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 971,
+      "deaths": 1439,
+      "assists": 497,
       "battles": 40,
       "rank": "Corporal"
     },
     {
       "username": "WesterWaltz",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1671,
+      "deaths": 1642,
+      "assists": 577,
       "battles": 39,
       "rank": "Corporal"
     },
     {
       "username": "Ironkataka",
-      "kills": 92,
-      "deaths": 94,
-      "assists": 12,
-      "battles": 34,
+      "kills": 1163,
+      "deaths": 1325,
+      "assists": 301,
+      "battles": 33,
       "rank": "Lance Corporal"
     },
     {
       "username": "CeboOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1955,
+      "deaths": 1316,
+      "assists": 741,
       "battles": 31,
       "rank": "Lance Corporal"
     },
     {
       "username": "Mr_Redd3",
-      "kills": 33,
-      "deaths": 38,
-      "assists": 6,
-      "battles": 32,
-      "rank": "Lance Corporal"
+      "kills": 1227,
+      "deaths": 1388,
+      "assists": 382,
+      "battles": 44,
+      "rank": "Corporal"
     },
     {
       "username": "PORTA80076",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1157,
+      "deaths": 1275,
+      "assists": 322,
       "battles": 28,
       "rank": "Lance Corporal"
     },
     {
       "username": "MeChameDeIsa",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 26,
-      "rank": "Lance Corporal"
+      "kills": 1325,
+      "deaths": 1343,
+      "assists": 498,
+      "battles": 27,
+      "rank": "Corporal"
     },
     {
       "username": "FatedSoldris",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 944,
+      "deaths": 982,
+      "assists": 410,
       "battles": 22,
       "rank": "Lance Corporal"
     },
     {
       "username": "MaximusOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 21,
-      "rank": "Corporal"
+      "kills": 2027,
+      "deaths": 1618,
+      "assists": 1039,
+      "battles": 35,
+      "rank": "Ensign"
     },
     {
       "username": "jlks1",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 755,
+      "deaths": 572,
+      "assists": 170,
       "battles": 19,
       "rank": "Kingsman"
     },
     {
       "username": "Rare_Nobody07",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 358,
+      "deaths": 564,
+      "assists": 42,
       "battles": 18,
       "rank": "Kingsman"
     },
     {
       "username": "GcOdebrecht",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 16,
-      "rank": "Kingsman"
-    },
-    {
-      "username": "rosbife_fimos",
-      "kills": 46,
-      "deaths": 30,
-      "assists": 11,
+      "kills": 680,
+      "deaths": 837,
+      "assists": 361,
       "battles": 17,
       "rank": "Kingsman"
     },
     {
+      "username": "rosbife_fimos",
+      "kills": 1652,
+      "deaths": 1069,
+      "assists": 491,
+      "battles": 31,
+      "rank": "Lance Corporal"
+    },
+    {
       "username": "Zswagy7",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 1137,
+      "deaths": 670,
+      "assists": 272,
       "battles": 15,
       "rank": "Kingsman"
     },
     {
       "username": "carlosgamer54543",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 14,
-      "rank": "Kingsman"
+      "kills": 1443,
+      "deaths": 964,
+      "assists": 471,
+      "battles": 22,
+      "rank": "Lance Serjeant"
     },
     {
       "username": "sanslolololo6",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 546,
+      "deaths": 483,
+      "assists": 222,
       "battles": 12,
       "rank": "Kingsman"
     },
     {
       "username": "henryqueoi",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 437,
+      "deaths": 552,
+      "assists": 122,
       "battles": 12,
-      "rank": "Private"
+      "rank": "Kingsman"
     },
     {
       "username": "Gented07",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 237,
+      "deaths": 348,
+      "assists": 45,
       "battles": 11,
       "rank": "Kingsman"
     },
     {
       "username": "diogo_eduardo101",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 389,
+      "deaths": 332,
+      "assists": 97,
       "battles": 10,
       "rank": "Kingsman"
     },
     {
       "username": "PrussoVonCaldovarr",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 546,
+      "deaths": 469,
+      "assists": 137,
       "battles": 10,
-      "rank": "Kingsman"
+      "rank": "Merc"
     },
     {
       "username": "Giorgio00894",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 10,
-      "rank": "Private"
+      "kills": 566,
+      "deaths": 501,
+      "assists": 169,
+      "battles": 11,
+      "rank": "Merc"
     },
     {
       "username": "cazumvic123456789",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 228,
+      "deaths": 313,
+      "assists": 70,
       "battles": 9,
       "rank": "Private"
     },
     {
       "username": "Enzojk123q",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 348,
+      "deaths": 384,
+      "assists": 238,
       "battles": 8,
       "rank": "Private"
     },
     {
       "username": "gabr4t3",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 134,
+      "deaths": 286,
+      "assists": 23,
       "battles": 8,
       "rank": "Private"
     },
     {
       "username": "Ctmsousa1023",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 470,
+      "deaths": 334,
+      "assists": 131,
       "battles": 8,
-      "rank": "Private"
+      "rank": "Merc"
     },
     {
       "username": "DvFrnkln",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 280,
+      "deaths": 247,
+      "assists": 438,
       "battles": 7,
       "rank": "Private"
     },
     {
       "username": "Murylom1",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 130,
+      "deaths": 261,
+      "assists": 34,
       "battles": 7,
       "rank": "Private"
     },
     {
       "username": "ppvrto",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 7,
-      "rank": "Private"
+      "kills": 703,
+      "deaths": 648,
+      "assists": 247,
+      "battles": 15,
+      "rank": "Serjeant"
     },
     {
       "username": "big_bullss",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 237,
+      "deaths": 241,
+      "assists": 258,
       "battles": 7,
       "rank": "Private"
     },
     {
       "username": "Spr1ngPG27",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 207,
+      "deaths": 240,
+      "assists": 95,
       "battles": 7,
       "rank": "Private"
     },
     {
       "username": "LO_ItsMeDavid",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 322,
+      "deaths": 272,
+      "assists": 87,
       "battles": 6,
       "rank": "Private"
     },
     {
       "username": "musketsniper1990",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 346,
+      "deaths": 247,
+      "assists": 112,
       "battles": 6,
       "rank": "Private"
     },
     {
       "username": "MrMikeQV2",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 215,
+      "deaths": 211,
+      "assists": 98,
       "battles": 6,
       "rank": "Private"
     },
     {
       "username": "lfviper",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 5,
-      "rank": "Private"
-    },
-    {
-      "username": "Alpenbewohner",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 224,
+      "deaths": 268,
+      "assists": 86,
       "battles": 5,
       "rank": "Private"
     },
     {
       "username": "yvrokumo",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 101,
+      "deaths": 104,
+      "assists": 28,
       "battles": 5,
       "rank": "Private"
     },
     {
       "username": "Stathie",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 326,
+      "deaths": 272,
+      "assists": 122,
+      "battles": 6,
+      "rank": "Merc"
+    },
+    {
+      "username": "joao_gabriel16200",
+      "kills": 122,
+      "deaths": 167,
+      "assists": 25,
       "battles": 5,
       "rank": "Private"
     },
     {
-      "username": "joao_gabriel16200",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 5,
-      "rank": "Recruit"
-    },
-    {
       "username": "St_rrplayer7",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 148,
+      "deaths": 159,
+      "assists": 20,
       "battles": 4,
       "rank": "Regular"
     },
     {
       "username": "iacute_ofc",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 174,
+      "deaths": 166,
+      "assists": 77,
       "battles": 4,
       "rank": "Regular"
     },
     {
       "username": "TheSunTheM",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 136,
+      "deaths": 120,
+      "assists": 40,
       "battles": 4,
       "rank": "Regular"
     },
     {
       "username": "Alanbarrab",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 133,
+      "deaths": 165,
+      "assists": 41,
       "battles": 4,
-      "rank": "Regular"
+      "rank": "Private"
     },
     {
       "username": "tatayner",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
-      "battles": 3,
+      "kills": 222,
+      "deaths": 220,
+      "assists": 60,
+      "battles": 5,
       "rank": "Lance Corporal"
     },
     {
       "username": "VXNY1605",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 139,
+      "deaths": 122,
+      "assists": 41,
       "battles": 3,
       "rank": "Regular"
     },
     {
       "username": "Pouzsss",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 81,
+      "deaths": 92,
+      "assists": 29,
       "battles": 3,
       "rank": "Regular"
     },
     {
       "username": "elionaimikebr",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 112,
+      "deaths": 93,
+      "assists": 39,
       "battles": 3,
-      "rank": "Regular"
+      "rank": "Recruit"
     },
     {
       "username": "ygorbonitao321",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 27,
+      "deaths": 36,
+      "assists": 8,
       "battles": 2,
       "rank": "Fencible"
     },
     {
       "username": "Du_Sonngermany",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 46,
+      "deaths": 85,
+      "assists": 35,
       "battles": 2,
       "rank": "Fencible"
     },
     {
       "username": "Georgos7078",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 84,
+      "deaths": 102,
+      "assists": 35,
       "battles": 2,
-      "rank": "Fencible"
+      "rank": "Merc"
     },
     {
       "username": "Darjeelling",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 72,
+      "deaths": 73,
+      "assists": 16,
       "battles": 2,
       "rank": "Fencible"
     },
     {
       "username": "rogla12_43",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 13,
+      "deaths": 49,
+      "assists": 2,
       "battles": 2,
-      "rank": "Fencible"
+      "rank": "Merc"
     },
     {
       "username": "gabpercruz",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 21,
+      "deaths": 42,
+      "assists": 9,
       "battles": 1,
       "rank": "Fencible"
     },
     {
       "username": "bai114514",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 59,
+      "deaths": 43,
+      "assists": 29,
       "battles": 1,
       "rank": "Fencible"
     },
     {
       "username": "SouIDevv",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 19,
+      "deaths": 27,
+      "assists": 14,
       "battles": 1,
       "rank": "Fencible"
     },
     {
       "username": "sophi5389",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 8,
+      "deaths": 19,
+      "assists": 1,
       "battles": 1,
-      "rank": "Fencible"
+      "rank": "Recruit"
     },
     {
       "username": "Kariasu1",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 60,
+      "deaths": 46,
+      "assists": 19,
       "battles": 1,
       "rank": "Fencible"
     },
     {
       "username": "bilumaluco",
-      "kills": 0,
-      "deaths": 0,
-      "assists": 0,
+      "kills": 12,
+      "deaths": 43,
+      "assists": 9,
       "battles": 1,
-      "rank": "Fencible"
+      "rank": "Recruit"
     },
     {
       "username": "DerpySergeant",
-      "kills": 409,
-      "deaths": 491,
-      "assists": 117,
-      "battles": 9,
+      "kills": 634,
+      "deaths": 731,
+      "assists": 170,
+      "battles": 14,
       "rank": "Kingsman"
     },
     {
@@ -954,10 +939,10 @@
     },
     {
       "username": "AlpennAethis",
-      "kills": 73,
-      "deaths": 83,
-      "assists": 30,
-      "battles": 2,
+      "kills": 175,
+      "deaths": 177,
+      "assists": 44,
+      "battles": 4,
       "rank": "Private"
     },
     {
@@ -978,11 +963,11 @@
     },
     {
       "username": "sharles1231",
-      "kills": 520,
-      "deaths": 848,
-      "assists": 201,
-      "battles": 17,
-      "rank": "Regular"
+      "kills": 609,
+      "deaths": 972,
+      "assists": 216,
+      "battles": 20,
+      "rank": "Kingsman"
     },
     {
       "username": "VinxAce",
@@ -1026,11 +1011,11 @@
     },
     {
       "username": "dinistv22",
-      "kills": 477,
-      "deaths": 649,
-      "assists": 278,
-      "battles": 14,
-      "rank": "Regular"
+      "kills": 619,
+      "deaths": 804,
+      "assists": 307,
+      "battles": 17,
+      "rank": "Kingsman"
     },
     {
       "username": "UnequaledXwolf",
@@ -1042,19 +1027,19 @@
     },
     {
       "username": "Miiiguell005",
-      "kills": 221,
-      "deaths": 413,
-      "assists": 122,
-      "battles": 10,
-      "rank": "Regular"
+      "kills": 261,
+      "deaths": 499,
+      "assists": 138,
+      "battles": 12,
+      "rank": "Kingsman"
     },
     {
       "username": "shadowbbonnie12352",
-      "kills": 97,
-      "deaths": 156,
-      "assists": 37,
-      "battles": 6,
-      "rank": "Regular"
+      "kills": 129,
+      "deaths": 232,
+      "assists": 41,
+      "battles": 8,
+      "rank": "Private"
     },
     {
       "username": "Douglas2011p",
@@ -1066,11 +1051,11 @@
     },
     {
       "username": "vinicinhos123rat",
-      "kills": 66,
-      "deaths": 86,
-      "assists": 19,
-      "battles": 3,
-      "rank": "Fencible"
+      "kills": 88,
+      "deaths": 110,
+      "assists": 21,
+      "battles": 5,
+      "rank": "Regular"
     },
     {
       "username": "Carlitoooz_bloxfruits",
@@ -1098,11 +1083,11 @@
     },
     {
       "username": "Carlitoooz_bloxfruts",
-      "kills": 264,
-      "deaths": 272,
-      "assists": 84,
-      "battles": 6,
-      "rank": "Fencible"
+      "kills": 344,
+      "deaths": 357,
+      "assists": 98,
+      "battles": 8,
+      "rank": "Private"
     },
     {
       "username": "guimasbah",
@@ -1129,14 +1114,6 @@
       "rank": "Fencible"
     },
     {
-      "username": "stomachpuddle",
-      "kills": 683,
-      "deaths": 854,
-      "assists": 204,
-      "battles": 19,
-      "rank": "Recruit"
-    },
-    {
       "username": "meetmebythariver",
       "kills": 16,
       "deaths": 27,
@@ -1150,7 +1127,7 @@
       "deaths": 60,
       "assists": 20,
       "battles": 1,
-      "rank": "Recruit"
+      "rank": "Merc"
     },
     {
       "username": "da_hellfire",
@@ -1158,15 +1135,15 @@
       "deaths": 45,
       "assists": 20,
       "battles": 1,
-      "rank": "Recruit"
+      "rank": "Fencible"
     },
     {
       "username": "NorphNorton1987",
-      "kills": 32,
-      "deaths": 39,
-      "assists": 10,
-      "battles": 1,
-      "rank": "Recruit"
+      "kills": 42,
+      "deaths": 55,
+      "assists": 15,
+      "battles": 2,
+      "rank": "Fencible"
     },
     {
       "username": "cbm1924",
@@ -1178,11 +1155,11 @@
     },
     {
       "username": "Davitomazcinco",
-      "kills": 18,
-      "deaths": 44,
-      "assists": 16,
-      "battles": 1,
-      "rank": "Recruit"
+      "kills": 31,
+      "deaths": 61,
+      "assists": 23,
+      "battles": 2,
+      "rank": "Fencible"
     },
     {
       "username": "abe13324",
@@ -1274,10 +1251,10 @@
     },
     {
       "username": "NicolaAlberconi",
-      "kills": 257,
-      "deaths": 224,
-      "assists": 91,
-      "battles": 6,
+      "kills": 307,
+      "deaths": 258,
+      "assists": 96,
+      "battles": 7,
       "rank": "Merc"
     },
     {
@@ -1323,8 +1300,80 @@
     {
       "username": "Underdog2_0",
       "kills": 35,
-      "deaths": 51,
+      "deaths": 0,
       "assists": 10,
+      "battles": 1,
+      "rank": "Merc"
+    },
+    {
+      "username": "srbatata285",
+      "kills": 31,
+      "deaths": 37,
+      "assists": 7,
+      "battles": 1,
+      "rank": "Fencible"
+    },
+    {
+      "username": "HistorusOdebrecht",
+      "kills": 142,
+      "deaths": 22,
+      "assists": 35,
+      "battles": 4,
+      "rank": "Merc"
+    },
+    {
+      "username": "Flam0ngo101",
+      "kills": 68,
+      "deaths": 100,
+      "assists": 15,
+      "battles": 3,
+      "rank": "Fencible"
+    },
+    {
+      "username": "artbriel12Dev",
+      "kills": 131,
+      "deaths": 192,
+      "assists": 33,
+      "battles": 7,
+      "rank": "Private"
+    },
+    {
+      "username": "IIlIlIlllIIlIIlIll",
+      "kills": 93,
+      "deaths": 0,
+      "assists": 21,
+      "battles": 3,
+      "rank": "Merc"
+    },
+    {
+      "username": "BRLENDAa",
+      "kills": 116,
+      "deaths": 111,
+      "assists": 37,
+      "battles": 2,
+      "rank": "Fencible"
+    },
+    {
+      "username": "Pedrinho_BR90",
+      "kills": 67,
+      "deaths": 0,
+      "assists": 40,
+      "battles": 3,
+      "rank": ""
+    },
+    {
+      "username": "YukiElspe",
+      "kills": 63,
+      "deaths": 0,
+      "assists": 25,
+      "battles": 1,
+      "rank": "Merc"
+    },
+    {
+      "username": "marsh_eryk",
+      "kills": 46,
+      "deaths": 0,
+      "assists": 19,
       "battles": 1,
       "rank": "Merc"
     }
