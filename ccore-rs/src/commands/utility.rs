@@ -3,7 +3,7 @@ use poise::{CreateReply, serenity_prelude as serenity};
 use crate::{Context, Error, random, staff, status};
 
 /// Alinha "rotulo  valor" num bloco monoespacado.
-fn block(rows: &[(&str, String)]) -> String {
+pub fn block(rows: &[(&str, String)]) -> String {
     if rows.is_empty() {
         return "```\n(indisponível)\n```".to_owned();
     }

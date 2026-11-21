@@ -76,5 +76,18 @@
         "sheetSyncMinutes": 5,
         "csvHeaderRows": 1,
         "csvColumns": { "username": 0, "rank": 1, "battles": 2, "kills": -1, "deaths": -1, "assists": -1 }
+        },
+
+    // IA local (llama.cpp, ccore-llm.service na raiz do repositorio). Sempre
+    // comeca desligada; liga com "-ia on" (so operatorUserIds).
+    // channelIds vazio = qualquer canal. idleOffMinutes 0 = nunca desliga sozinha.
+    // Opcionais: baseUrl, service, systemPrompt.
+    "llm": {
+        "operatorUserIds": [],
+        "channelIds": [],
+        "cooldownSeconds": 20,
+        "idleOffMinutes": 30,
+        "maxTokens": 400,
+        "history": 8
     }
 }

@@ -738,7 +738,11 @@ pub async fn status(d: &Dashboard, req: &mut Req) -> Reply {
     if !wants_host {
         return ok(
             200,
-            json!({ "bot": d.public_status().await, "roster": roster_totals(d).await }),
+            json!({
+                "bot": d.public_status().await,
+                "roster": roster_totals(d).await,
+                "llm": llm_public(d).await,
+            }),
         );
     }
 
@@ -753,6 +757,14 @@ pub async fn status(d: &Dashboard, req: &mut Req) -> Reply {
             "logs": log_counts(d),
         }),
     )
+}
+
+/// Se a IA local esta ligada e pronta. Sem modelo, memoria nem quem ligou:
+/// a pagina de status e publica.
+async fn llm_public(d: &Dashboard) -> Option<Value> {
+    let llm = d.bot.llm.as_ref()?;
+    let health = llm.health().await;
+    Some(json!({ "enabled": health.enabled, "ready": health.enabled && health.server_ready }))
 }
 
 /// So os totais do efetivo, sem nomes: a pagina de status e publica.

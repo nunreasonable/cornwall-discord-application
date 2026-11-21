@@ -34,5 +34,16 @@ pub async fn handle(
         blacklist.handle(ctx, msg).await;
     }
 
+    if let Some(llm) = &data.llm {
+        #[cfg(ccore_local)]
+        if crate::local::on_message(ctx, msg, llm).await {
+            return Ok(());
+        }
+        let me = ctx.cache.current_user().id;
+        if llm.wants(msg, me) {
+            llm.answer(ctx, msg, data.blacklist.as_ref()).await;
+        }
+    }
+
     Ok(())
 }

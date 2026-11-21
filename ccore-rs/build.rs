@@ -26,6 +26,12 @@ fn main() {
     // O script de espera do systemd faz parte do bot que roda.
     let shell = Path::new("../wait-for-discord.sh");
     println!("cargo:rerun-if-changed=src");
+
+    // Extensoes desta maquina: so entram quando o arquivo existe (fora do git).
+    println!("cargo::rustc-check-cfg=cfg(ccore_local)");
+    if Path::new("src/local.rs").exists() {
+        println!("cargo:rustc-cfg=ccore_local");
+    }
     println!("cargo:rerun-if-changed={}", shell.display());
 
     let rust = lines_in(Path::new("src"), "rs");

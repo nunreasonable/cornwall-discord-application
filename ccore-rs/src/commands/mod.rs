@@ -3,6 +3,7 @@ mod checkspreadsheetinfo;
 mod dashboardlink;
 mod deployment;
 mod enlistuser;
+mod llm;
 mod logs;
 pub mod massdm;
 mod messages;
@@ -28,6 +29,8 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
         utility::osinfo(),
         utility::vsfdliliane(),
         dashboardlink::dashboardlink(),
+        llm::ia(),
+        llm::llm_status(),
     ];
     commands.extend(audit::all());
     commands

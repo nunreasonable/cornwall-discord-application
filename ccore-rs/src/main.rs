@@ -9,6 +9,9 @@ mod embeds;
 mod enlistment;
 mod events;
 mod http;
+mod llm;
+#[cfg(ccore_local)]
+mod local;
 mod log_buffer;
 mod paginate;
 mod random;
@@ -45,6 +48,8 @@ pub struct Data {
     pub github_token: Arc<tokio::sync::Mutex<Option<String>>>,
     pub messages: Option<Arc<repost::MessageStore>>,
     pub blacklist: Option<Arc<blacklist::Blacklist>>,
+    /// IA local; None sem a secao `llm` no config.
+    pub llm: Option<Arc<llm::Llm>>,
     /// None quando o dashboard nao subiu: o bot segue sem ele.
     pub dashboard: Option<Arc<dashboard::Dashboard>>,
 }
@@ -129,7 +134,17 @@ async fn main() -> Result<(), Error> {
                     warn!("nao limpei os comandos globais: {cause}");
                 }
 
-                terminal::start(ctx.http.clone());
+                // IA local: sempre comeca desligada.
+                let llm = data_config.llm.clone().map(llm::Llm::new);
+                if let Some(llm) = &llm {
+                    #[cfg(ccore_local)]
+                    local::init().await;
+                    llm.resume_if_running().await;
+                    llm.spawn_idle_watch();
+                    info!("ia local configurada");
+                }
+
+                terminal::start(ctx.http.clone(), llm.clone());
 
                 let dm_limiter = Arc::new(dm::DmLimiter::default());
 
@@ -168,6 +183,7 @@ async fn main() -> Result<(), Error> {
                     dm_limiter: dm_limiter.clone(),
                     audit: audit.clone(),
                     github_token: github_token.clone(),
+                    llm: llm.clone(),
                 })
                 .await
                 {
@@ -191,6 +207,7 @@ async fn main() -> Result<(), Error> {
                     github_token,
                     messages,
                     blacklist,
+                    llm,
                     dashboard,
                 })
             })

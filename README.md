@@ -164,6 +164,25 @@ uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
   - Função: responde só para quem pediu, com o código que entra em
     [dashboard.daeese.me](https://dashboard.daeese.me/)
 
+### IA local
+
+O ccore pode responder como IA quem menciona ele (ou responde a uma mensagem dele), usando um
+modelo que roda nesta máquina: llama.cpp v1.0.0 com o Qwen3.6-35B-A3B (UD-IQ4_XS, 17,7 GB). É a
+mesma ideia do [Strata](https://github.com/Niko1221/Strata): os especialistas do MoE ficam na RAM
+(`--cpu-moe`) e a placa guarda o resto mais um cache dos especialistas mais usados
+(`--moe-cache-mib`). A unit é a `ccore-llm.service`, na raiz do repositório.
+
+- **Desligada por padrão, sempre.** A unit não tem `[Install]` (não dá para habilitar no boot) e
+  o bot sobe com a IA desligada. Desligada, o modelo não ocupa placa nem RAM
+- **`-ia on` / `-ia off`** - liga e desliga (só `llm.operatorUserIds`). Ligar sobe a unit;
+  desligar derruba. Desliga sozinha depois de `llm.idleOffMinutes` sem uso (padrão 30)
+- **`/llm-status`** - staff: se está ligada, se o serviço e o servidor respondem, o modelo,
+  RAM do modelo e VRAM da placa, quem ligou, respostas, falhas e a última latência
+- A resposta passa pela blacklist e não menciona ninguém (nem cargos nem `@everyone`); cada
+  pessoa espera `llm.cooldownSeconds` entre perguntas; as últimas `llm.history` mensagens do
+  canal vão como contexto e nada é gravado
+- O status público (`/api/status` e ccore.daeese.me/status) mostra só se a IA está ligada
+
 ### Comandos de Administração
 - **`-osinfo`** - Mostra informações do sistema, do processo, das linguagens do bot e da conexão
   com o Discord

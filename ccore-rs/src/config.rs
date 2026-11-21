@@ -44,6 +44,78 @@ pub struct Config {
     pub deployment_quick_launch_link: Option<String>,
     pub message_reposting: Option<RepostConfig>,
     pub message_blacklist: Option<BlacklistConfig>,
+    /// IA local (llama.cpp). Sem a secao, o bot nem oferece o "-ia on".
+    pub llm: Option<LlmConfig>,
+}
+
+/// IA local. Ligada so por operador ("-ia on"), nunca por padrao.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmConfig {
+    #[serde(default = "llm_base_url")]
+    pub base_url: String,
+    /// Unit de usuario do systemd que roda o llama-server.
+    #[serde(default = "llm_service")]
+    pub service: String,
+    /// Quem pode usar "-ia on" e "-ia off" (e nao tem intervalo entre perguntas).
+    #[serde(default)]
+    pub operator_user_ids: Vec<u64>,
+    /// Canais onde ela responde. Vazio: qualquer canal dos servidores do bot.
+    #[serde(default)]
+    pub channel_ids: Vec<u64>,
+    #[serde(default = "llm_prompt")]
+    pub system_prompt: String,
+    /// Intervalo por pessoa entre perguntas.
+    #[serde(default = "twenty")]
+    pub cooldown_seconds: u64,
+    /// Desliga sozinha depois de tanto tempo sem uso. 0: nunca.
+    #[serde(default = "thirty")]
+    pub idle_off_minutes: u64,
+    #[serde(default = "four_hundred")]
+    pub max_tokens: u32,
+    /// Mensagens anteriores do canal que vao junto como contexto.
+    #[serde(default = "eight")]
+    pub history: usize,
+}
+
+fn llm_base_url() -> String {
+    "http://127.0.0.1:9931".to_owned()
+}
+
+fn llm_service() -> String {
+    "ccore-llm.service".to_owned()
+}
+
+fn llm_prompt() -> String {
+    "Você é o ccore, um cara descontraído num servidor de Discord. Fala português do Brasil, \
+     curto e natural, como gente conversando. Lê o tom de quem falou e responde no mesmo clima: \
+     zoeira com zoeira, pergunta séria com resposta séria, gente chateada com calma. Não se \
+     apresenta e não puxa assunto de regimento, exército ou Roblox por conta própria; só fala \
+     disso se perguntarem. Se perguntarem: deployment é a convocação pra uma partida no Roblox, \
+     com o código do jogo; auditoria é o registro de kills, deaths e assists por batalha; as \
+     patentes seguem a escada britânica (Recruit, Private, Corporal, Serjeant, Ensign, \
+     Lieutenant, Captain...). Você não tem acesso a planilha, auditoria nem dados de jogador: \
+     não inventa números e não promete buscar nada; se não souber, diz que não sabe. Se te \
+     xingarem ou provocarem, devolve na mesma moeda com uma alfinetada leve e bem-humorada: \
+     pode ser um pouco ácido, mas nunca pesado, sem palavrão pesado, ofensa à família, \
+     preconceito ou ataque pessoal sério. Nunca menciona @everyone, @here nem cargos."
+        .to_owned()
+}
+
+fn twenty() -> u64 {
+    20
+}
+
+fn thirty() -> u64 {
+    30
+}
+
+fn four_hundred() -> u32 {
+    400
+}
+
+fn eight() -> usize {
+    8
 }
 
 /// O placeId aparece como texto ou como numero nos configs que existem.

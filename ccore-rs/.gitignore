@@ -10,3 +10,7 @@
 # Estado do dashboard: segredo do tunnel, sessoes liberadas e historico.
 /config/dashboard_*.json
 !/config/dashboard_*.example.json
+
+# Extensoes e estado desta maquina.
+/src/local.rs
+/config/local_*

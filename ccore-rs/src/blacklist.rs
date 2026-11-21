@@ -164,6 +164,11 @@ impl Blacklist {
         first_hit(&self.primary, &text).map(|term| (term, false))
     }
 
+    /// O texto cai na blacklist? Usado para conferir o que a IA vai mandar.
+    pub fn blocks(&self, text: &str) -> bool {
+        self.find(text).is_some()
+    }
+
     pub async fn handle(self: &Arc<Self>, ctx: &serenity::Context, msg: &serenity::Message) {
         if msg.content.trim().is_empty() {
             return;

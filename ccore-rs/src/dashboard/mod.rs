@@ -57,6 +57,7 @@ pub struct Deps {
     pub dm_limiter: Arc<DmLimiter>,
     pub audit: Arc<AuditStore>,
     pub github_token: Arc<tokio::sync::Mutex<Option<String>>>,
+    pub llm: Option<Arc<crate::llm::Llm>>,
 }
 
 pub struct Dashboard {

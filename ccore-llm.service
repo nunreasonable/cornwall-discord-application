@@ -1,0 +1,29 @@
+# Modelo local do ccore (llama.cpp). Sem [Install] de proposito: nao da para
+# habilitar no boot. So sobe quando um operador manda "-ia on" no Discord (o
+# bot roda "systemctl --user start ccore-llm") ou na mao:
+#   systemctl --user start ccore-llm
+# e para com "-ia off", por inatividade ou "systemctl --user stop ccore-llm".
+#
+# Mesma ideia do Strata: o MoE fica com os especialistas na RAM (--cpu-moe) e a
+# placa guarda o resto mais um cache dos especialistas mais usados
+# (--moe-cache-mib); a CPU calcula parte das faltas (--moe-cache-cpu-share).
+#
+# Instalar a copia: cp ccore-llm.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+
+[Unit]
+Description=ccore - modelo local (llama.cpp), liga so quando pedirem
+
+[Service]
+Type=simple
+Environment=LD_LIBRARY_PATH=%h/.local/opt/llama.cpp/b12359/llama-b12359:%h/.local/opt/llama.cpp/b12359/cudart-llama-b12359-bin-ubuntu-cuda-13.5-x64
+ExecStart=%h/.local/opt/llama.cpp/b12359/llama-b12359/llama-server \
+    -m %h/.local/share/ccore-llm/models/Qwen3.6-35B-A3B-UD-IQ4_XS.gguf \
+    --alias ccore --host 127.0.0.1 --port 9931 \
+    -ngl all --cpu-moe --moe-cache-mib 7000 --moe-cache-cpu-share 0.5 \
+    -c 8192 -np 1 -fa on --reasoning off
+Nice=5
+# Teto de RAM: se o modelo crescer alem disto, ele cai sozinho e nao o PC.
+MemoryHigh=23G
+MemoryMax=25G
+Restart=no
+TimeoutStopSec=20
