@@ -71,8 +71,11 @@ etapas: primeiro as auditorias entram numa fila (`/audit-add`), depois são publ
 uma vez (`/audit-push`). Todos exigem o cargo de permissão do staff.
 
 - **`/audit-add`** - Registra a auditoria de uma batalha
-  - Abre uma janela para colar o bloco, uma linha por jogador: `nome k d a n`
-  - O campo `n` é lido e descartado (é só formatação)
+  - Abre uma janela para colar o bloco no formato `nome k d a n`
+  - O `n` não tem valor: é a quebra de linha que o jogo escreve. Ele fecha cada jogador e
+    começa o próximo, então o bloco pode vir todo numa linha só (`ana 1 2 3 n bia 4 5 6 n`) ou
+    um jogador por linha. Quebra de linha de verdade depois de `k d a` também fecha o jogador,
+    com aviso de que faltou o `n`; um número no lugar do `n` é recusado
   - Cada execução vale **+1 batalha** para cada jogador listado
   - Função: valida linha a linha, mostra prévia e guarda na fila (não publica)
 

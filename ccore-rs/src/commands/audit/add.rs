@@ -32,10 +32,10 @@ pub async fn audit_add(ctx: Context<'_>) -> Result<(), Error> {
         .field(
             serenity::CreateInputText::new(
                 serenity::InputTextStyle::Paragraph,
-                "Uma linha por jogador: nome k d a n",
+                "nome k d a n (o n quebra a linha)",
                 "",
             )
-            .placeholder("RafaOdebrecht 12 3 5 0")
+            .placeholder("RafaOdebrecht 12 3 5 n Ana 1 2 3 n")
             .min_length(1)
             .max_length(4000),
         );
@@ -55,7 +55,7 @@ pub async fn audit_add(ctx: Context<'_>) -> Result<(), Error> {
     if parsed.entries.is_empty() {
         let mut empty = Draft::new(
             "Nada foi registrado",
-            "Nenhuma linha válida foi encontrada. O formato esperado é `nome k d a n`, uma linha por jogador.",
+            "Nenhum jogador válido foi encontrado. O formato é `nome k d a n`: o `n` fecha cada jogador, então dá para colar um por linha ou tudo numa linha só.",
             ERROR_COLOUR,
         );
         if !parsed.failures.is_empty() {
