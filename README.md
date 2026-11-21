@@ -308,8 +308,9 @@ Discord da BA, e o painel mostra a patente ao lado do nome ("Captain - Superior"
 **Nível 1, NCO** (Serjeant, Colour Serjeant e Quarter-Master Serjeant) faz a administração do
 dia a dia: mandar mensagem por canal, consultar o efetivo, definir patente, corrigir números de
 um jogador e anunciar deployment. Também dá e tira cargo, com a mesma regra de todos os níveis:
-só cargos abaixo da própria patente, e só em quem tem patente menor. Cargo que dá acesso ao
-painel (patentes de Serjeant para cima e o 12º Staff) nunca passa pelo painel.
+só cargos abaixo da própria patente, e só em quem tem patente menor. O 12º Staff, que é o que
+abre o painel, nunca passa por ele. O Discord ainda limita o bot aos cargos abaixo do cargo dele
+(cornwallCORE); o que estiver acima aparece bloqueado no menu.
 
 **Nível 2, Oficial** (Serjeant Major, Ensign, Colour Ensign e Lieutenant: oficiais
 comissionados) soma timeout, alistar via ROBLOX, DM em massa (até 500), publicar a auditoria,

@@ -330,6 +330,7 @@ pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
                 Err(cause) => return failed(route, cause, fail),
             }
         };
+        let bot_top = bot_top_position(ctx, guild, &all).await;
         let mut sorted: Vec<_> = all
             .values()
             .filter(|r| r.id.get() != guild.get() && !r.managed)
@@ -354,6 +355,11 @@ pub async fn guild_options(d: &Dashboard, req: &mut Req) -> Reply {
                 &core,
                 &d.bot.config,
             )
+            .or_else(|| {
+                bot_top
+                    .filter(|&top| r.position >= top)
+                    .map(|_| "Acima do cargo do bot no servidor.")
+            })
             .or_else(|| {
                 limit
                     .filter(|&limit| r.position >= limit)
@@ -385,6 +391,23 @@ fn separator_title(name: &str) -> Option<String> {
 fn is_honours(category: &str) -> bool {
     let lower = category.to_lowercase();
     lower.contains("honour") || lower.contains("award")
+}
+
+/// Posicao do cargo mais alto do bot: o Discord so deixa ele dar ou tirar
+/// cargos abaixo disso.
+async fn bot_top_position(
+    ctx: &serenity::Context,
+    guild: serenity::GuildId,
+    roles: &HashMap<serenity::RoleId, serenity::Role>,
+) -> Option<u16> {
+    let me = ctx.cache.current_user().id;
+    let member = guild.member(ctx, me).await.ok()?;
+    member
+        .roles
+        .iter()
+        .filter_map(|id| roles.get(id))
+        .map(|role| role.position)
+        .max()
 }
 
 /// Posicao da patente mais alta da pessoa (os cargos dos niveis 1 a 3). None
@@ -421,11 +444,9 @@ pub fn role_refusal(
     if !grantable.contains(&role_id) {
         return Some("Este cargo não está em grantableRoleIds.");
     }
-    if core.level1_role_ids.contains(&role_id)
-        || core.level2_role_ids.contains(&role_id)
-        || core.level3_role_ids.contains(&role_id)
-        || core.staff_role_ids.contains(&role_id)
-    {
+    // As patentes passam: quem pede so mexe abaixo da propria (ver
+    // rank_position). O que abre o painel de verdade e o 12 Staff.
+    if core.staff_role_ids.contains(&role_id) {
         return Some("Este cargo dá acesso ao próprio painel.");
     }
     if bot.enlist_permission_role_id == Some(role_id) {
@@ -489,7 +510,13 @@ pub async fn change_role(d: &Dashboard, req: &mut Req, add: bool) -> Reply {
     // A hierarquia da patente: ninguem mexe em cargo da propria patente para
     // cima, nem em quem tem patente igual ou maior. O Developer nao tem patente
     // no painel e fica so com as outras travas.
-    let hierarchy = if session.level() >= 4 {
+    let above_bot = bot_top_position(ctx, guild, &roles)
+        .await
+        .filter(|&top| role.position >= top)
+        .map(|_| "Este cargo está acima do cargo do bot no servidor.");
+    let hierarchy = if above_bot.is_some() {
+        above_bot
+    } else if session.level() >= 4 {
         None
     } else {
         let limit = match guild
@@ -1135,7 +1162,7 @@ mod tests {
     fn cargo_so_passa_se_listado_e_sem_papel_de_portao() {
         let grantable: HashSet<u64> = [1, 2, 3, 4, 5, 6].into();
         let core: CoreConfig =
-            serde_json::from_str(r#"{"level1RoleIds":[2],"level3RoleIds":[6]}"#).unwrap();
+            serde_json::from_str(r#"{"staffRoleIds":[2],"level3RoleIds":[6]}"#).unwrap();
         let bot = bot(
             r#"{"enlistPermissionRoleId":3,"deploymentAllowedRoleIds":[4],
                 "robloxEnlistBlockedRoleIds":[5]}"#,
@@ -1152,10 +1179,8 @@ mod tests {
             refuse(2, none),
             Some("Este cargo dá acesso ao próprio painel.")
         );
-        assert_eq!(
-            refuse(6, none),
-            Some("Este cargo dá acesso ao próprio painel.")
-        );
+        // Patente passa; o limite dela e a hierarquia de quem pede.
+        assert_eq!(refuse(6, none), None);
         assert_eq!(
             refuse(3, none),
             Some("Este cargo é o portão dos comandos de staff.")
