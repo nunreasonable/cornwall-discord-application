@@ -46,6 +46,8 @@ struct State {
     failures: u64,
     last_latency: Option<Duration>,
     cooldowns: HashMap<u64, Instant>,
+    /// Intervalo dos comandos de IA (/resumo...), por (comando, pessoa).
+    command_cooldowns: HashMap<(&'static str, u64), Instant>,
     abuse: HashMap<u64, Abuse>,
     /// Conversas com a Sol abertas, por (operador, canal), com a ultima mensagem.
     sol_sessions: HashMap<(u64, u64), Instant>,
@@ -495,25 +497,83 @@ impl Llm {
                 .limit(self.config.history.min(50) as u8);
             if let Ok(mut earlier) = msg.channel_id.messages(&ctx.http, builder).await {
                 earlier.reverse();
-                for m in earlier.iter().filter(|m| !m.content.trim().is_empty()) {
+                // Resposta do bot que saiu em loop fica de fora: no contexto ela
+                // puxa o modelo para o mesmo loop.
+                let usable = |m: &&serenity::Message| {
+                    !m.content.trim().is_empty()
+                        && !(m.author.id == me && abuse::looks_spammy(&m.content))
+                };
+                for m in earlier.iter().filter(usable) {
                     messages.push(turn(m, me));
                 }
             }
         }
         messages.push(turn(msg, me));
 
+        let text = abuse::tidy(&self.request(messages, self.config.max_tokens, None).await?);
+        Ok(truncate(&text, MAX_REPLY))
+    }
+
+    /// Um pedido avulso (system + user) para os comandos de IA: traducao,
+    /// resumo, relatorio. Com `json_schema`, o llama.cpp forca a saida no
+    /// formato, e o texto nao passa pelo tidy para o JSON nao mudar.
+    pub async fn ask(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+        json_schema: Option<serde_json::Value>,
+    ) -> Result<String, AskError> {
+        if !self.is_enabled() {
+            return Err(AskError::Disabled);
+        }
+        let structured = json_schema.is_some();
+        let messages = vec![
+            json!({ "role": "system", "content": system }),
+            json!({ "role": "user", "content": user }),
+        ];
+        match self.request(messages, max_tokens, json_schema).await {
+            Ok(text) if structured => Ok(text),
+            Ok(text) => Ok(abuse::tidy(&text)),
+            Err(Failure::Loading) => Err(AskError::Loading),
+            Err(Failure::Other(cause)) => {
+                warn!("ia local: {cause}");
+                lock(&self.state).failures += 1;
+                Err(AskError::Failed)
+            }
+        }
+    }
+
+    /// O pedido HTTP em si, comum ao chat e ao `ask`. Devolve o texto sem o
+    /// raciocinio e conta a resposta no uso.
+    async fn request(
+        &self,
+        messages: Vec<serde_json::Value>,
+        max_tokens: u32,
+        json_schema: Option<serde_json::Value>,
+    ) -> Result<String, Failure> {
+        let mut body = json!({
+            "model": "ccore",
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.7,
+            // Contra loop (KKKK sem fim): o Qwen recomenda presence_penalty
+            // nas versoes quantizadas, e o DRY pune trecho repetido.
+            "presence_penalty": 1.0,
+            "repeat_penalty": 1.1,
+            "dry_multiplier": 0.8,
+            "stream": false,
+        });
+        if let Some(schema) = json_schema {
+            body["json_schema"] = schema;
+        }
+
         let base = self.config.base_url.trim_end_matches('/');
         let started = Instant::now();
         let response = self
             .http
             .post(format!("{base}/v1/chat/completions"))
-            .json(&json!({
-                "model": "ccore",
-                "messages": messages,
-                "max_tokens": self.config.max_tokens,
-                "temperature": 0.7,
-                "stream": false,
-            }))
+            .json(&body)
             .send()
             .await
             .map_err(|e| {
@@ -548,7 +608,24 @@ impl Llm {
         state.answered += 1;
         state.last_used = Some(Instant::now());
         state.last_latency = Some(started.elapsed());
-        Ok(truncate(&text, MAX_REPLY))
+        Ok(text)
+    }
+
+    /// Intervalo por pessoa de um comando de IA. None: pode usar (e o relogio
+    /// recomeca); Some: quanto falta. Operador nao espera.
+    pub fn claim(&self, command: &'static str, user: u64, wait: Duration) -> Option<Duration> {
+        if self.is_operator(user) {
+            return None;
+        }
+        let mut state = lock(&self.state);
+        let key = (command, user);
+        if let Some(last) = state.command_cooldowns.get(&key)
+            && last.elapsed() < wait
+        {
+            return Some(wait - last.elapsed());
+        }
+        state.command_cooldowns.insert(key, Instant::now());
+        None
     }
 
     /// Maior id_task entre os slots do servidor: cresce a cada pedido, venha
@@ -612,10 +689,29 @@ enum Failure {
     Other(String),
 }
 
+/// Por que o `ask` nao trouxe resposta. O detalhe vai para o log; quem usou o
+/// comando so ve a frase do `user_message`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AskError {
+    Disabled,
+    Loading,
+    Failed,
+}
+
+impl AskError {
+    pub fn user_message(self) -> &'static str {
+        match self {
+            Self::Disabled => "A IA local está desligada.",
+            Self::Loading => "O modelo ainda está carregando, tenta daqui a pouco.",
+            Self::Failed => "A IA não conseguiu responder agora.",
+        }
+    }
+}
+
 /// Mensagem do Discord no formato do chat: o bot e o "assistant", o resto e
 /// "user" com o nome na frente, para o modelo saber quem fala.
 fn turn(m: &serenity::Message, me: serenity::UserId) -> serde_json::Value {
-    let content = strip_mention(&m.content, me);
+    let content = abuse::tidy(&strip_mention(&m.content, me));
     if m.author.id == me {
         json!({ "role": "assistant", "content": content })
     } else {
@@ -644,7 +740,7 @@ fn strip_mention(text: &str, me: serenity::UserId) -> String {
 
 /// A mensagem tem ingles (mesmo misturado com portugues)? Conta palavras que
 /// so aparecem num dos dois idiomas.
-fn is_english(text: &str) -> bool {
+pub fn is_english(text: &str) -> bool {
     const EN: &[&str] = &[
         "the", "you", "your", "ur", "u", "is", "are", "was", "were", "what", "whats", "that",
         "this", "it", "its", "i", "im", "dont", "can", "cant", "how", "why", "who", "where",
@@ -722,6 +818,30 @@ mod tests {
         assert_eq!(sol_cue("BYE SOL"), Some(false));
         assert_eq!(sol_cue("hey solange"), None);
         assert_eq!(sol_cue("o sol tá forte hoje"), None);
+    }
+
+    #[test]
+    fn intervalo_dos_comandos_por_pessoa() {
+        let config: LlmConfig = serde_json::from_str(r#"{"operatorUserIds":[7]}"#).unwrap();
+        let llm = Llm::new(config);
+        let wait = Duration::from_secs(60);
+        assert_eq!(llm.claim("resumo", 1, wait), None);
+        assert!(llm.claim("resumo", 1, wait).is_some());
+        assert_eq!(llm.claim("outro", 1, wait), None);
+        assert_eq!(llm.claim("resumo", 2, wait), None);
+        assert_eq!(llm.claim("resumo", 7, wait), None);
+        assert_eq!(llm.claim("resumo", 7, wait), None);
+    }
+
+    #[tokio::test]
+    async fn ask_desligada_nao_chama_o_servidor() {
+        let config: LlmConfig = serde_json::from_str("{}").unwrap();
+        let llm = Llm::new(config);
+        assert_eq!(llm.ask("s", "u", 10, None).await, Err(AskError::Disabled));
+        assert_eq!(
+            AskError::Loading.user_message(),
+            "O modelo ainda está carregando, tenta daqui a pouco."
+        );
     }
 
     #[test]

@@ -12,9 +12,12 @@ use crate::{
         parse::parse_battle,
         store::Action,
     },
+    commands::ai,
     embeds::{self, ERROR_COLOUR, fence_safe, truncate},
     staff,
 };
+
+const CONVERT_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Cola uma auditoria de batalha (nome k d a n) na fila pendente
 #[poise::command(slash_command, rename = "audit-add")]
@@ -65,7 +68,7 @@ pub async fn audit_add(ctx: Context<'_>) -> Result<(), Error> {
                 false,
             );
         }
-        return edit_modal(ctx, modal, empty.build()).await;
+        return offer_conversion(ctx, modal, empty.build(), block).await;
     }
 
     let batch = PendingBatch {
@@ -230,5 +233,61 @@ pub async fn audit_add(ctx: Context<'_>) -> Result<(), Error> {
         )
         .await;
 
+    // Relatorio da IA no canal: roda solto, o /audit-add nao espera por ele.
+    if let Some(llm) = ctx.data().llm.clone().filter(|l| l.is_enabled()) {
+        ai::spawn_battle_report(
+            ctx.serenity_context().http.clone(),
+            llm,
+            ctx.data().blacklist.clone(),
+            ctx.channel_id(),
+            batch.entries.clone(),
+        );
+    }
+
     edit_modal(ctx, modal, embed.build()).await
+}
+
+/// Bloco recusado: com a IA ligada, a resposta ganha o botao "Converter com
+/// IA", que so mostra o texto convertido. Quem decide colar de novo e a pessoa.
+async fn offer_conversion(
+    ctx: Context<'_>,
+    modal: &serenity::ModalInteraction,
+    embed: serenity::CreateEmbed,
+    block: &str,
+) -> Result<(), Error> {
+    let Some(llm) = ctx.data().llm.clone().filter(|l| l.is_enabled()) else {
+        return edit_modal(ctx, modal, embed).await;
+    };
+
+    let token = format!("{}:ia", modal.id);
+    let button = serenity::CreateActionRow::Buttons(vec![
+        serenity::CreateButton::new(&token)
+            .label("Converter com IA")
+            .style(serenity::ButtonStyle::Primary),
+    ]);
+    modal
+        .edit_response(
+            ctx,
+            serenity::EditInteractionResponse::new()
+                .embed(embed)
+                .components(vec![button]),
+        )
+        .await?;
+
+    let press = serenity::ComponentInteractionCollector::new(ctx)
+        .author_id(ctx.author().id)
+        .filter(move |p| p.data.custom_id == token)
+        .timeout(CONVERT_TIMEOUT)
+        .await;
+    // O botao serve uma vez so.
+    let _ = modal
+        .edit_response(
+            ctx,
+            serenity::EditInteractionResponse::new().components(vec![]),
+        )
+        .await;
+    match press {
+        Some(press) => ai::convert_audit(ctx, &press, &llm, block).await,
+        None => Ok(()),
+    }
 }

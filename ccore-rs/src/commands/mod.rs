@@ -1,3 +1,4 @@
+mod ai;
 mod audit;
 mod checkspreadsheetinfo;
 mod dashboardlink;
@@ -31,6 +32,10 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
         dashboardlink::dashboardlink(),
         llm::ia(),
         llm::llm_status(),
+        ai::traduzir(),
+        ai::resumo(),
+        ai::desempenho(),
+        ai::anuncio(),
     ];
     commands.extend(audit::all());
     commands

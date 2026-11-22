@@ -110,7 +110,7 @@ fn normalize(text: &str) -> String {
 }
 
 /// KKKKKKKKKKKKKKKKKKKKK, "aaaaaaaa" sem fim ou a mesma palavra em fila.
-fn looks_spammy(text: &str) -> bool {
+pub fn looks_spammy(text: &str) -> bool {
     let chars: Vec<char> = text
         .chars()
         .filter(|c| !c.is_whitespace())
@@ -141,6 +141,39 @@ fn looks_spammy(text: &str) -> bool {
     distinct_words.sort_unstable();
     distinct_words.dedup();
     words.len() >= 8 && distinct_words.len() <= 2
+}
+
+/// Corta o loop do proprio modelo: letra igual em fila fica em 6 (KKKKKK) e
+/// palavra igual em fila fica em 3. Vale para a resposta e para o historico.
+pub fn tidy(text: &str) -> String {
+    let mut chars = String::with_capacity(text.len());
+    let mut prev: Option<char> = None;
+    let mut run = 0;
+    for c in text.chars() {
+        let low = c.to_lowercase().next();
+        run = if prev.is_some() && prev == low {
+            run + 1
+        } else {
+            1
+        };
+        prev = low;
+        if run <= 6 {
+            chars.push(c);
+        }
+    }
+
+    let mut out: Vec<&str> = Vec::new();
+    let mut run = 0;
+    for word in chars.split(' ') {
+        let same = out
+            .last()
+            .is_some_and(|last| !word.is_empty() && last.eq_ignore_ascii_case(word));
+        run = if same { run + 1 } else { 1 };
+        if run <= 3 {
+            out.push(word);
+        }
+    }
+    out.join(" ").trim().to_owned()
 }
 
 /// Pedido para repetir, spammar ou fugir das regras. Recebe o texto normalizado.
@@ -225,6 +258,17 @@ fn is_order(norm: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn corta_o_loop_do_modelo() {
+        assert_eq!(tidy(&"K".repeat(500)), "KKKKKK");
+        assert_eq!(tidy("kkkkkkkkkkkk tu é doido"), "kkkkkk tu é doido");
+        assert_eq!(tidy("sim sim sim sim sim sim ok"), "sim sim sim ok");
+        assert_eq!(
+            tidy("normal, nada a mudar aqui!!"),
+            "normal, nada a mudar aqui!!"
+        );
+    }
 
     #[test]
     fn reconhece_spam() {

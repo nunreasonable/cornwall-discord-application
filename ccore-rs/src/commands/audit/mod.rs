@@ -27,7 +27,7 @@ pub fn all() -> Vec<poise::Command<Data, Error>> {
 
 /// Sugere jogadores ja registrados: escolher alguem nao depende de paginar,
 /// por maior que fique o efetivo.
-async fn autocomplete_player(
+pub(super) async fn autocomplete_player(
     ctx: Context<'_>,
     partial: &str,
 ) -> serenity::CreateAutocompleteResponse {
