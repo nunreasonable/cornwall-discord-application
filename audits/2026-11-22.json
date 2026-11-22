@@ -1,0 +1,357 @@
+{
+  "batches": [
+    {
+      "batchId": "15d74acf4f04006e",
+      "createdUtc": "2026-11-21T21:14:30.175566257Z",
+      "submittedByUserId": 832664540075655178,
+      "submittedByUsername": "funkynoah",
+      "entries": [
+        {
+          "username": "lipao000",
+          "kills": 33,
+          "deaths": 37,
+          "assists": 7,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "carlosgamer54543",
+          "kills": 76,
+          "deaths": 50,
+          "assists": 25,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "RafaOdebrecht",
+          "kills": 47,
+          "deaths": 45,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 37,
+          "deaths": 52,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "NoahOdebrecht",
+          "kills": 57,
+          "deaths": 48,
+          "assists": 22,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 15,
+          "deaths": 35,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "sharles1231",
+          "kills": 28,
+          "deaths": 45,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "ChunkyKongOc",
+          "kills": 55,
+          "deaths": 39,
+          "assists": 18,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Zswagy7",
+          "kills": 76,
+          "deaths": 42,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "loi980gt",
+          "kills": 65,
+          "deaths": 39,
+          "assists": 22,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "sem_indentidadee",
+          "kills": 24,
+          "deaths": 42,
+          "assists": 14,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 44,
+          "deaths": 48,
+          "assists": 15,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "NorphNorton1987",
+          "kills": 33,
+          "deaths": 27,
+          "assists": 14,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 36,
+          "deaths": 34,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "rosbife_fimos",
+          "kills": 64,
+          "deaths": 26,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "SephirothOdebrecht",
+          "kills": 51,
+          "deaths": 26,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "marcelollaa",
+          "kills": 58,
+          "deaths": 58,
+          "assists": 20,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mr_Redd3",
+          "kills": 50,
+          "deaths": 40,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GcOdebrecht",
+          "kills": 19,
+          "deaths": 15,
+          "assists": 7,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Miiiguell005",
+          "kills": 30,
+          "deaths": 39,
+          "assists": 14,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luqinhas_kidbatata",
+          "kills": 54,
+          "deaths": 33,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "mrxavier1313_2",
+          "kills": 41,
+          "deaths": 44,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "BeeExostylx",
+          "kills": 40,
+          "deaths": 40,
+          "assists": 26,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "shadowbbonnie12352",
+          "kills": 14,
+          "deaths": 23,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "dinistv22",
+          "kills": 5,
+          "deaths": 6,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "lipao000 33 37 7",
+        "carlosgamer54543 76 50 25",
+        "RafaOdebrecht 47 45 10",
+        "FelipeiroOdebrecht 37 52 6",
+        "NoahOdebrecht 57 48 22",
+        "XequeOdebrecht 15 35 3",
+        "sharles1231 28 45 9",
+        "ChunkyKongOc 55 39 18",
+        "Zswagy7 76 42 11",
+        "loi980gt 65 39 22",
+        "sem_indentidadee 24 42 14",
+        "luizgugumo431 44 48 15",
+        "NorphNorton1987 33 27 14",
+        "Brunoalexandrino 36 34 8",
+        "rosbife_fimos 64 26 10",
+        "SephirothOdebrecht 51 26 10",
+        "marcelollaa 58 58 20",
+        "Mr_Redd3 50 40 10",
+        "GcOdebrecht 19 15 7",
+        "Miiiguell005 30 39 14",
+        "luqinhas_kidbatata 54 33 6",
+        "mrxavier1313_2 41 44 13",
+        "BeeExostylx 40 40 26",
+        "shadowbbonnie12352 14 23 6",
+        "dinistv22 5 6 1"
+      ]
+    },
+    {
+      "batchId": "15d79967f542106f",
+      "createdUtc": "2026-11-22T02:57:53.706585717Z",
+      "submittedByUserId": 1402027244645519371,
+      "submittedByUsername": "sopsop.daeese",
+      "entries": [
+        {
+          "username": "RafaOdebrecht",
+          "kills": 34,
+          "deaths": 34,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 56,
+          "deaths": 40,
+          "assists": 15,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 56,
+          "deaths": 40,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XxPurple_124",
+          "kills": 30,
+          "deaths": 25,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "edugameroficial14",
+          "kills": 20,
+          "deaths": 29,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mr_Redd3",
+          "kills": 40,
+          "deaths": 42,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "marcelollaa",
+          "kills": 53,
+          "deaths": 41,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 34,
+          "deaths": 34,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GabrieelSC",
+          "kills": 30,
+          "deaths": 33,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Miiiguell005",
+          "kills": 27,
+          "deaths": 44,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luqinhas_kidbatata",
+          "kills": 30,
+          "deaths": 51,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Felipekvsc",
+          "kills": 29,
+          "deaths": 36,
+          "assists": 4,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "RafaOdebrecht 34 34 6",
+        "XequeOdebrecht 56 40 15",
+        "Brunoalexandrino 56 40 10",
+        "XxPurple_124 30 25 11",
+        "edugameroficial14 20 29 1",
+        "Mr_Redd3 40 42 11",
+        "marcelollaa 53 41 13",
+        "luizgugumo431 34 34 10",
+        "GabrieelSC 30 33 9",
+        "Miiiguell005 27 44 6",
+        "luqinhas_kidbatata 30 51 1",
+        "Felipekvsc 29 36 4"
+      ]
+    }
+  ]
+}
