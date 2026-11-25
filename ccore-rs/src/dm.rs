@@ -93,11 +93,42 @@ pub async fn resolve(
     }
 }
 
+/// Por que uma DM nao chegou, agrupado no relatorio final.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FailKind {
+    DmsClosed,
+    RateLimited,
+    NotFound,
+    Other,
+}
+
+impl FailKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::DmsClosed => "DMs fechadas ou bot bloqueado",
+            Self::RateLimited => "Rate limit do Discord (o envio parou aqui)",
+            Self::NotFound => "Usuário ou membro não encontrado",
+            Self::Other => "Outros erros",
+        }
+    }
+}
+
+pub struct Failure {
+    pub name: String,
+    pub kind: FailKind,
+    /// Erro curto, so mostrado no grupo "Outros erros".
+    pub detail: String,
+}
+
 pub struct SendResult {
     pub total: usize,
     pub sent: usize,
     pub failed: usize,
+    /// Amostra curta "nome (motivo)" que o dashboard mostra.
     pub samples: Vec<String>,
+    /// Todo mundo que recebeu e todo mundo que nao recebeu, para o relatorio.
+    pub delivered: Vec<String>,
+    pub failures: Vec<Failure>,
     /// Motivo do corte, quando o envio parou antes do fim.
     pub aborted: Option<String>,
     /// Parou porque alguem pediu (job do dashboard).
@@ -107,25 +138,9 @@ pub struct SendResult {
 /// Manda um por um. Para no primeiro sinal de rate limit, ou depois de falhas
 /// demais em sequencia: insistir so piora o limite e faz o Discord marcar o bot
 /// como spam. DM fechada sozinha e normal e nao para nada.
-pub async fn send_all(
-    ctx: &serenity::Context,
-    limiter: &DmLimiter,
-    members: &[serenity::Member],
-    message: &serenity::CreateMessage,
-) -> SendResult {
-    send_tracked(
-        ctx,
-        limiter,
-        members,
-        message,
-        &AtomicBool::new(false),
-        |_, _| {},
-    )
-    .await
-}
-
-/// O mesmo envio, para o job do dashboard: `progress` recebe (enviadas,
-/// falhas) depois de cada tentativa, e `cancel` e olhado antes de cada uma.
+///
+/// `progress` recebe (enviadas, falhas) depois de cada tentativa, e `cancel` e
+/// olhado antes de cada uma.
 pub async fn send_tracked(
     ctx: &serenity::Context,
     limiter: &DmLimiter,
@@ -139,6 +154,8 @@ pub async fn send_tracked(
         sent: 0,
         failed: 0,
         samples: Vec::new(),
+        delivered: Vec::new(),
+        failures: Vec::new(),
         aborted: None,
         cancelled: false,
     };
@@ -155,6 +172,7 @@ pub async fn send_tracked(
         limiter.wait().await;
 
         let Err(cause) = member.user.direct_message(ctx, message.clone()).await else {
+            result.delivered.push(member.display_name().to_owned());
             result.sent += 1;
             streak = 0;
             progress(result.sent, result.failed);
@@ -170,6 +188,11 @@ pub async fn send_tracked(
                 .samples
                 .push(format!("{} ({reason})", member.display_name()));
         }
+        result.failures.push(Failure {
+            name: member.display_name().to_owned(),
+            kind: failure_kind(&cause),
+            detail: reason.clone(),
+        });
 
         if is_rate_limit(&cause) {
             result.aborted = Some(format!(
@@ -191,30 +214,167 @@ pub async fn send_tracked(
     result
 }
 
-/// Frase de ajuda quando alguem nao recebeu.
-pub fn describe_failures(result: &SendResult) -> Option<String> {
-    if result.failed == 0 {
-        return None;
-    }
+/// Cada DM custa ~4,2s (o limitador de 3s mais o espacamento).
+const SECONDS_PER_DM: u64 = 4;
+/// Teto do Discord para o valor de um field.
+const FIELD_MAX: usize = 1024;
 
-    let sample = result
-        .samples
-        .iter()
-        .take(10)
-        .cloned()
-        .collect::<Vec<_>>()
-        .join(", ");
-    let more = if result.failed > 10 { "..." } else { "" };
-    let hint = if result.failed == result.total {
-        " Ninguém recebeu: verifique se os destinatários permitem DMs de membros do servidor (Configurações do usuário > Privacidade)."
+/// Embed de andamento, trocado a cada poucos segundos durante o envio.
+pub fn progress_embed(
+    target: &str,
+    total: usize,
+    sent: usize,
+    failed: usize,
+) -> serenity::CreateEmbed {
+    let done = sent + failed;
+    let left = total.saturating_sub(done);
+    serenity::CreateEmbed::new()
+        .title("Enviando DMs…")
+        .colour(serenity::Colour::BLURPLE)
+        .description(format!(
+            "{} {done}/{total}\nFaltam ~{} (o Discord não deixa ir mais rápido sem marcar o bot como spam).",
+            bar(done, total),
+            eta(left)
+        ))
+        .field("Alvo", target, true)
+        .field("Enviadas", sent.to_string(), true)
+        .field("Falhas", failed.to_string(), true)
+        .timestamp(serenity::Timestamp::now())
+}
+
+/// O relatorio final, no lugar do embed de andamento: quem recebeu e, por
+/// motivo, quem nao recebeu.
+pub fn report_embed(
+    target: &str,
+    result: &SendResult,
+    took: std::time::Duration,
+) -> serenity::CreateEmbed {
+    let (title, colour) = if result.cancelled {
+        ("Envio cancelado", serenity::Colour::LIGHT_GREY)
+    } else if result.sent == 0 && result.total > 0 {
+        ("Ninguém recebeu", serenity::Colour::RED)
+    } else if result.aborted.is_some() || result.failed > 0 {
+        ("Envio concluído com falhas", serenity::Colour::ORANGE)
     } else {
-        ""
+        ("Envio concluído", serenity::Colour::DARK_GREEN)
     };
 
-    Some(format!(
-        "Falha ao enviar para {} usuário(s). Exemplo: {sample}{more}.{hint}",
-        result.failed
-    ))
+    let mut notes = Vec::new();
+    if let Some(reason) = &result.aborted {
+        notes.push(reason.clone());
+    }
+    let never = result.total.saturating_sub(result.sent + result.failed);
+    if never > 0 {
+        notes.push(format!("{never} pessoa(s) nem chegaram a ser tentadas."));
+    }
+    if result.sent == 0
+        && result
+            .failures
+            .iter()
+            .any(|f| f.kind == FailKind::DmsClosed)
+    {
+        notes.push(
+            "Verifique se os destinatários permitem DMs de membros do servidor \
+             (Configurações do usuário > Privacidade)."
+                .to_owned(),
+        );
+    }
+
+    let mut embed = serenity::CreateEmbed::new()
+        .title(title)
+        .colour(colour)
+        .field("Alvo", target, true)
+        .field("Total", result.total.to_string(), true)
+        .field("Duração", duration(took), true)
+        .timestamp(serenity::Timestamp::now());
+    if !notes.is_empty() {
+        embed = embed.description(truncate(&notes.join("\n"), 4000));
+    }
+    if !result.delivered.is_empty() {
+        embed = embed.field(
+            format!("Receberam ({})", result.sent),
+            names(result.delivered.iter().map(String::as_str)),
+            false,
+        );
+    }
+    for (kind, group) in grouped(&result.failures) {
+        let list = names(
+            group
+                .iter()
+                .map(|f| {
+                    if kind == FailKind::Other {
+                        format!("{} ({})", f.name, f.detail)
+                    } else {
+                        f.name.clone()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .iter()
+                .map(String::as_str),
+        );
+        embed = embed.field(format!("{} ({})", kind.label(), group.len()), list, false);
+    }
+    embed
+}
+
+/// Falhas por motivo, na ordem do enum.
+fn grouped(failures: &[Failure]) -> Vec<(FailKind, Vec<&Failure>)> {
+    let mut groups: Vec<(FailKind, Vec<&Failure>)> = Vec::new();
+    for failure in failures {
+        match groups.iter_mut().find(|(kind, _)| *kind == failure.kind) {
+            Some((_, group)) => group.push(failure),
+            None => groups.push((failure.kind, vec![failure])),
+        }
+    }
+    groups.sort_by_key(|(kind, _)| *kind);
+    groups
+}
+
+/// Nomes separados por virgula, cortados para caber num field com "e mais N".
+fn names<'a>(list: impl Iterator<Item = &'a str>) -> String {
+    let list: Vec<&str> = list.collect();
+    let mut out = String::new();
+    for (i, name) in list.iter().enumerate() {
+        let piece = if i == 0 {
+            (*name).to_owned()
+        } else {
+            format!(", {name}")
+        };
+        let rest = list.len() - i;
+        // Reserva espaco para o " e mais N" caso este nome nao caiba.
+        let tail = format!(" … e mais {rest}");
+        if out.chars().count() + piece.chars().count() + tail.chars().count() > FIELD_MAX {
+            out.push_str(&tail);
+            return out;
+        }
+        out.push_str(&piece);
+    }
+    if out.is_empty() {
+        "—".to_owned()
+    } else {
+        out
+    }
+}
+
+fn bar(done: usize, total: usize) -> String {
+    const WIDTH: usize = 20;
+    let filled = (done * WIDTH)
+        .checked_div(total)
+        .unwrap_or(WIDTH)
+        .min(WIDTH);
+    format!("`{}{}`", "█".repeat(filled), "░".repeat(WIDTH - filled))
+}
+
+fn eta(left: usize) -> String {
+    duration(std::time::Duration::from_secs(left as u64 * SECONDS_PER_DM))
+}
+
+fn duration(d: std::time::Duration) -> String {
+    let secs = d.as_secs();
+    match (secs / 60, secs % 60) {
+        (0, s) => format!("{s}s"),
+        (m, s) => format!("{m}min {s:02}s"),
+    }
 }
 
 /// Status HTTP e codigo JSON do Discord, quando o erro veio da API.
@@ -224,6 +384,15 @@ fn discord_error(error: &serenity::Error) -> Option<(u16, isize)> {
             Some((response.status_code.as_u16(), response.error.code))
         }
         _ => None,
+    }
+}
+
+fn failure_kind(error: &serenity::Error) -> FailKind {
+    match discord_error(error) {
+        Some((403, _) | (_, 50007)) => FailKind::DmsClosed,
+        Some((429, _) | (_, 40003)) => FailKind::RateLimited,
+        Some((404, _) | (_, 10013 | 10007)) => FailKind::NotFound,
+        _ => FailKind::Other,
     }
 }
 
@@ -243,35 +412,45 @@ fn is_rate_limit(error: &serenity::Error) -> bool {
 mod tests {
     use super::*;
 
-    fn result(total: usize, failed: usize) -> SendResult {
-        SendResult {
-            total,
-            sent: total - failed,
-            failed,
-            samples: (0..failed).map(|i| format!("u{i}")).collect(),
-            aborted: None,
-            cancelled: false,
+    fn failure(name: &str, kind: FailKind) -> Failure {
+        Failure {
+            name: name.to_owned(),
+            kind,
+            detail: "erro".to_owned(),
         }
     }
 
     #[test]
-    fn sem_falha_nao_ha_frase() {
-        assert!(describe_failures(&result(3, 0)).is_none());
+    fn agrupa_falhas_por_motivo_na_ordem() {
+        let failures = vec![
+            failure("a", FailKind::Other),
+            failure("b", FailKind::DmsClosed),
+            failure("c", FailKind::DmsClosed),
+        ];
+        let groups = grouped(&failures);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0].0, FailKind::DmsClosed);
+        assert_eq!(groups[0].1.len(), 2);
+        assert_eq!(groups[1].0, FailKind::Other);
     }
 
     #[test]
-    fn so_avisa_da_privacidade_quando_ninguem_recebeu() {
-        let all = describe_failures(&result(2, 2)).unwrap();
-        let some = describe_failures(&result(3, 2)).unwrap();
-        assert!(all.contains("Ninguém recebeu"));
-        assert!(!some.contains("Ninguém recebeu"));
+    fn lista_de_nomes_cabe_no_field() {
+        let many: Vec<String> = (0..500).map(|i| format!("pessoa{i}")).collect();
+        let text = names(many.iter().map(String::as_str));
+        assert!(text.chars().count() <= FIELD_MAX);
+        assert!(text.contains("… e mais"));
+        assert_eq!(names(["a", "b"].into_iter()), "a, b");
+        assert_eq!(names(std::iter::empty()), "—");
     }
 
     #[test]
-    fn exemplo_mostra_no_maximo_dez() {
-        let text = describe_failures(&result(20, 12)).unwrap();
-        assert!(text.contains("u9") && !text.contains("u10"));
-        assert!(text.contains("u9..."));
+    fn barra_e_tempo() {
+        assert_eq!(bar(0, 10), format!("`{}`", "░".repeat(20)));
+        assert_eq!(bar(10, 10), format!("`{}`", "█".repeat(20)));
+        assert_eq!(bar(0, 0), format!("`{}`", "█".repeat(20)));
+        assert_eq!(duration(std::time::Duration::from_secs(42)), "42s");
+        assert_eq!(duration(std::time::Duration::from_secs(125)), "2min 05s");
     }
 
     #[tokio::test(start_paused = true)]

@@ -262,6 +262,8 @@ mod tests {
             sent: 1,
             failed: 1,
             samples: vec!["x (y)".to_owned()],
+            delivered: vec!["a".to_owned()],
+            failures: Vec::new(),
             aborted: None,
             cancelled: true,
         });

@@ -1,4 +1,10 @@
+use std::{
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    time::{Duration, Instant},
+};
+
 use poise::{CreateReply, serenity_prelude as serenity};
+use tracing::warn;
 
 use crate::{
     Context, Error,
@@ -6,6 +12,9 @@ use crate::{
     embeds::{self, truncate},
     reply, staff,
 };
+
+/// De quanto em quanto tempo o embed de andamento e atualizado.
+const PROGRESS_EVERY: Duration = Duration::from_secs(10);
 
 const FALLBACK_GAME_LINK: &str = "https://example.com";
 /// Teto do Discord para o valor de um field.
@@ -19,9 +28,8 @@ pub async fn dmreminder(
     #[description = "Usuário para enviar a mensagem (opcional)"] user: Option<serenity::User>,
     #[description = "Mensagem personalizada a ser enviada"] message: Option<String>,
 ) -> Result<(), Error> {
-    ctx.defer().await?;
-
-    let Some(recipients) = prepare(ctx, role.as_ref(), user.as_ref()).await? else {
+    let status = Status::start(ctx).await?;
+    let Some(recipients) = prepare(ctx, &status, role.as_ref(), user.as_ref()).await? else {
         return Ok(());
     };
 
@@ -40,7 +48,7 @@ pub async fn dmreminder(
         .timestamp(serenity::Timestamp::now());
 
     let message = serenity::CreateMessage::new().content(content).embed(embed);
-    finish(ctx, &recipients, &message).await
+    finish(ctx, &status, &recipients, &message).await
 }
 
 /// Envia uma DM para um usuário ou para todos os membros de um cargo.
@@ -55,9 +63,8 @@ pub async fn dmdeployment(
     #[description = "Mensagem personalizada a ser enviada (pode conter instruções)"]
     message: Option<String>,
 ) -> Result<(), Error> {
-    ctx.defer().await?;
-
-    let Some(recipients) = prepare(ctx, role.as_ref(), user.as_ref()).await? else {
+    let status = Status::start(ctx).await?;
+    let Some(recipients) = prepare(ctx, &status, role.as_ref(), user.as_ref()).await? else {
         return Ok(());
     };
 
@@ -77,7 +84,7 @@ pub async fn dmdeployment(
     );
 
     let message = serenity::CreateMessage::new().content(link).embed(embed);
-    finish(ctx, &recipients, &message).await
+    finish(ctx, &status, &recipients, &message).await
 }
 
 /// Embed da DM de deployment. Os campos sao cortados em 1024: texto maior faz
@@ -102,77 +109,137 @@ pub fn deployment_dm(target: &str, code: &str, body: &str) -> serenity::CreateEm
 /// o motivo da recusa.
 async fn prepare(
     ctx: Context<'_>,
+    status: &Status<'_>,
     role: Option<&serenity::Role>,
     user: Option<&serenity::User>,
 ) -> Result<Option<Recipients>, Error> {
     let Some(guild_id) = ctx.guild_id() else {
-        fail(
-            ctx,
-            embeds::error(
+        status
+            .show(embeds::error(
                 "Erro",
                 "Este comando só pode ser usado em servidores (guilds).",
-            ),
-        )
-        .await?;
+            ))
+            .await?;
         return Ok(None);
     };
 
     if let Some(denied) = staff::require_enlist_role(ctx).await {
-        fail(ctx, denied).await?;
+        status.show(denied).await?;
         return Ok(None);
     }
 
     match dm::resolve(ctx.serenity_context(), guild_id, role, user).await {
         Ok(recipients) => Ok(Some(recipients)),
         Err(cause) => {
-            fail(ctx, embeds::error("Envio não realizado", cause)).await?;
+            status
+                .show(embeds::error("Envio não realizado", cause))
+                .await?;
             Ok(None)
         }
     }
 }
 
+/// Manda as DMs com o embed de andamento sendo trocado a cada poucos
+/// segundos, e no fim troca pelo relatorio.
 async fn finish(
     ctx: Context<'_>,
+    status: &Status<'_>,
     recipients: &Recipients,
     message: &serenity::CreateMessage,
 ) -> Result<(), Error> {
-    let result = dm::send_all(
+    let total = recipients.members.len();
+    let started = Instant::now();
+    let (sent, failed) = (AtomicUsize::new(0), AtomicUsize::new(0));
+    // Pelo comando nao ha cancelamento; so o job do dashboard tem.
+    let never = AtomicBool::new(false);
+    status
+        .show(dm::progress_embed(&recipients.name, total, 0, 0))
+        .await?;
+
+    let send = dm::send_tracked(
         ctx.serenity_context(),
         &ctx.data().dm_limiter,
         &recipients.members,
         message,
-    )
-    .await;
-
-    let (title, colour) = if result.aborted.is_some() {
-        ("Envio interrompido", serenity::Colour::ORANGE)
-    } else {
-        ("Envio finalizado", serenity::Colour::DARK_GREEN)
+        &never,
+        |s, f| {
+            sent.store(s, Ordering::Relaxed);
+            failed.store(f, Ordering::Relaxed);
+        },
+    );
+    // O andamento roda junto e e largado quando o envio termina.
+    let ticker = async {
+        loop {
+            tokio::time::sleep(PROGRESS_EVERY).await;
+            let embed = dm::progress_embed(
+                &recipients.name,
+                total,
+                sent.load(Ordering::Relaxed),
+                failed.load(Ordering::Relaxed),
+            );
+            if let Err(cause) = status.show(embed).await {
+                warn!("dm: nao atualizei o andamento: {cause}");
+            }
+        }
+    };
+    let result = tokio::select! {
+        result = send => result,
+        () = ticker => unreachable!("o andamento nao termina sozinho"),
     };
 
-    let mut summary = serenity::CreateEmbed::new()
-        .title(title)
-        .colour(colour)
-        .field("Alvo", &recipients.name, true)
-        .field("Total de destinatários", result.total.to_string(), true)
-        .field("Mensagens enviadas", result.sent.to_string(), true)
-        .field("Falhas", result.failed.to_string(), true)
-        .timestamp(serenity::Timestamp::now());
-
-    let text: Vec<String> = result
-        .aborted
-        .clone()
-        .into_iter()
-        .chain(dm::describe_failures(&result))
-        .collect();
-    if !text.is_empty() {
-        summary = summary.description(truncate(&text.join("\n\n"), 4000));
-    }
-
-    reply::safe(ctx, summary).await
+    status
+        .show(dm::report_embed(
+            &recipients.name,
+            &result,
+            started.elapsed(),
+        ))
+        .await
 }
 
-async fn fail(ctx: Context<'_>, embed: serenity::CreateEmbed) -> Result<(), Error> {
-    ctx.send(CreateReply::default().embed(embed)).await?;
-    Ok(())
+/// A mensagem do comando, editada do "preparando" ate o relatorio.
+///
+/// O token da interacao vive 15 minutos e 500 DMs levam ~35: depois do
+/// primeiro envio a mensagem e editada pelo canal, que nao expira. O token so
+/// entra quando o bot nao pode editar ali, e o reply::safe quando nem ele vale.
+struct Status<'a> {
+    ctx: Context<'a>,
+    handle: poise::ReplyHandle<'a>,
+    message: Option<(serenity::ChannelId, serenity::MessageId)>,
+}
+
+impl<'a> Status<'a> {
+    async fn start(ctx: Context<'a>) -> Result<Self, Error> {
+        let preparing = serenity::CreateEmbed::new()
+            .title("Preparando o envio…")
+            .description("Conferindo permissão e listando os destinatários.")
+            .colour(serenity::Colour::BLURPLE);
+        let handle = ctx
+            .send(
+                CreateReply::default()
+                    .embed(preparing)
+                    .allowed_mentions(serenity::CreateAllowedMentions::new()),
+            )
+            .await?;
+        let message = handle.message().await.ok().map(|m| (m.channel_id, m.id));
+        Ok(Self {
+            ctx,
+            handle,
+            message,
+        })
+    }
+
+    async fn show(&self, embed: serenity::CreateEmbed) -> Result<(), Error> {
+        if let Some((channel, id)) = self.message {
+            let edit = serenity::EditMessage::new().embed(embed.clone());
+            match channel.edit_message(self.ctx, id, edit).await {
+                Ok(_) => return Ok(()),
+                Err(cause) => warn!("dm: nao editei pelo canal, tentando pelo token: {cause}"),
+            }
+        }
+        let edit = CreateReply::default().embed(embed.clone());
+        if self.handle.edit(self.ctx, edit).await.is_ok() {
+            return Ok(());
+        }
+        reply::safe(self.ctx, embed).await
+    }
 }
