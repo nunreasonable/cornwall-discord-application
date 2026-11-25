@@ -1,0 +1,176 @@
+{
+  "batches": [
+    {
+      "batchId": "15db5de407800097",
+      "createdUtc": "2026-11-25T01:11:47.449908739Z",
+      "submittedByUserId": 1402027244645519371,
+      "submittedByUsername": "sopsop.daeese",
+      "entries": [
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 19,
+          "deaths": 43,
+          "assists": 0,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luizgugumo431",
+          "kills": 34,
+          "deaths": 44,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Carlitoooz_bloxfruts",
+          "kills": 31,
+          "deaths": 42,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DvFrnkln",
+          "kills": 34,
+          "deaths": 51,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mr_Redd3",
+          "kills": 47,
+          "deaths": 57,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "carlosgamer54543",
+          "kills": 43,
+          "deaths": 50,
+          "assists": 24,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "rosbife_fimos",
+          "kills": 31,
+          "deaths": 40,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Zswagy7",
+          "kills": 57,
+          "deaths": 52,
+          "assists": 20,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 46,
+          "deaths": 44,
+          "assists": 3,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "1golina47",
+          "kills": 42,
+          "deaths": 53,
+          "assists": 4,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DerpySergeant",
+          "kills": 32,
+          "deaths": 32,
+          "assists": 12,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "jubileulandia",
+          "kills": 23,
+          "deaths": 43,
+          "assists": 1,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "lipao000",
+          "kills": 45,
+          "deaths": 47,
+          "assists": 15,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DaneOdebrecht",
+          "kills": 35,
+          "deaths": 36,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "ChunkyKongOc",
+          "kills": 44,
+          "deaths": 47,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "sharles1231",
+          "kills": 25,
+          "deaths": 46,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "RafaOdebrecht",
+          "kills": 43,
+          "deaths": 50,
+          "assists": 10,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GabrieelSC",
+          "kills": 22,
+          "deaths": 40,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "FelipeiroOdebrecht 19 43 0",
+        "luizgugumo431 34 44 2",
+        "Carlitoooz_bloxfruts 31 42 6",
+        "DvFrnkln 34 51 8",
+        "Mr_Redd3 47 57 11",
+        "carlosgamer54543 43 50 24",
+        "rosbife_fimos 31 40 3",
+        "Zswagy7 57 52 20",
+        "XequeOdebrecht 46 44 3",
+        "1golina47 42 53 4",
+        "DerpySergeant 32 32 12",
+        "jubileulandia 23 43 1",
+        "lipao000 45 47 15",
+        "DaneOdebrecht 35 36 2",
+        "ChunkyKongOc 44 47 6",
+        "sharles1231 25 46 2",
+        "RafaOdebrecht 43 50 10",
+        "GabrieelSC 22 40 2"
+      ]
+    }
+  ]
+}
