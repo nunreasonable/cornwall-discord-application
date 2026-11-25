@@ -105,7 +105,7 @@ pub enum FailKind {
 impl FailKind {
     fn label(self) -> &'static str {
         match self {
-            Self::DmsClosed => "DMs fechadas ou bot bloqueado",
+            Self::DmsClosed => "DMs desligadas para este servidor ou bot bloqueado",
             Self::RateLimited => "Rate limit do Discord (o envio parou aqui)",
             Self::NotFound => "Usuário ou membro não encontrado",
             Self::Other => "Outros erros",
@@ -389,7 +389,9 @@ fn discord_error(error: &serenity::Error) -> Option<(u16, isize)> {
 
 fn failure_kind(error: &serenity::Error) -> FailKind {
     match discord_error(error) {
-        Some((403, _) | (_, 50007)) => FailKind::DmsClosed,
+        // 50278 ("no mutual guilds") vem mesmo com a pessoa no servidor: e a
+        // resposta quando ela desligou as DMs de membros DAQUELE servidor.
+        Some((403, _) | (_, 50007 | 50278)) => FailKind::DmsClosed,
         Some((429, _) | (_, 40003)) => FailKind::RateLimited,
         Some((404, _) | (_, 10013 | 10007)) => FailKind::NotFound,
         _ => FailKind::Other,
