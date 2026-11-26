@@ -1,0 +1,185 @@
+{
+  "batches": [
+    {
+      "batchId": "15dca6985382007b",
+      "createdUtc": "2026-11-26T01:07:55.344708255Z",
+      "submittedByUserId": 1402027244645519371,
+      "submittedByUsername": "sopsop.daeese",
+      "entries": [
+        {
+          "username": "luizgugumo431",
+          "kills": 19,
+          "deaths": 56,
+          "assists": 5,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "FelipeiroOdebrecht",
+          "kills": 32,
+          "deaths": 46,
+          "assists": 4,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "RafaOdebrecht",
+          "kills": 31,
+          "deaths": 47,
+          "assists": 5,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Brunoalexandrino",
+          "kills": 46,
+          "deaths": 47,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "oofg4mes_YT",
+          "kills": 36,
+          "deaths": 37,
+          "assists": 8,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "caio13ry",
+          "kills": 8,
+          "deaths": 48,
+          "assists": 7,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "Mateusdhseshd",
+          "kills": 31,
+          "deaths": 26,
+          "assists": 5,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "rosbife_fimos",
+          "kills": 45,
+          "deaths": 40,
+          "assists": 13,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DaneOdebrecht",
+          "kills": 32,
+          "deaths": 45,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "BRLENDAa",
+          "kills": 45,
+          "deaths": 54,
+          "assists": 11,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "DvFrnkln",
+          "kills": 42,
+          "deaths": 52,
+          "assists": 20,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "GabrieelSC",
+          "kills": 32,
+          "deaths": 49,
+          "assists": 2,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "lipao000",
+          "kills": 62,
+          "deaths": 60,
+          "assists": 21,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "MaximusOdebrecht",
+          "kills": 52,
+          "deaths": 48,
+          "assists": 14,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "XequeOdebrecht",
+          "kills": 31,
+          "deaths": 48,
+          "assists": 9,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "oucra333",
+          "kills": 54,
+          "deaths": 59,
+          "assists": 21,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "jubileulandia",
+          "kills": 33,
+          "deaths": 46,
+          "assists": 5,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "HistorusOdebrecht",
+          "kills": 41,
+          "deaths": 64,
+          "assists": 14,
+          "battles": 1,
+          "rank": ""
+        },
+        {
+          "username": "luqinhas_kidbatata",
+          "kills": 48,
+          "deaths": 46,
+          "assists": 6,
+          "battles": 1,
+          "rank": ""
+        }
+      ],
+      "rawLines": [
+        "luizgugumo431 19 56 5",
+        "FelipeiroOdebrecht 32 46 4",
+        "RafaOdebrecht 31 47 5",
+        "Brunoalexandrino 46 47 9",
+        "oofg4mes_YT 36 37 8",
+        "caio13ry 8 48 7",
+        "Mateusdhseshd 31 26 5",
+        "rosbife_fimos 45 40 13",
+        "DaneOdebrecht 32 45 9",
+        "BRLENDAa 45 54 11",
+        "DvFrnkln 42 52 20",
+        "GabrieelSC 32 49 2",
+        "lipao000 62 60 21",
+        "MaximusOdebrecht 52 48 14",
+        "XequeOdebrecht 31 48 9",
+        "oucra333 54 59 21",
+        "jubileulandia 33 46 5",
+        "HistorusOdebrecht 41 64 14",
+        "luqinhas_kidbatata 48 46 6"
+      ]
+    }
+  ]
+}
